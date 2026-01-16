@@ -1,0 +1,31 @@
+## Ideas
+
+# Calories - Stats
+
+# Foods/Meals
+Meals (collection of foods)
+Foods (single food or recipe)
+
+# Users
+Auth
+Profile
+Friends
+Shares
+
+# Auth
+Uses Passkeys for now
+
+# Ideas
+Food/Meals are basically the same thing.
+Foods and recipes need versioning (they have an id for the family and then a current version, each version is its own entry in the table but has a matching family id)
+Meals are just compound foods.
+Foods can be a single food or a compound food (a recipe) A meal is much like a recipe
+Meals are groups of calories had together
+
+## Data Model
+Users
+Foods
+Meals
+
+
+## API
