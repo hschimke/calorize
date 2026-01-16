@@ -133,3 +133,25 @@ func GetRecipeItems(ctx context.Context, recipeID string) ([]struct {
 	}
 	return result, nil
 }
+func DeleteFood(ctx context.Context, id string) error {
+	// Soft delete the specific version?
+	// Or soft delete the entire family?
+	// Usually delete "banana" means delete the whole family.
+	// But `id` is a version ID.
+	// Let's look up the family ID and delete all versions (or mark them deleted).
+	// Or just mark this version?
+	// If I delete "Banana v1" but "Banana v2" exists, what happens?
+	// User intent: "Delete this food". Usually implies "Delete the Food Concept".
+	// Let's delete the FAMILY.
+
+	// 1. Get Family ID
+	var familyID string
+	err := DB.QueryRowContext(ctx, "SELECT family_id FROM foods WHERE id = ?", id).Scan(&familyID)
+	if err != nil {
+		return err
+	}
+
+	// 2. Mark all as deleted
+	_, err = DB.ExecContext(ctx, "UPDATE foods SET deleted_at = ? WHERE family_id = ?", time.Now(), familyID)
+	return err
+}

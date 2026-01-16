@@ -117,3 +117,69 @@ func GetFood(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(res)
 }
+
+func UpdateFood(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+
+	var req CreateFoodRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+
+	// 1. Look up existing food to get Family ID
+	existing, err := database.GetFood(ctx, id)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	// 2. Create new version using existing Family ID
+	food := &database.Food{
+		Name:              req.Name,
+		Calories:          req.Calories,
+		Protein:           req.Protein,
+		Carbs:             req.Carbs,
+		Fat:               req.Fat,
+		Type:              req.Type,
+		MeasurementUnit:   req.MeasurementUnit,
+		MeasurementAmount: req.MeasurementAmount,
+		FamilyID:          existing.FamilyID, // Enforce Family Continuity
+	}
+	if food.Type == "" {
+		food.Type = existing.Type // Default to existing type
+	}
+
+	if err := database.CreateFood(ctx, food); err != nil {
+		http.Error(w, "failed to update food: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if (req.Type == "recipe" || food.Type == "recipe") && len(req.Ingredients) > 0 {
+		if err := database.AddRecipeItems(ctx, food.ID, req.Ingredients); err != nil {
+			// Warn
+		}
+	}
+
+	json.NewEncoder(w).Encode(food)
+}
+
+func DeleteFood(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+	ctx := r.Context()
+	if err := database.DeleteFood(ctx, id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
