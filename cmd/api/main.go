@@ -25,7 +25,7 @@ func main() {
 	// Start Server
 	server := api.NewServer()
 
-	port := "8080"
+	port := "8383"
 	log.Printf("Server starting on port %s...", port)
 	if err := http.ListenAndServe(":"+port, server); err != nil {
 		log.Fatalf("Server failed: %v", err)

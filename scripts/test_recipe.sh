@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-BASE_URL="http://localhost:8080"
+BASE_URL="http://localhost:8383"
 
 echo "Testing Calorize API - Recipes"
 echo "-----------------------------------"

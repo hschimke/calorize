@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-BASE_URL="http://localhost:8080"
+BASE_URL="http://localhost:8383"
 USER_ID="test-user-$(date +%s)"
 
 echo "Testing Calorize API at $BASE_URL"
