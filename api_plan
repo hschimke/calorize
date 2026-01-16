@@ -16,16 +16,56 @@ Shares
 Uses Passkeys for now
 
 # Ideas
-Food/Meals are basically the same thing.
+Food/Recipes are basically the same thing.
 Foods and recipes need versioning (they have an id for the family and then a current version, each version is its own entry in the table but has a matching family id)
-Meals are just compound foods.
+Recipes are just compound foods.
 Foods can be a single food or a compound food (a recipe) A meal is much like a recipe
-Meals are groups of calories had together
+Meals are groups of calories had together (abstract from log)
 
 ## Data Model
 Users
+    user id
+    name
+    email
+    enabled
+
+UserAuth
+    user id
+    auth id
+    passkey data
+    added on
+    active
+    deleted on
+
 Foods
-Meals
+    food id
+    food family id
+    version
+    isCurrentVersion (true/false)
+    name
+    calories
+    protein
+    carbs
+    fat
+    type (food, recipe)
+    measurement type (volume, weight, count)
+    measurement unit (ml, g, count)
+    measurement amount
+    deleted on
+
+Recipe
+    food parent id
+    food part id
+    amount
+
+Food Log
+    log id
+    user id
+    meal [free text, breakfast, lunch, dinner, snack]
+    date+time
+    food id
+    amount
+    deleted on
 
 
 ## API
