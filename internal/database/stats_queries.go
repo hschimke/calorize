@@ -17,16 +17,14 @@ func GetStats(ctx context.Context, userID string, start, end time.Time) (*Stats,
 	// calculate (log.amount / food.measurement_amount) * food.nutrient
 	query := `
 		SELECT 
-			COALESCE(SUM( (l.amount / f.measurement_amount) * f.calories ), 0),
-			COALESCE(SUM( (l.amount / f.measurement_amount) * f.protein ), 0),
-			COALESCE(SUM( (l.amount / f.measurement_amount) * f.carbs ), 0),
-			COALESCE(SUM( (l.amount / f.measurement_amount) * f.fat ), 0)
-		FROM logs l
-		JOIN foods f ON l.food_id = f.id
-		WHERE l.user_id = ? 
-		  AND l.logged_at >= ? 
-		  AND l.logged_at < ? 
-		  AND l.deleted_at IS NULL
+			COALESCE(SUM(calories), 0),
+			COALESCE(SUM(protein), 0),
+			COALESCE(SUM(carbs), 0),
+			COALESCE(SUM(fat), 0)
+		FROM logs_with_nutrients
+		WHERE user_id = ? 
+		  AND logged_at >= ? 
+		  AND logged_at < ?
 	`
 
 	var s Stats

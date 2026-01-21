@@ -106,10 +106,9 @@ func GetRecipeItems(ctx context.Context, recipeID string) ([]struct {
 	Amount float64
 }, error) {
 	rows, err := DB.QueryContext(ctx, `
-		SELECT f.id, f.name, ri.amount 
-		FROM recipe_items ri
-		JOIN foods f ON ri.ingredient_id = f.id
-		WHERE ri.recipe_id = ?
+		SELECT ingredient_id, ingredient_name, ingredient_amount 
+		FROM recipe_details
+		WHERE recipe_id = ?
 	`, recipeID)
 	if err != nil {
 		return nil, err

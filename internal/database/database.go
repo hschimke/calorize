@@ -13,7 +13,7 @@ var DB *sql.DB
 
 func InitDB(dbPath string) error {
 	var err error
-	
+
 	// Ensure directory exists
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		return fmt.Errorf("failed to create db directory: %w", err)
@@ -28,21 +28,17 @@ func InitDB(dbPath string) error {
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return applySchema("db/schema.sql")
-}
+	// Determine migrations directory
+	// In production/deployment, this might need to be configurable
+	// For now, assuming relative path to the binary or current working directory
+	migrationsDir := filepath.Join(filepath.Dir(dbPath), "migrations")
 
-func applySchema(schemaPath string) error {
-	content, err := os.ReadFile(schemaPath)
-	if err != nil {
-		return fmt.Errorf("failed to read schema file: %w", err)
+	// Fallback to "db/migrations" if relative to CWD
+	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+		migrationsDir = "db/migrations"
 	}
 
-	_, err = DB.Exec(string(content))
-	if err != nil {
-		return fmt.Errorf("failed to execute schema: %w", err)
-	}
-
-	return nil
+	return applyMigrations(DB, migrationsDir)
 }
 
 func Close() {

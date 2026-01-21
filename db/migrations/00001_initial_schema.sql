@@ -58,3 +58,43 @@ CREATE TABLE IF NOT EXISTS logs (
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY(food_id) REFERENCES foods(id) ON DELETE RESTRICT
 );
+
+-- Optimization Indices
+CREATE INDEX IF NOT EXISTS idx_foods_family_id ON foods(family_id);
+CREATE INDEX IF NOT EXISTS idx_foods_is_current ON foods(is_current);
+CREATE INDEX IF NOT EXISTS idx_logs_user_id ON logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_logs_food_id ON logs(food_id);
+CREATE INDEX IF NOT EXISTS idx_logs_logged_at ON logs(logged_at);
+
+-- Views
+CREATE VIEW IF NOT EXISTS logs_with_nutrients AS
+SELECT 
+    l.id AS log_id,
+    l.user_id,
+    l.food_id,
+    f.name AS food_name,
+    l.amount,
+    f.measurement_unit,
+    f.measurement_amount,
+    l.meal_tag,
+    l.logged_at,
+    l.created_at,
+    (l.amount / f.measurement_amount) * f.calories AS calories,
+    (l.amount / f.measurement_amount) * f.protein AS protein,
+    (l.amount / f.measurement_amount) * f.carbs AS carbs,
+    (l.amount / f.measurement_amount) * f.fat AS fat
+FROM logs l
+JOIN foods f ON l.food_id = f.id
+WHERE l.deleted_at IS NULL;
+
+CREATE VIEW IF NOT EXISTS recipe_details AS
+SELECT 
+    ri.recipe_id,
+    ri.ingredient_id,
+    ri.amount AS ingredient_amount,
+    f.name AS ingredient_name,
+    f.calories AS ingredient_calories_unit, -- per f.measurement_amount
+    f.measurement_unit AS ingredient_unit,
+    f.measurement_amount AS ingredient_base_amount
+FROM recipe_items ri
+JOIN foods f ON ri.ingredient_id = f.id;
