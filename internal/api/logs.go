@@ -56,10 +56,11 @@ func GetLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 type CreateLogRequest struct {
-	UserID  string  `json:"user_id"` // Optional if inferred from auth
-	FoodID  string  `json:"food_id"`
-	Amount  float64 `json:"amount"`
-	MealTag string  `json:"meal_tag"`
+	UserID   string    `json:"user_id"` // Optional if inferred from auth
+	FoodID   string    `json:"food_id"`
+	Amount   float64   `json:"amount"`
+	MealTag  string    `json:"meal_tag"`
+	LoggedAt time.Time `json:"logged_at"` // Optional
 }
 
 func CreateLog(w http.ResponseWriter, r *http.Request) {
@@ -78,12 +79,18 @@ func CreateLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Use provided time or default to now
+	loggedAt := req.LoggedAt
+	if loggedAt.IsZero() {
+		loggedAt = time.Now()
+	}
+
 	logEntry := &database.Log{
 		UserID:   req.UserID,
 		FoodID:   req.FoodID,
 		Amount:   req.Amount,
 		MealTag:  req.MealTag,
-		LoggedAt: time.Now(), // Or user provided?
+		LoggedAt: loggedAt,
 	}
 
 	ctx := r.Context()

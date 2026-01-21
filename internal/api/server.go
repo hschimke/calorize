@@ -39,5 +39,8 @@ func NewServer() *http.ServeMux {
 	mux.HandleFunc("POST /logs", CreateLog)
 	mux.HandleFunc("DELETE /logs/{id}", DeleteLog)
 
+	// Stats Routes
+	mux.HandleFunc("GET /stats", GetStats)
+
 	return mux
 }
