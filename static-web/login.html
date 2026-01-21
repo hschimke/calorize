@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Calorize</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="card" style="max-width: 400px; margin: 50px auto;">
+            <h2 class="text-center">Welcome Back</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div id="errorMsg" class="form-group hidden" style="color: var(--danger-color);"></div>
+                <button type="submit" style="width: 100%;">Sign In with Passkey</button>
+            </form>
+            <p class="text-center mt-4">
+                Don't have an account? <a href="/register.html" style="color: var(--primary-color);">Register</a>
+            </p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { login } from './js/auth.js';
+
+        const form = document.getElementById('loginForm');
+        const errorMsg = document.getElementById('errorMsg');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.classList.add('hidden');
+            const username = document.getElementById('username').value;
+
+            try {
+                const res = await login(username);
+                if (res && res.user_id) {
+                    localStorage.setItem('user_id', res.user_id);
+                }
+                window.location.href = '/dashboard.html';
+            } catch (err) {
+                errorMsg.textContent = err.message || 'Login failed';
+                errorMsg.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+
+</html>

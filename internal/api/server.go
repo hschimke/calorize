@@ -42,5 +42,12 @@ func NewServer() *http.ServeMux {
 	// Stats Routes
 	mux.HandleFunc("GET /stats", GetStats)
 
+	// Static Web
+	fs := http.FileServer(http.Dir("./static-web"))
+	// StripPrefix is usually needed if we mount on a subpath, but at root it's fine.
+	// However, to ensure we don't conflict with API routes if we had overlapping names.
+	// Since API routes are explicit "GET /foo", this catch-all "/" works for index.html etc.
+	mux.Handle("/", fs)
+
 	return mux
 }

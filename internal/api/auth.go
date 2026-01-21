@@ -166,7 +166,11 @@ func FinishRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte("Registration Success"))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Registration Success",
+		"user_id": user.ID,
+	})
 }
 
 func BeginLogin(w http.ResponseWriter, r *http.Request) {
@@ -236,5 +240,9 @@ func FinishLogin(w http.ResponseWriter, r *http.Request) {
 	// Update credential sign count... (TODO)
 	_ = credential
 
-	w.Write([]byte("Login Success"))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Login Success",
+		"user_id": user.ID,
+	})
 }
