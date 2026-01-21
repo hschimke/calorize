@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sync"
+	"time"
 
 	"azule.info/calorize/internal/auth"
 	"azule.info/calorize/internal/database"
@@ -166,6 +167,28 @@ func FinishRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create Session
+	sessionDuration := 30 * 24 * time.Hour // 30 days
+	sess, err := database.CreateSession(ctx, user.ID, sessionDuration)
+	if err != nil {
+		http.Error(w, "failed to create session", http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    sess.Token,
+		Path:     "/",
+		Expires:  sess.ExpiresAt,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   false, // Set to true in production
+	})
+
+	// Cleanup auth session
+	http.SetCookie(w, &http.Cookie{Name: "auth_session_id", MaxAge: -1, Path: "/"})
+	deleteSession(sid)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Registration Success",
@@ -239,6 +262,27 @@ func FinishLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Update credential sign count... (TODO)
 	_ = credential
+
+	// Create Session
+	sessionDuration := 30 * 24 * time.Hour
+	sess, err := database.CreateSession(r.Context(), user.ID, sessionDuration)
+	if err != nil {
+		http.Error(w, "failed to create session", http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    sess.Token,
+		Path:     "/",
+		Expires:  sess.ExpiresAt,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   false,
+	})
+
+	// Cleanup auth session
+	http.SetCookie(w, &http.Cookie{Name: "auth_session_id", MaxAge: -1, Path: "/"})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{

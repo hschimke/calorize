@@ -28,19 +28,19 @@ func NewServer() *http.ServeMux {
 	mux.HandleFunc("POST /auth/login/finish", FinishLogin)
 
 	// Food Routes
-	mux.HandleFunc("GET /foods", GetFoods)
-	mux.HandleFunc("POST /foods", CreateFood)
-	mux.HandleFunc("GET /foods/{id}", GetFood)
-	mux.HandleFunc("PUT /foods/{id}", UpdateFood)
-	mux.HandleFunc("DELETE /foods/{id}", DeleteFood)
+	mux.HandleFunc("GET /foods", AuthMiddleware(GetFoods))
+	mux.HandleFunc("POST /foods", AuthMiddleware(CreateFood))
+	mux.HandleFunc("GET /foods/{id}", AuthMiddleware(GetFood))
+	mux.HandleFunc("PUT /foods/{id}", AuthMiddleware(UpdateFood))
+	mux.HandleFunc("DELETE /foods/{id}", AuthMiddleware(DeleteFood))
 
 	// Log Routes
-	mux.HandleFunc("GET /logs", GetLogs)
-	mux.HandleFunc("POST /logs", CreateLog)
-	mux.HandleFunc("DELETE /logs/{id}", DeleteLog)
+	mux.HandleFunc("GET /logs", AuthMiddleware(GetLogs))
+	mux.HandleFunc("POST /logs", AuthMiddleware(CreateLog))
+	mux.HandleFunc("DELETE /logs/{id}", AuthMiddleware(DeleteLog))
 
 	// Stats Routes
-	mux.HandleFunc("GET /stats", GetStats)
+	mux.HandleFunc("GET /stats", AuthMiddleware(GetStats))
 
 	// Static Web
 	fs := http.FileServer(http.Dir("./static-web"))

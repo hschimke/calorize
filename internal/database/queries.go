@@ -107,3 +107,43 @@ func (c *UserCredential) ToWebAuthn() (webauthn.Credential, error) {
 		Transport: []protocol.AuthenticatorTransport{}, // Parse c.Transports JSON
 	}, nil
 }
+
+func CreateSession(ctx context.Context, userID string, duration time.Duration) (*Session, error) {
+	id := uuid.New().String()
+	token := uuid.New().String() // Simple UUID token for now
+	now := time.Now()
+	expiresAt := now.Add(duration)
+
+	session := &Session{
+		ID:        id,
+		UserID:    userID,
+		Token:     token,
+		CreatedAt: now,
+		ExpiresAt: expiresAt,
+	}
+
+	_, err := DB.ExecContext(ctx, "INSERT INTO sessions (id, user_id, token, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+		session.ID, session.UserID, session.Token, session.CreatedAt, session.ExpiresAt)
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
+func GetSessionByToken(ctx context.Context, token string) (*Session, error) {
+	row := DB.QueryRowContext(ctx, "SELECT id, user_id, token, created_at, expires_at FROM sessions WHERE token = ? AND expires_at > ?", token, time.Now())
+	var s Session
+	err := row.Scan(&s.ID, &s.UserID, &s.Token, &s.CreatedAt, &s.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil // Not found or expired
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func DeleteSession(ctx context.Context, token string) error {
+	_, err := DB.ExecContext(ctx, "DELETE FROM sessions WHERE token = ?", token)
+	return err
+}

@@ -30,20 +30,9 @@ func GetLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	// Need userID. For now assuming global or single user if no auth middleware active in this MVP setup.
-	// But we have Auth system.
-	// Ideally we extract UserID from context (set by middleware).
-	// For MVP, we'll look for "user_id" query param or header?
-	// Or just "test-user-id" constant if not logged in.
-	// Let's check cookie "auth_session_id" -> get user -> proceed.
-	// Since I haven't implemented Middleware to populate Context, I'll do a quick lookup here or accept a header for testing.
-	userID := r.Header.Get("X-User-ID")
-	if userID == "" {
-		// Fallback for testing: query param
-		userID = r.URL.Query().Get("user_id")
-	}
-	if userID == "" {
-		http.Error(w, "user_id required (header or query)", http.StatusUnauthorized)
+	userID, ok := GetUserID(ctx)
+	if !ok || userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -71,13 +60,13 @@ func CreateLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Auth check fallback
-	if req.UserID == "" {
-		req.UserID = r.Header.Get("X-User-ID")
-	}
-	if req.UserID == "" {
-		http.Error(w, "user_id required", http.StatusUnauthorized)
+	// Auth check
+	userID, ok := GetUserID(r.Context())
+	if !ok || userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+	req.UserID = userID // Enforce authenticated user
 
 	// Use provided time or default to now
 	loggedAt := req.LoggedAt

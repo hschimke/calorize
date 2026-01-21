@@ -52,6 +52,14 @@ type UserCredential struct {
 	LastUsedAt      sql.NullTime `json:"last_used_at"`
 }
 
+type Session struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Token     string    `json:"token"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
 type Food struct {
 	ID                string       `json:"id"`
 	FamilyID          string       `json:"family_id"`
