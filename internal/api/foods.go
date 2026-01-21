@@ -18,16 +18,17 @@ func GetFoods(w http.ResponseWriter, r *http.Request) {
 }
 
 type CreateFoodRequest struct {
-	Name              string             `json:"name"`
-	Calories          float64            `json:"calories"`
-	Protein           float64            `json:"protein"`
-	Carbs             float64            `json:"carbs"`
-	Fat               float64            `json:"fat"`
-	Type              string             `json:"type"` // 'food' or 'recipe'
-	MeasurementUnit   string             `json:"measurement_unit"`
-	MeasurementAmount float64            `json:"measurement_amount"`
-	Ingredients       map[string]float64 `json:"ingredients"` // If type=recipe
-	FamilyID          string             `json:"family_id"`   // Optional, if updating
+	Name              string              `json:"name"`
+	Calories          float64             `json:"calories"`
+	Protein           float64             `json:"protein"`
+	Carbs             float64             `json:"carbs"`
+	Fat               float64             `json:"fat"`
+	Type              string              `json:"type"` // 'food' or 'recipe'
+	MeasurementUnit   string              `json:"measurement_unit"`
+	MeasurementAmount float64             `json:"measurement_amount"`
+	Ingredients       map[string]float64  `json:"ingredients"` // If type=recipe
+	FamilyID          string              `json:"family_id"`   // Optional, if updating
+	Nutrients         []database.Nutrient `json:"nutrients"`
 }
 
 func CreateFood(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +48,7 @@ func CreateFood(w http.ResponseWriter, r *http.Request) {
 		MeasurementUnit:   req.MeasurementUnit,
 		MeasurementAmount: req.MeasurementAmount,
 		FamilyID:          req.FamilyID,
+		Nutrients:         req.Nutrients,
 	}
 
 	if food.Type == "" {
@@ -151,6 +153,7 @@ func UpdateFood(w http.ResponseWriter, r *http.Request) {
 		MeasurementUnit:   req.MeasurementUnit,
 		MeasurementAmount: req.MeasurementAmount,
 		FamilyID:          existing.FamilyID, // Enforce Family Continuity
+		Nutrients:         req.Nutrients,
 	}
 	if food.Type == "" {
 		food.Type = existing.Type // Default to existing type

@@ -9,14 +9,15 @@ import (
 )
 
 type StatsResponse struct {
-	Period           string         `json:"period"`
-	Start            time.Time      `json:"start"`
-	End              time.Time      `json:"end"`
-	TotalCalories    float64        `json:"total_calories"`
-	TotalProtein     float64        `json:"total_protein"`
-	TotalCarbs       float64        `json:"total_carbs"`
-	TotalFat         float64        `json:"total_fat"`
-	MacrosPercentage map[string]int `json:"macros_percentage"`
+	Period           string              `json:"period"`
+	Start            time.Time           `json:"start"`
+	End              time.Time           `json:"end"`
+	TotalCalories    float64             `json:"total_calories"`
+	TotalProtein     float64             `json:"total_protein"`
+	TotalCarbs       float64             `json:"total_carbs"`
+	TotalFat         float64             `json:"total_fat"`
+	TotalNutrients   []database.Nutrient `json:"total_nutrients"`
+	MacrosPercentage map[string]int      `json:"macros_percentage"`
 }
 
 func GetStats(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +104,7 @@ func GetStats(w http.ResponseWriter, r *http.Request) {
 		TotalProtein:     stats.TotalProtein,
 		TotalCarbs:       stats.TotalCarbs,
 		TotalFat:         stats.TotalFat,
+		TotalNutrients:   stats.TotalNutrients,
 		MacrosPercentage: pct,
 	}
 

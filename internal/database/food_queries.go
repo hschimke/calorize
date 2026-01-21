@@ -46,7 +46,19 @@ func CreateFood(ctx context.Context, f *Food) error {
 		INSERT INTO foods (id, family_id, version, is_current, name, calories, protein, carbs, fat, type, measurement_unit, measurement_amount, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, f.ID, f.FamilyID, f.Version, f.IsCurrent, f.Name, f.Calories, f.Protein, f.Carbs, f.Fat, f.Type, f.MeasurementUnit, f.MeasurementAmount, f.CreatedAt)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Insert Nutrients
+	for _, n := range f.Nutrients {
+		_, err := DB.ExecContext(ctx, "INSERT INTO food_nutrients (food_id, name, amount, unit) VALUES (?, ?, ?, ?)", f.ID, n.Name, n.Amount, n.Unit)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func GetFoods(ctx context.Context, onlyCurrent bool) ([]Food, error) {
@@ -65,6 +77,10 @@ func GetFoods(ctx context.Context, onlyCurrent bool) ([]Food, error) {
 	defer rows.Close()
 
 	var foods []Food
+	foodMap := make(map[string]*Food) // Pointers to slice elements would be tricky as slice reallocates.
+	// So let's store indices or pointers to elements if we preallocate, or just append to slice and rely on ID map to index.
+
+	// Better: Read all foods, then fetch all relevant nutrients.
 	for rows.Next() {
 		var f Food
 		if err := rows.Scan(&f.ID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name, &f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type, &f.MeasurementUnit, &f.MeasurementAmount, &f.CreatedAt); err != nil {
@@ -72,6 +88,48 @@ func GetFoods(ctx context.Context, onlyCurrent bool) ([]Food, error) {
 		}
 		foods = append(foods, f)
 	}
+
+	if len(foods) == 0 {
+		return foods, nil
+	}
+
+	// Store pointers to foods in a map for easy assignment
+	for i := range foods {
+		foodMap[foods[i].ID] = &foods[i]
+	}
+
+	// Fetch Nutrients for these foods
+	// Simple approach: SELECT * FROM food_nutrients WHERE food_id IN ( ... )
+	// But building IN clause is tedious.
+	// Alternative: JOIN with the same WHERE clause as foods.
+	nuQuery := `
+		SELECT fn.food_id, fn.name, fn.amount, fn.unit
+		FROM food_nutrients fn
+		JOIN foods f ON f.id = fn.food_id
+	`
+	if onlyCurrent {
+		nuQuery += " WHERE f.is_current = 1 AND f.deleted_at IS NULL"
+	} else {
+		nuQuery += " WHERE f.deleted_at IS NULL"
+	}
+
+	nuRows, err := DB.QueryContext(ctx, nuQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer nuRows.Close()
+
+	for nuRows.Next() {
+		var foodID string
+		var n Nutrient
+		if err := nuRows.Scan(&foodID, &n.Name, &n.Amount, &n.Unit); err != nil {
+			return nil, err
+		}
+		if f, ok := foodMap[foodID]; ok {
+			f.Nutrients = append(f.Nutrients, n)
+		}
+	}
+
 	return foods, nil
 }
 
@@ -85,6 +143,22 @@ func GetFood(ctx context.Context, id string) (*Food, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Fetch Nutrients
+	nuRows, err := DB.QueryContext(ctx, "SELECT name, amount, unit FROM food_nutrients WHERE food_id = ?", f.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer nuRows.Close()
+
+	for nuRows.Next() {
+		var n Nutrient
+		if err := nuRows.Scan(&n.Name, &n.Amount, &n.Unit); err != nil {
+			return nil, err
+		}
+		f.Nutrients = append(f.Nutrients, n)
+	}
+
 	return &f, nil
 }
 

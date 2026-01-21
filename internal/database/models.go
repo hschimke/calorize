@@ -67,6 +67,14 @@ type Food struct {
 	MeasurementAmount float64      `json:"measurement_amount"`
 	CreatedAt         time.Time    `json:"created_at"`
 	DeletedAt         sql.NullTime `json:"deleted_at"`
+
+	Nutrients []Nutrient `json:"nutrients"`
+}
+
+type Nutrient struct {
+	Name   string  `json:"name"`
+	Amount float64 `json:"amount"`
+	Unit   string  `json:"unit"`
 }
 
 type Log struct {

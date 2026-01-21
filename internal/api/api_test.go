@@ -40,15 +40,22 @@ func setupTestDB(t *testing.T) *sql.DB {
 	// Since we are adding tests, let's export it in database package for testing purposes?
 	// Or just read schema file and exec it manually here for simplicity.
 
-	// Let's read the schema file manually.
-	schemaPath := filepath.Join(migrationsDir, "00001_initial_schema.sql")
-	schema, err := os.ReadFile(schemaPath)
+	// Read all migration files
+	files, err := os.ReadDir(migrationsDir)
 	if err != nil {
-		t.Fatalf("failed to read schema: %v", err)
+		t.Fatalf("failed to read migrations dir: %v", err)
 	}
 
-	if _, err := db.Exec(string(schema)); err != nil {
-		t.Fatalf("failed to apply schema: %v", err)
+	for _, f := range files {
+		if filepath.Ext(f.Name()) == ".sql" {
+			content, err := os.ReadFile(filepath.Join(migrationsDir, f.Name()))
+			if err != nil {
+				t.Fatalf("failed to read migration %s: %v", f.Name(), err)
+			}
+			if _, err := db.Exec(string(content)); err != nil {
+				t.Fatalf("failed to apply migration %s: %v", f.Name(), err)
+			}
+		}
 	}
 
 	// Set global DB in database package
