@@ -12,11 +12,12 @@ func InitWebAuthn() error {
 	var err error
 
 	// Domain logic: In production this should be env var
-	// For local dev: localhost
-	origin := "http://localhost:8080"
+	// Domain logic: In production this should be env var
+	// For local dev: calorize.test
+	origin := "https://calorize.test"
 	wconfig := &webauthn.Config{
-		RPDisplayName: "Calorize",
-		RPID:          "localhost",
+		RPDisplayName: "Calorize Local",
+		RPID:          "calorize.test",
 		RPOrigins:     []string{origin},
 	}
 
