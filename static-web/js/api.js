@@ -1,4 +1,7 @@
-export async function request(url, options = {}) {
+const BASE_URL = 'http://localhost:8383';
+
+export async function request(endpoint, options = {}) {
+    const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
     const headers = {
         'Content-Type': 'application/json',
         ...options.headers,
