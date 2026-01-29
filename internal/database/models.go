@@ -48,6 +48,8 @@ type UserCredential struct {
 	AAGUID          string       `json:"aaguid"`
 	SignCount       uint32       `json:"sign_count"`
 	Transports      string       `json:"transports"` // JSON
+	BackupEligible  bool         `json:"backup_eligible"`
+	BackupState     bool         `json:"backup_state"`
 	CreatedAt       time.Time    `json:"created_at"`
 	LastUsedAt      sql.NullTime `json:"last_used_at"`
 }

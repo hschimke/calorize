@@ -78,7 +78,7 @@ func TestGetFoods(t *testing.T) {
 	}
 
 	// Create user and session
-	user, err := database.CreateUser(context.Background(), "testuser", "test@example.com")
+	user, err := database.CreateUser(context.Background(), "", "testuser", "test@example.com")
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestCreateFood(t *testing.T) {
 	defer db.Close()
 
 	// Create user and session
-	user, err := database.CreateUser(context.Background(), "testuser", "test@example.com")
+	user, err := database.CreateUser(context.Background(), "", "testuser", "test@example.com")
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}

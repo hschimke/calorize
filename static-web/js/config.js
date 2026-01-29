@@ -1,5 +1,5 @@
 const Config = {
-    API_BASE_URL: 'http://localhost:8383',
+    API_BASE_URL: 'https://calorize.test',
     DEBUG: true, // Set to false in production or via build process if we had one
 };
 

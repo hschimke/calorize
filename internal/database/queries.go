@@ -10,8 +10,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func CreateUser(ctx context.Context, name, email string) (*User, error) {
-	id := uuid.New().String()
+func CreateUser(ctx context.Context, id, name, email string) (*User, error) {
+	// If ID not provided, generate one (though callers should provide it now)
+	if id == "" {
+		id = uuid.New().String()
+	}
 	user := &User{
 		ID:        id,
 		Name:      name,
@@ -55,14 +58,14 @@ func GetUser(ctx context.Context, id string) (*User, error) {
 
 func AddCredential(ctx context.Context, cred *UserCredential) error {
 	_, err := DB.ExecContext(ctx, `
-		INSERT INTO user_credentials (id, user_id, name, public_key, attestation_type, aaguid, sign_count, transports, last_used_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, cred.ID, cred.UserID, cred.Name, cred.PublicKey, cred.AttestationType, cred.AAGUID, cred.SignCount, cred.Transports, cred.LastUsedAt)
+		INSERT INTO user_credentials (id, user_id, name, public_key, attestation_type, aaguid, sign_count, transports, backup_eligible, backup_state, last_used_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, cred.ID, cred.UserID, cred.Name, cred.PublicKey, cred.AttestationType, cred.AAGUID, cred.SignCount, cred.Transports, cred.BackupEligible, cred.BackupState, cred.LastUsedAt)
 	return err
 }
 
 func GetCredentials(ctx context.Context, userID string) ([]UserCredential, error) {
-	rows, err := DB.QueryContext(ctx, "SELECT id, user_id, name, public_key, attestation_type, aaguid, sign_count, transports, last_used_at FROM user_credentials WHERE user_id = ?", userID)
+	rows, err := DB.QueryContext(ctx, "SELECT id, user_id, name, public_key, attestation_type, aaguid, sign_count, transports, backup_eligible, backup_state, last_used_at FROM user_credentials WHERE user_id = ?", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +74,7 @@ func GetCredentials(ctx context.Context, userID string) ([]UserCredential, error
 	var creds []UserCredential
 	for rows.Next() {
 		var c UserCredential
-		if err := rows.Scan(&c.ID, &c.UserID, &c.Name, &c.PublicKey, &c.AttestationType, &c.AAGUID, &c.SignCount, &c.Transports, &c.LastUsedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.UserID, &c.Name, &c.PublicKey, &c.AttestationType, &c.AAGUID, &c.SignCount, &c.Transports, &c.BackupEligible, &c.BackupState, &c.LastUsedAt); err != nil {
 			return nil, err
 		}
 		creds = append(creds, c)
@@ -105,6 +108,10 @@ func (c *UserCredential) ToWebAuthn() (webauthn.Credential, error) {
 			SignCount: c.SignCount,
 		},
 		Transport: []protocol.AuthenticatorTransport{}, // Parse c.Transports JSON
+		Flags: webauthn.CredentialFlags{
+			BackupEligible: c.BackupEligible,
+			BackupState:    c.BackupState,
+		},
 	}, nil
 }
 

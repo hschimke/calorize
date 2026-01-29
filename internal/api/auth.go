@@ -135,7 +135,7 @@ func FinishRegistration(w http.ResponseWriter, r *http.Request) {
 	if dbUser == nil {
 		// Only create if we generated a fresh ID.
 		// Ideally we check by ID.
-		createdUser, err := database.CreateUser(ctx, user.Name, user.Email)
+		createdUser, err := database.CreateUser(ctx, user.ID, user.Name, user.Email)
 		if err != nil {
 			// Might be email conflict
 			http.Error(w, "failed to create user: "+err.Error(), http.StatusInternalServerError)
@@ -160,6 +160,8 @@ func FinishRegistration(w http.ResponseWriter, r *http.Request) {
 		AAGUID:          string(credential.Authenticator.AAGUID),
 		SignCount:       credential.Authenticator.SignCount,
 		Transports:      "", // TODO
+		BackupEligible:  credential.Flags.BackupEligible,
+		BackupState:     credential.Flags.BackupState,
 	}
 
 	if err := database.AddCredential(ctx, newCred); err != nil {
