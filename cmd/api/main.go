@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -10,21 +10,27 @@ import (
 )
 
 func main() {
+	// Initialize structured logging
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	dbPath := "calorize.db"
 	if os.Getenv("DB_PATH") != "" {
 		dbPath = os.Getenv("DB_PATH")
 	}
 
 	if err := database.InitDB(dbPath); err != nil {
-		log.Fatalf("Failed to init database: %v", err)
+		slog.Error("Failed to init database", "error", err)
+		os.Exit(1)
 	}
 	defer database.Close()
 
-	log.Println("Database initialized successfully at", dbPath)
+	slog.Info("Database initialized successfully", "path", dbPath)
 
 	// Start Server
 	server := api.NewServer()
 
+	// Middleware Chain: RequestLogger -> Recoverer -> CORS -> Mux
 	// CORS Middleware
 	corsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -39,9 +45,13 @@ func main() {
 		server.ServeHTTP(w, r)
 	})
 
+	// Wrap with logging and recovery
+	handler := api.RequestLogger(api.Recoverer(corsHandler))
+
 	port := "8383"
-	log.Printf("Server starting on port %s...", port)
-	if err := http.ListenAndServe(":"+port, corsHandler); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	slog.Info("Server starting", "port", port)
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
+		slog.Error("Server failed", "error", err)
+		os.Exit(1)
 	}
 }

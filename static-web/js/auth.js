@@ -1,8 +1,10 @@
 import { request } from './api.js';
 import { bufferToBase64URL, base64URLToBuffer } from './utils.js';
+import Logger from './logger.js';
 
 export async function register(username, email) {
     try {
+        Logger.info('Starting registration flow', { username, email });
         // 1. Begin Registration
         const startOpts = await request('/auth/register/begin', {
             method: 'POST',
@@ -13,6 +15,7 @@ export async function register(username, email) {
         startOpts.publicKey.challenge = base64URLToBuffer(startOpts.publicKey.challenge);
         startOpts.publicKey.user.id = base64URLToBuffer(startOpts.publicKey.user.id);
 
+        Logger.debug('Prompting for credentials creation');
         // 2. Create Credentials (browser prompt)
         const credential = await navigator.credentials.create({ publicKey: startOpts.publicKey });
 
@@ -27,20 +30,23 @@ export async function register(username, email) {
             },
         };
 
+        Logger.debug('Finishing registration');
         const response = await request('/auth/register/finish', {
             method: 'POST',
             body: JSON.stringify(attestationResponse)
         });
 
+        Logger.info('Registration successful', response);
         return response; // Contains user_id (future)
     } catch (err) {
-        console.error('Registration failed:', err);
+        Logger.error('Registration failed:', err);
         throw err;
     }
 }
 
 export async function login(username) {
     try {
+        Logger.info('Starting login flow', { username });
         // 1. Begin Login
         const startOpts = await request(`/auth/login/begin?username=${encodeURIComponent(username)}`, {
             method: 'POST'
@@ -55,6 +61,7 @@ export async function login(username) {
             }));
         }
 
+        Logger.debug('Prompting for assertion');
         // 2. Get Assertion (browser prompt)
         const assertion = await navigator.credentials.get({ publicKey: startOpts.publicKey });
 
@@ -71,14 +78,16 @@ export async function login(username) {
             },
         };
 
+        Logger.debug('Finishing login');
         const response = await request('/auth/login/finish', {
             method: 'POST',
             body: JSON.stringify(assertionResponse)
         });
 
+        Logger.info('Login successful', response);
         return response; // Contains user_id (future)
     } catch (err) {
-        console.error('Login failed:', err);
+        Logger.error('Login failed:', err);
         throw err;
     }
 }

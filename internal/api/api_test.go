@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"azule.info/calorize/internal/database"
 	_ "github.com/mattn/go-sqlite3"
@@ -75,8 +77,20 @@ func TestGetFoods(t *testing.T) {
 		t.Fatalf("failed to insert data: %v", err)
 	}
 
+	// Create user and session
+	user, err := database.CreateUser(context.Background(), "testuser", "test@example.com")
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+	session, err := database.CreateSession(context.Background(), user.ID, 1*time.Hour)
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
 	// Create request
 	req := httptest.NewRequest("GET", "/foods", nil)
+	req.AddCookie(&http.Cookie{Name: "session_token", Value: session.Token})
+
 	w := httptest.NewRecorder()
 
 	// NewServer initializes WebAuthn, which might fail or panic if config missing.
@@ -108,6 +122,16 @@ func TestCreateFood(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
+	// Create user and session
+	user, err := database.CreateUser(context.Background(), "testuser", "test@example.com")
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+	session, err := database.CreateSession(context.Background(), user.ID, 1*time.Hour)
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+
 	f := database.Food{
 		Name:              "New Food",
 		Calories:          100,
@@ -121,6 +145,7 @@ func TestCreateFood(t *testing.T) {
 	body, _ := json.Marshal(f)
 
 	req := httptest.NewRequest("POST", "/foods", bytes.NewReader(body))
+	req.AddCookie(&http.Cookie{Name: "session_token", Value: session.Token})
 	// Context?
 	// The API uses context from request.
 
