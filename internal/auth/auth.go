@@ -37,6 +37,12 @@ func RegisterAuthPaths(mux *http.ServeMux) {
 	mux.HandleFunc("POST /auth/register/finish", registerFinishHandler)
 	mux.HandleFunc("POST /auth/login/begin", loginBeginHandler)
 	mux.HandleFunc("POST /auth/login/finish", loginFinishHandler)
+
+	mux.HandleFunc("POST /auth/logout", func(w http.ResponseWriter, r *http.Request) {
+		clearSession(w)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Logout Success"))
+	})
 }
 
 // Session storage helper
