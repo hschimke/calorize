@@ -2,6 +2,8 @@ package auth
 
 import "net/http"
 
+const UserIDContextKey = "user_id"
+
 // ### Auth
 // - POST /auth/register/begin
 // - POST /auth/register/finish
