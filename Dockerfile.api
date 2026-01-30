@@ -1,0 +1,32 @@
+# Stage 1: Build the application
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /app
+
+# Download dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the source code
+COPY . .
+
+# Build the binary
+# Disabling CGO for a static binary suitable for Alpine
+RUN CGO_ENABLED=0 GOOS=linux go build -o api-server ./cmd/api-server/main.go
+
+# Stage 2: Create the final minimal image
+FROM alpine:latest
+
+WORKDIR /root/
+
+# Install CA certificates to enable HTTPS calls if needed
+RUN apk --no-cache add ca-certificates
+
+# Copy the binary from the builder stage
+COPY --from=builder /app/api-server .
+
+# Expose the port the app runs on (matching common defaults, though main.go logs addr)
+EXPOSE 8080
+
+# Command to run the application
+CMD ["./api-server"]

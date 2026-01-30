@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"azule.info/calorize/internal/api"
+	"azule.info/calorize/internal/auth"
 )
 
 func main() {
@@ -19,12 +22,15 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	auth.RegisterAuthPaths(mux)
+	api.RegisterApiPaths(mux)
+
 	mux.Handle("GET /hello/{name}", loggingMiddleware(http.HandlerFunc(helloHandler)))
 
 	// 4. Start the server
 	serverAddr := ":8080"
 	slog.Info("server starting", "addr", serverAddr)
-	
+
 	err := http.ListenAndServe(serverAddr, mux)
 	if err != nil {
 		slog.Error("server failed", "error", err)
@@ -54,7 +60,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 func helloHandler(w http.ResponseWriter, r *http.Request) {
 	// Extracting path parameter
 	name := r.PathValue("name")
-	
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Hello, " + name + "!"))
 }
