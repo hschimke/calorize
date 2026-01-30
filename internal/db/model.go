@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql/driver"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,22 +72,23 @@ type UserCredential struct {
 type FoodID uuid.UUID
 type FoodFamilyID uuid.UUID
 type Food struct {
-	ID                FoodID       `json:"id"`
-	CreatorID         UserID       `json:"creator_id"`
-	FamilyID          FoodFamilyID `json:"family_id"`
-	Version           int          `json:"version"`
-	IsCurrent         bool         `json:"is_current"`
-	Name              string       `json:"name"`
-	Calories          float64      `json:"calories"`
-	Protein           float64      `json:"protein"`
-	Carbs             float64      `json:"carbs"`
-	Fat               float64      `json:"fat"`
-	Type              string       `json:"type"`
-	MeasurementUnit   string       `json:"measurement_unit"`
-	MeasurementAmount float64      `json:"measurement_amount"`
-	Public            bool         `json:"public"`
-	CreatedAt         time.Time    `json:"created_at"`
-	DeletedAt         *time.Time   `json:"deleted_at"`
+	ID                FoodID        `json:"id"`
+	CreatorID         UserID        `json:"creator_id"`
+	FamilyID          FoodFamilyID  `json:"family_id"`
+	Version           int           `json:"version"`
+	IsCurrent         bool          `json:"is_current"`
+	Name              string        `json:"name"`
+	Calories          float64       `json:"calories"`
+	Protein           float64       `json:"protein"`
+	Carbs             float64       `json:"carbs"`
+	Fat               float64       `json:"fat"`
+	Type              string        `json:"type"`
+	MeasurementUnit   string        `json:"measurement_unit"`
+	MeasurementAmount float64       `json:"measurement_amount"`
+	Public            bool          `json:"public"`
+	Ingredients       []RecipeItems `json:"ingredients,omitempty"`
+	CreatedAt         time.Time     `json:"created_at"`
+	DeletedAt         *time.Time    `json:"deleted_at"`
 }
 
 // FoodNutrients (Micro-nutrients)
@@ -134,4 +136,56 @@ type FoodLogEntry struct {
 	LoggedAt  time.Time      `json:"logged_at"`
 	CreatedAt time.Time      `json:"created_at"`
 	DeletedAt *time.Time     `json:"deleted_at"`
+}
+
+// SQL Driver Support
+
+func (id UserID) Value() (driver.Value, error) { return uuid.UUID(id).Value() }
+func (id *UserID) Scan(src any) error {
+	var u uuid.UUID
+	if err := u.Scan(src); err != nil {
+		return err
+	}
+	*id = UserID(u)
+	return nil
+}
+
+func (id FoodID) Value() (driver.Value, error) { return uuid.UUID(id).Value() }
+func (id *FoodID) Scan(src any) error {
+	var u uuid.UUID
+	if err := u.Scan(src); err != nil {
+		return err
+	}
+	*id = FoodID(u)
+	return nil
+}
+
+func (id FoodFamilyID) Value() (driver.Value, error) { return uuid.UUID(id).Value() }
+func (id *FoodFamilyID) Scan(src any) error {
+	var u uuid.UUID
+	if err := u.Scan(src); err != nil {
+		return err
+	}
+	*id = FoodFamilyID(u)
+	return nil
+}
+
+func (id RecipeID) Value() (driver.Value, error) { return uuid.UUID(id).Value() }
+func (id *RecipeID) Scan(src any) error {
+	var u uuid.UUID
+	if err := u.Scan(src); err != nil {
+		return err
+	}
+	*id = RecipeID(u)
+	return nil
+}
+
+func (id FoodLogEntryID) Value() (driver.Value, error) { return uuid.UUID(id).Value() }
+func (id *FoodLogEntryID) Scan(src any) error {
+	var u uuid.UUID
+	if err := u.Scan(src); err != nil {
+		return err
+	}
+	*id = FoodLogEntryID(u)
+	return nil
 }
