@@ -13,6 +13,7 @@ import (
 
 const UserIDContextKey = "user_id"
 const SessionCookieName = "reg_session"
+const AppSessionCookieName = "session_id"
 
 var (
 	WebAuthn *webauthn.WebAuthn
@@ -39,7 +40,23 @@ func RegisterAuthPaths(mux *http.ServeMux) {
 	mux.HandleFunc("POST /auth/login/finish", loginFinishHandler)
 
 	mux.HandleFunc("POST /auth/logout", func(w http.ResponseWriter, r *http.Request) {
-		clearSession(w)
+		cookie, err := r.Cookie(AppSessionCookieName)
+		if err == nil && cookie.Value != "" {
+			// Best effort delete from DB
+			_ = db.DeleteSession(cookie.Value)
+		}
+
+		// Clear the session cookie
+		http.SetCookie(w, &http.Cookie{
+			Name:     AppSessionCookieName,
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteStrictMode,
+		})
+
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Logout Success"))
 	})
@@ -208,7 +225,7 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 	// Return session token? Or set cookie?
 	// Let's set a cookie for the app session
 	http.SetCookie(w, &http.Cookie{
-		Name:     "session_id",
+		Name:     AppSessionCookieName,
 		Value:    session.ID,
 		Path:     "/",
 		MaxAge:   3600 * 24 * 30,
@@ -287,7 +304,7 @@ func loginFinishHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "session_id",
+		Name:     AppSessionCookieName,
 		Value:    session.ID,
 		Path:     "/",
 		MaxAge:   3600 * 24 * 30,
