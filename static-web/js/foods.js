@@ -18,6 +18,8 @@ const els = {
     searchInput: document.getElementById('searchInput'),
     toggleFormBtn: document.getElementById('toggleFormBtn'),
     formContainer: document.getElementById('formContainer'),
+    addNutrientBtn: document.getElementById('addNutrientBtn'),
+    nutrientsContainer: document.getElementById('nutrientsContainer'),
 };
 
 // Event Listeners
@@ -25,6 +27,8 @@ els.toggleFormBtn.addEventListener('click', () => {
     els.formContainer.classList.toggle('hidden');
     els.toggleFormBtn.textContent = els.formContainer.classList.contains('hidden') ? '+ Create New Food' : 'Cancel';
 });
+
+els.addNutrientBtn.addEventListener('click', addNutrientRow);
 
 els.createFoodForm.addEventListener('submit', handleCreateFood);
 els.searchInput.addEventListener('input', renderFoods);
@@ -54,7 +58,19 @@ async function handleCreateFood(e) {
         type: 'food', // Simple food for now
         measurement_unit: fd.get('measurement_unit'),
         measurement_amount: parseFloat(fd.get('measurement_amount')),
+        nutrients: []
     };
+
+    // Collect nutrients
+    const nutrientRows = els.nutrientsContainer.querySelectorAll('.nutrient-row');
+    nutrientRows.forEach(row => {
+        const name = row.querySelector('.nutrient-name').value;
+        const amount = parseFloat(row.querySelector('.nutrient-amount').value);
+        const unit = row.querySelector('.nutrient-unit').value;
+        if (name && !isNaN(amount) && unit) {
+            data.nutrients.push({ name, amount, unit });
+        }
+    });
 
     try {
         await request('/foods', {
@@ -97,6 +113,30 @@ async function handleLogFood(foodID, amount, mealTag) {
     } catch (err) {
         alert('Failed to log');
     }
+}
+
+function addNutrientRow() {
+    const id = Date.now();
+    const div = document.createElement('div');
+    div.className = 'nutrient-row';
+    div.style.display = 'grid';
+    div.style.gridTemplateColumns = '2fr 1fr 1fr auto';
+    div.style.gap = '10px';
+    div.style.marginBottom = '10px';
+    div.id = `nutrient-${id}`;
+    div.innerHTML = `
+        <input type="text" placeholder="Nutrient (e.g. Vitamin C)" class="nutrient-name" required>
+        <input type="number" step="any" placeholder="Amt" class="nutrient-amount" required>
+        <input type="text" placeholder="Unit" class="nutrient-unit" required>
+        <button type="button" class="remove-nutrient-btn" style="background-color: #d9534f;">X</button>
+    `;
+
+    // Add event listener for the remove button
+    div.querySelector('.remove-nutrient-btn').addEventListener('click', () => {
+        div.remove();
+    });
+
+    els.nutrientsContainer.appendChild(div);
 }
 
 // Rendering
