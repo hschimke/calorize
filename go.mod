@@ -3,12 +3,14 @@ module azule.info/calorize
 go 1.25.6
 
 require (
+	aidanwoods.dev/go-paseto/v2 v2.0.0-alpha1
 	github.com/go-webauthn/webauthn v0.15.0
 	github.com/google/uuid v1.6.0
 	github.com/pressly/goose/v3 v3.26.0
 )
 
 require (
+	aidanwoods.dev/go-result v0.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect

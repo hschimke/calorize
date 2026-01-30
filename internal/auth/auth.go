@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"azule.info/calorize/internal/auth/token"
 	"azule.info/calorize/internal/db"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
@@ -234,9 +235,19 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
+	// Generate PASETO token
+	t, err := token.Generate(user.ID)
+	if err != nil {
+		http.Error(w, "failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
 	clearSession(w)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Registration Success"))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Registration Success",
+		"token":   t,
+	})
 }
 
 func loginBeginHandler(w http.ResponseWriter, r *http.Request) {
@@ -313,7 +324,17 @@ func loginFinishHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
+	// Generate PASETO token
+	t, err := token.Generate(user.ID)
+	if err != nil {
+		http.Error(w, "failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
 	clearSession(w)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Login Success"))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Login Success",
+		"token":   t,
+	})
 }

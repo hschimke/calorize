@@ -1,3 +1,7 @@
+aidanwoods.dev/go-paseto/v2 v2.0.0-alpha1 h1:qELfA8vaYOWuIcXBU32LshBjKfCAQSIIX3oKt2/mdfg=
+aidanwoods.dev/go-paseto/v2 v2.0.0-alpha1/go.mod h1:6/zscb6v6k8jj2R2FfeloR1AMVONV43Jdb6aqaun+3E=
+aidanwoods.dev/go-result v0.1.0 h1:y/BMIRX6q3HwaorX1Wzrjo3WUdiYeyWbvGe18hKS3K8=
+aidanwoods.dev/go-result v0.1.0/go.mod h1:yridkWghM7AXSFA6wzx0IbsurIm1Lhuro3rYef8FBHM=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
