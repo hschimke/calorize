@@ -24,7 +24,7 @@ type User struct {
 
 // UserCredentials (WebAuthn)
 //
-//	id (Credential ID)
+//	id (Credential ID - WebAuthn raw bytes)
 //	user_id
 //	name (Device Name)
 //	public_key
@@ -36,7 +36,7 @@ type User struct {
 //	backup_state (Boolean)
 //	created_at
 //	last_used_at
-type UserCredentialID uuid.UUID
+type UserCredentialID []byte
 type UserCredential struct {
 	ID              UserCredentialID `json:"id"`
 	UserID          UserID           `json:"user_id"`

@@ -8,7 +8,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE user_credentials (
-    id TEXT PRIMARY KEY,
+    id BLOB PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     public_key BLOB NOT NULL,
