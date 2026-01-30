@@ -22,50 +22,105 @@ Recipes are just compound foods.
 Foods can be a single food or a compound food (a recipe) A meal is much like a recipe
 Meals are groups of calories had together (abstract from log)
 
-## Data Model
+## Data Model (Actual)
+
 Users
-    user id
+    id (UUID)
     name
-    email
-    enabled
+    email (Unique)
+    disabled_at (Nullable)
+    created_at
 
-UserAuth
-    user id
-    auth id
-    passkey data
-    added on
-    active
-    deleted on
+UserCredentials (WebAuthn)
+    id (Credential ID)
+    user_id
+    name (Device Name)
+    public_key
+    attestation_type
+    aaguid
+    sign_count
+    transports
+    backup_eligible (Boolean)
+    backup_state (Boolean)
+    created_at
+    last_used_at
 
-Foods
-    food id
-    food family id
-    version
-    isCurrentVersion (true/false)
+Sessions
+    id
+    user_id
+    token (Unique)
+    expires_at
+    created_at
+
+Foods (Versioned)
+    id (Version UUID)
+    family_id (UUID - links versions together)
+    version (Integer)
+    is_current (Boolean)
     name
     calories
     protein
     carbs
     fat
-    type (food, recipe)
-    measurement type (volume, weight, count)
-    measurement unit (ml, g, count)
-    measurement amount
-    deleted on
+    type (Enum: 'food', 'recipe')
+    measurement_unit (e.g. 'g', 'ml', 'serving')
+    measurement_amount (e.g. 100)
+    created_at
+    deleted_at
 
-Recipe
-    food parent id
-    food part id
+FoodNutrients (Micro-nutrients)
+    food_id
+    name (e.g. 'Vitamin C')
+    amount
+    unit (e.g. 'mg')
+
+RecipeItems (Join Table)
+    recipe_id (FK to foods.id)
+    ingredient_id (FK to foods.id)
     amount
 
-Food Log
-    log id
-    user id
-    meal [free text, breakfast, lunch, dinner, snack]
-    date+time
-    food id
+Logs
+    id
+    user_id
+    food_id (Specific version)
     amount
-    deleted on
-
+    meal_tag (String: 'breakfast', 'lunch', etc.)
+    logged_at (Date/Time)
+    created_at
+    deleted_at
 
 ## API
+
+### Auth
+- POST /auth/register/begin
+- POST /auth/register/finish
+- POST /auth/login/begin
+- POST /auth/login/finish
+
+### Foods
+- GET /foods
+    - Returns list of current versions
+- POST /foods
+    - Create new food/recipe
+    - Payload: { name, calories, protein, carbs, fat, type, measurement_unit, measurement_amount, nutrients: [], ingredients: {} }
+- GET /foods/{id}
+    - Returns details including sub-ingredients if recipe
+- PUT /foods/{id}
+    - Updates a food by creating a NEW Version
+    - Payload: Same as POST
+- DELETE /foods/{id}
+    - Soft delete
+
+### Logs
+- GET /logs
+    - Query Params: ?date=YYYY-MM-DD (Defaults to today)
+    - Returns logs for the day
+- POST /logs
+    - Create log entry
+    - Payload: { food_id, amount, meal_tag, logged_at (optional) }
+- DELETE /logs/{id}
+
+### Stats
+- GET /stats
+    - Query Params: ?period={day,week,month}&date=YYYY-MM-DD
+    - Returns aggregated macros and total calories
