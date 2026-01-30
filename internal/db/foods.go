@@ -1,5 +1,8 @@
 package db
 
+func GetFoods(userID UserID) ([]Food, error) {
+	panic("not implemented")
+}
 func GetFood(id FoodID) (*Food, error) {
 	panic("not implemented")
 }

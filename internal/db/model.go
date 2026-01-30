@@ -72,6 +72,7 @@ type FoodID uuid.UUID
 type FoodFamilyID uuid.UUID
 type Food struct {
 	ID                FoodID       `json:"id"`
+	CreatorID         UserID       `json:"creator_id"`
 	FamilyID          FoodFamilyID `json:"family_id"`
 	Version           int          `json:"version"`
 	IsCurrent         bool         `json:"is_current"`
@@ -123,13 +124,14 @@ type RecipeItems struct {
 //	logged_at (Date/Time)
 //	created_at
 //	deleted_at
+type FoodLogEntryID uuid.UUID
 type FoodLogEntry struct {
-	ID        string     `json:"id"`
-	UserID    UserID     `json:"user_id"`
-	FoodID    FoodID     `json:"food_id"`
-	Amount    float64    `json:"amount"`
-	MealTag   string     `json:"meal_tag"`
-	LoggedAt  time.Time  `json:"logged_at"`
-	CreatedAt time.Time  `json:"created_at"`
-	DeletedAt *time.Time `json:"deleted_at"`
+	ID        FoodLogEntryID `json:"id"`
+	UserID    UserID         `json:"user_id"`
+	FoodID    FoodID         `json:"food_id"`
+	Amount    float64        `json:"amount"`
+	MealTag   string         `json:"meal_tag"`
+	LoggedAt  time.Time      `json:"logged_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	DeletedAt *time.Time     `json:"deleted_at"`
 }

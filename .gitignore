@@ -32,4 +32,8 @@ go.work.sum
 # .vscode/
 
 # other
-calorize.db
+*.db
+
+#build artifacts
+*.bin
+main
