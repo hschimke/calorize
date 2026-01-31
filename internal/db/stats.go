@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type DailyStats struct {
+type RangeStats struct {
 	Date     string  `json:"date"` // YYYY-MM-DD
 	Calories float64 `json:"calories"`
 	Protein  float64 `json:"protein"`
@@ -13,11 +13,10 @@ type DailyStats struct {
 	Fat      float64 `json:"fat"`
 }
 
-func GetStats(userID UserID, period string, date time.Time) (interface{}, error) {
+func GetStats(userID UserID, period string, date time.Time) (RangeStats, error) {
 	// Calculate start and end times based on period
 	// We assume 'date' is in the user's timezone or meaningful to them.
 	// We'll treat it as UTC for DB comparison or rely on truncated strings if using SQLite functions.
-	// Since we used SQLite in other files, let's use SQLite string functions for safe dates or range queries.
 	//
 	// Recommended: Calculate range in Go, pass as parameters.
 	// Period: 'day', 'week', 'month'
@@ -44,7 +43,7 @@ func GetStats(userID UserID, period string, date time.Time) (interface{}, error)
 		start = time.Date(y, m, 1, 0, 0, 0, 0, date.Location())
 		end = start.AddDate(0, 1, 0) // Start of next month
 	default:
-		return nil, fmt.Errorf("invalid period: %s", period)
+		return RangeStats{}, fmt.Errorf("invalid period: %s", period)
 	}
 
 	query := `
@@ -61,12 +60,12 @@ func GetStats(userID UserID, period string, date time.Time) (interface{}, error)
 
 	row := db.QueryRow(query, userID, start, end)
 
-	var s DailyStats
+	var s RangeStats
 	// SQLite SUM returns NULL if no rows, scan might fail if not nullable pointers.
 	// Use sql.NullFloat64 or pointers.
 	var cal, prot, carb, fat *float64
 	if err := row.Scan(&cal, &prot, &carb, &fat); err != nil {
-		return nil, fmt.Errorf("scanning stats: %w", err)
+		return RangeStats{}, fmt.Errorf("scanning stats: %w", err)
 	}
 
 	if cal != nil {

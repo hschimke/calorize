@@ -61,10 +61,7 @@ func TestGetStats(t *testing.T) {
 		t.Fatalf("GetStats failed: %v", err)
 	}
 
-	stats, ok := res.(DailyStats)
-	if !ok {
-		t.Fatalf("Expected DailyStats, got %T", res)
-	}
+	stats := res
 
 	if stats.Calories != 250 {
 		t.Errorf("Expected 250 calories, got %f", stats.Calories)
@@ -85,7 +82,7 @@ func TestGetStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetStats(yesterday) failed: %v", err)
 	}
-	statsEmpty := resEmpty.(DailyStats)
+	statsEmpty := resEmpty
 	if statsEmpty.Calories != 0 {
 		t.Errorf("Expected 0 calories for yesterday, got %f", statsEmpty.Calories)
 	}

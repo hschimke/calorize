@@ -1,7 +1,6 @@
 package db
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
@@ -211,12 +210,5 @@ func TestRecipeLifecycle(t *testing.T) {
 	}
 	if len(versionsAfterDelete) != 0 {
 		t.Errorf("Expected 0 versions after delete, got %d", len(versionsAfterDelete))
-	}
-}
-
-// Helper to check deep equality if needed, but manual checks are fine.
-func deepEqual(t *testing.T, expected, actual interface{}) {
-	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("Expected %+v, got %+v", expected, actual)
 	}
 }
