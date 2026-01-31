@@ -67,7 +67,30 @@ func createFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	food, err := db.CreateFood(db.Food{CreatorID: r.Context().Value(auth.UserIDContextKey).(db.UserID), Name: req.Name, Calories: req.Calories, Protein: req.Protein, Carbs: req.Carbs, Fat: req.Fat, Type: req.Type, MeasurementUnit: req.MeasurementUnit, MeasurementAmount: req.MeasurementAmount})
+	var ingredients []db.RecipeItems
+	for id, amount := range req.Ingredients {
+		foodID, err := uuid.Parse(id)
+		if err != nil {
+			continue // or handle error
+		}
+		ingredients = append(ingredients, db.RecipeItems{
+			IngredientID: db.FoodID(foodID),
+			Amount:       amount,
+		})
+	}
+
+	food, err := db.CreateFood(db.Food{
+		CreatorID:         r.Context().Value(auth.UserIDContextKey).(db.UserID),
+		Name:              req.Name,
+		Calories:          req.Calories,
+		Protein:           req.Protein,
+		Carbs:             req.Carbs,
+		Fat:               req.Fat,
+		Type:              req.Type,
+		MeasurementUnit:   req.MeasurementUnit,
+		MeasurementAmount: req.MeasurementAmount,
+		Ingredients:       ingredients,
+	})
 	if err != nil {
 		http.Error(w, "Failed to create food", http.StatusInternalServerError)
 		return
@@ -102,7 +125,30 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	food, err := db.UpdateFood(db.FoodID(foodID), db.Food{CreatorID: r.Context().Value(auth.UserIDContextKey).(db.UserID), Name: req.Name, Calories: req.Calories, Protein: req.Protein, Carbs: req.Carbs, Fat: req.Fat, Type: req.Type, MeasurementUnit: req.MeasurementUnit, MeasurementAmount: req.MeasurementAmount})
+	var ingredients []db.RecipeItems
+	for id, amount := range req.Ingredients {
+		foodID, err := uuid.Parse(id)
+		if err != nil {
+			continue
+		}
+		ingredients = append(ingredients, db.RecipeItems{
+			IngredientID: db.FoodID(foodID),
+			Amount:       amount,
+		})
+	}
+
+	food, err := db.UpdateFood(db.FoodID(foodID), db.Food{
+		CreatorID:         r.Context().Value(auth.UserIDContextKey).(db.UserID),
+		Name:              req.Name,
+		Calories:          req.Calories,
+		Protein:           req.Protein,
+		Carbs:             req.Carbs,
+		Fat:               req.Fat,
+		Type:              req.Type,
+		MeasurementUnit:   req.MeasurementUnit,
+		MeasurementAmount: req.MeasurementAmount,
+		Ingredients:       ingredients,
+	})
 	if err != nil {
 		http.Error(w, "Failed to update food", http.StatusInternalServerError)
 		return
