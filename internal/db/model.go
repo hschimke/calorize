@@ -72,23 +72,24 @@ type UserCredential struct {
 type FoodID uuid.UUID
 type FoodFamilyID uuid.UUID
 type Food struct {
-	ID                FoodID        `json:"id"`
-	CreatorID         UserID        `json:"creator_id"`
-	FamilyID          FoodFamilyID  `json:"family_id"`
-	Version           int           `json:"version"`
-	IsCurrent         bool          `json:"is_current"`
-	Name              string        `json:"name"`
-	Calories          float64       `json:"calories"`
-	Protein           float64       `json:"protein"`
-	Carbs             float64       `json:"carbs"`
-	Fat               float64       `json:"fat"`
-	Type              string        `json:"type"`
-	MeasurementUnit   string        `json:"measurement_unit"`
-	MeasurementAmount float64       `json:"measurement_amount"`
-	Public            bool          `json:"public"`
-	Ingredients       []RecipeItems `json:"ingredients,omitempty"`
-	CreatedAt         time.Time     `json:"created_at"`
-	DeletedAt         *time.Time    `json:"deleted_at"`
+	ID                FoodID         `json:"id"`
+	CreatorID         UserID         `json:"creator_id"`
+	FamilyID          FoodFamilyID   `json:"family_id"`
+	Version           int            `json:"version"`
+	IsCurrent         bool           `json:"is_current"`
+	Name              string         `json:"name"`
+	Calories          float64        `json:"calories"`
+	Protein           float64        `json:"protein"`
+	Carbs             float64        `json:"carbs"`
+	Fat               float64        `json:"fat"`
+	Type              string         `json:"type"`
+	MeasurementUnit   string         `json:"measurement_unit"`
+	MeasurementAmount float64        `json:"measurement_amount"`
+	Public            bool           `json:"public"`
+	Ingredients       []RecipeItems  `json:"ingredients,omitempty"`
+	Nutrients         []FoodNutrient `json:"nutrients,omitempty"`
+	CreatedAt         time.Time      `json:"created_at"`
+	DeletedAt         *time.Time     `json:"deleted_at"`
 }
 
 // FoodNutrients (Micro-nutrients)
