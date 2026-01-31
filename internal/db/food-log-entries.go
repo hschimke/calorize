@@ -7,7 +7,7 @@ import (
 )
 
 func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
-	rows, err := db.Query("SELECT * FROM food_log_entries WHERE user_id = ? AND date = ?", userID, date)
+	rows, err := db.Query("SELECT * FROM food_log_entries WHERE user_id = ? AND date(logged_at) = date(?)", userID, date)
 	if err != nil {
 		return nil, err
 	}

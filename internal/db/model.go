@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -185,6 +186,68 @@ func (id FoodLogEntryID) Value() (driver.Value, error) { return uuid.UUID(id).Va
 func (id *FoodLogEntryID) Scan(src any) error {
 	var u uuid.UUID
 	if err := u.Scan(src); err != nil {
+		return err
+	}
+	*id = FoodLogEntryID(u)
+	return nil
+}
+
+// JSON Marshaling
+
+func (id UserID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(uuid.UUID(id))
+}
+func (id *UserID) UnmarshalJSON(data []byte) error {
+	var u uuid.UUID
+	if err := json.Unmarshal(data, &u); err != nil {
+		return err
+	}
+	*id = UserID(u)
+	return nil
+}
+
+func (id FoodID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(uuid.UUID(id))
+}
+func (id *FoodID) UnmarshalJSON(data []byte) error {
+	var u uuid.UUID
+	if err := json.Unmarshal(data, &u); err != nil {
+		return err
+	}
+	*id = FoodID(u)
+	return nil
+}
+
+func (id FoodFamilyID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(uuid.UUID(id))
+}
+func (id *FoodFamilyID) UnmarshalJSON(data []byte) error {
+	var u uuid.UUID
+	if err := json.Unmarshal(data, &u); err != nil {
+		return err
+	}
+	*id = FoodFamilyID(u)
+	return nil
+}
+
+func (id RecipeID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(uuid.UUID(id))
+}
+func (id *RecipeID) UnmarshalJSON(data []byte) error {
+	var u uuid.UUID
+	if err := json.Unmarshal(data, &u); err != nil {
+		return err
+	}
+	*id = RecipeID(u)
+	return nil
+}
+
+func (id FoodLogEntryID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(uuid.UUID(id))
+}
+func (id *FoodLogEntryID) UnmarshalJSON(data []byte) error {
+	var u uuid.UUID
+	if err := json.Unmarshal(data, &u); err != nil {
 		return err
 	}
 	*id = FoodLogEntryID(u)

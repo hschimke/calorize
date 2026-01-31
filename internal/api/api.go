@@ -12,6 +12,8 @@ import (
 
 func RegisterApiPaths(mux *http.ServeMux) {
 	RegisterLogsPaths(mux)
+	RegisterFoodsPaths(mux)
+	RegisterStatsPaths(mux)
 }
 
 // ### Foods
@@ -51,7 +53,7 @@ func RegisterFoodsPaths(mux *http.ServeMux) {
 }
 
 func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
-	foods, err := db.GetFoods(db.UserID(r.Context().Value(auth.UserIDContextKey).(uuid.UUID)))
+	foods, err := db.GetFoods(r.Context().Value(auth.UserIDContextKey).(db.UserID))
 	if err != nil {
 		http.Error(w, "Failed to get foods", http.StatusInternalServerError)
 		return
@@ -65,7 +67,12 @@ func createFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	db.CreateFood(db.Food{CreatorID: db.UserID(r.Context().Value(auth.UserIDContextKey).(uuid.UUID)), Name: req.Name, Calories: req.Calories, Protein: req.Protein, Carbs: req.Carbs, Fat: req.Fat, Type: req.Type, MeasurementUnit: req.MeasurementUnit, MeasurementAmount: req.MeasurementAmount})
+	food, err := db.CreateFood(db.Food{CreatorID: r.Context().Value(auth.UserIDContextKey).(db.UserID), Name: req.Name, Calories: req.Calories, Protein: req.Protein, Carbs: req.Carbs, Fat: req.Fat, Type: req.Type, MeasurementUnit: req.MeasurementUnit, MeasurementAmount: req.MeasurementAmount})
+	if err != nil {
+		http.Error(w, "Failed to create food", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(food)
 }
 
 func getFoodHandler(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +102,12 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	db.UpdateFood(db.FoodID(foodID), db.Food{CreatorID: db.UserID(r.Context().Value(auth.UserIDContextKey).(uuid.UUID)), Name: req.Name, Calories: req.Calories, Protein: req.Protein, Carbs: req.Carbs, Fat: req.Fat, Type: req.Type, MeasurementUnit: req.MeasurementUnit, MeasurementAmount: req.MeasurementAmount})
+	food, err := db.UpdateFood(db.FoodID(foodID), db.Food{CreatorID: r.Context().Value(auth.UserIDContextKey).(db.UserID), Name: req.Name, Calories: req.Calories, Protein: req.Protein, Carbs: req.Carbs, Fat: req.Fat, Type: req.Type, MeasurementUnit: req.MeasurementUnit, MeasurementAmount: req.MeasurementAmount})
+	if err != nil {
+		http.Error(w, "Failed to update food", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(food)
 }
 
 func deleteFoodHandler(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +130,7 @@ func RegisterStatsPaths(mux *http.ServeMux) {
 }
 
 func getStatsHandler(w http.ResponseWriter, r *http.Request) {
-	stats, err := db.GetStats(db.UserID(r.Context().Value(auth.UserIDContextKey).(uuid.UUID)), r.URL.Query().Get("period"), time.Now())
+	stats, err := db.GetStats(r.Context().Value(auth.UserIDContextKey).(db.UserID), r.URL.Query().Get("period"), time.Now())
 	if err != nil {
 		http.Error(w, "Failed to get stats", http.StatusInternalServerError)
 		return
@@ -142,7 +154,12 @@ func RegisterLogsPaths(mux *http.ServeMux) {
 }
 
 func getLogsHandler(w http.ResponseWriter, r *http.Request) {
-	db.GetFoodLogEntries(db.UserID(r.Context().Value(auth.UserIDContextKey).(uuid.UUID)), time.Now())
+	logs, err := db.GetFoodLogEntries(r.Context().Value(auth.UserIDContextKey).(db.UserID), time.Now())
+	if err != nil {
+		http.Error(w, "Failed to get logs", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(logs)
 }
 
 type createLogEntryRequest struct {
@@ -158,7 +175,12 @@ func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	db.CreateFoodLogEntry(db.FoodLogEntry{UserID: db.UserID(r.Context().Value(auth.UserIDContextKey).(uuid.UUID)), FoodID: req.FoodID, Amount: req.Amount, MealTag: req.MealTag, LoggedAt: req.LoggedAt})
+	entry, err := db.CreateFoodLogEntry(db.FoodLogEntry{UserID: r.Context().Value(auth.UserIDContextKey).(db.UserID), FoodID: req.FoodID, Amount: req.Amount, MealTag: req.MealTag, LoggedAt: req.LoggedAt})
+	if err != nil {
+		http.Error(w, "Failed to create log entry", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(entry)
 }
 
 func deleteLogEntryHandler(w http.ResponseWriter, r *http.Request) {
@@ -168,5 +190,5 @@ func deleteLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid log entry ID", http.StatusBadRequest)
 		return
 	}
-	db.DeleteFoodLogEntry(db.FoodLogEntryID(logEntryId), db.UserID(r.Context().Value(auth.UserIDContextKey).(uuid.UUID)))
+	db.DeleteFoodLogEntry(db.FoodLogEntryID(logEntryId), r.Context().Value(auth.UserIDContextKey).(db.UserID))
 }
