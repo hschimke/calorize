@@ -73,9 +73,9 @@ func TestRecipeLifecycle(t *testing.T) {
 		},
 	}
 
-	created, err := CreateRecipe(recipe)
+	created, err := CreateFood(recipe)
 	if err != nil {
-		t.Fatalf("CreateRecipe failed: %v", err)
+		t.Fatalf("CreateFood failed: %v", err)
 	}
 	if len(created.ID) == 0 {
 		t.Errorf("Created recipe ID is empty")
@@ -89,11 +89,14 @@ func TestRecipeLifecycle(t *testing.T) {
 	if created.Version != 1 {
 		t.Errorf("Expected version 1, got %d", created.Version)
 	}
+	if created.Type != "recipe" {
+		t.Errorf("Expected type 'recipe', got '%s'", created.Type)
+	}
 
 	// 2. Get Recipe
-	fetched, err := GetRecipe(RecipeID(created.ID))
+	fetched, err := GetFood(created.ID)
 	if err != nil {
-		t.Fatalf("GetRecipe failed: %v", err)
+		t.Fatalf("GetFood failed: %v", err)
 	}
 	if fetched.ID != created.ID {
 		t.Errorf("Fetched ID mismatch")
@@ -102,9 +105,6 @@ func TestRecipeLifecycle(t *testing.T) {
 		t.Errorf("Expected 2 ingredients, got %d", len(fetched.Ingredients))
 	}
 	if fetched.Ingredients[0].IngredientID != flour.ID {
-		// Ingredients order might not be guaranteed unless sorted.
-		// Let's just check existence if order fails, or assume insertion order (usually preserved in simple cases).
-		// For robustness, maybe check set equality.
 		foundFlour := false
 		for _, ing := range fetched.Ingredients {
 			if ing.IngredientID == flour.ID {
@@ -117,16 +117,21 @@ func TestRecipeLifecycle(t *testing.T) {
 		}
 	}
 
-	// 3. List Recipes
-	list, err := ListRecipes(user.ID)
+	// 3. List Recipes (GetFoods should return recipes now)
+	list, err := GetFoods(user.ID)
 	if err != nil {
-		t.Fatalf("ListRecipes failed: %v", err)
+		t.Fatalf("GetFoods failed: %v", err)
 	}
-	if len(list) != 1 {
-		t.Errorf("Expected 1 recipe, got %d", len(list))
+	// We might have the ingredients created earlier in the list too, so check if our recipe is there.
+	foundRecipe := false
+	for _, f := range list {
+		if f.ID == created.ID {
+			foundRecipe = true
+			break
+		}
 	}
-	if list[0].ID != created.ID {
-		t.Errorf("List ID mismatch")
+	if !foundRecipe {
+		t.Errorf("Recipe not found in GetFoods list")
 	}
 
 	// 4. Update Recipe
@@ -135,9 +140,9 @@ func TestRecipeLifecycle(t *testing.T) {
 	created.Ingredients = []RecipeItems{
 		{IngredientID: flour.ID, Amount: 600},
 	}
-	updated, err := UpdateRecipe(RecipeID(created.ID), *created)
+	updated, err := UpdateFood(created.ID, *created)
 	if err != nil {
-		t.Fatalf("UpdateRecipe failed: %v", err)
+		t.Fatalf("UpdateFood failed: %v", err)
 	}
 	if updated.ID == created.ID {
 		t.Errorf("Updated recipe should have new ID")
@@ -153,30 +158,37 @@ func TestRecipeLifecycle(t *testing.T) {
 	}
 
 	// Verify old version is not current
-	old, err := GetRecipe(RecipeID(created.ID))
+	old, err := GetFood(created.ID)
 	if err != nil {
-		t.Fatalf("GetRecipe (old) failed: %v", err)
+		t.Fatalf("GetFood (old) failed: %v", err)
 	}
 	if old.IsCurrent {
 		t.Errorf("Old version should not be current")
 	}
 
-	// Verify ListRecipes only shows current
-	listV2, err := ListRecipes(user.ID)
+	// Verify GetFoods only shows current
+	listV2, err := GetFoods(user.ID)
 	if err != nil {
-		t.Fatalf("ListRecipes (v2) failed: %v", err)
+		t.Fatalf("GetFoods (v2) failed: %v", err)
 	}
-	if len(listV2) != 1 {
-		t.Errorf("Expected 1 recipe, got %d", len(listV2))
+	foundUpdated := false
+	for _, f := range listV2 {
+		if f.ID == updated.ID {
+			foundUpdated = true
+			break
+		}
+		if f.ID == created.ID {
+			t.Errorf("Old version found in list")
+		}
 	}
-	if listV2[0].ID != updated.ID {
-		t.Errorf("List should verify updated version")
+	if !foundUpdated {
+		t.Errorf("Updated recipe not found in GetFoods list")
 	}
 
 	// 5. Get Versions
-	versions, err := GetRecipeVersions(RecipeID(updated.ID))
+	versions, err := GetFoodVersions(updated.ID)
 	if err != nil {
-		t.Fatalf("GetRecipeVersions failed: %v", err)
+		t.Fatalf("GetFoodVersions failed: %v", err)
 	}
 	if len(versions) != 2 {
 		t.Errorf("Expected 2 versions, got %d", len(versions))
@@ -189,24 +201,26 @@ func TestRecipeLifecycle(t *testing.T) {
 	}
 
 	// 6. Delete Recipe
-	err = DeleteRecipe(RecipeID(updated.ID))
+	err = DeleteFood(updated.ID)
 	if err != nil {
-		t.Fatalf("DeleteRecipe failed: %v", err)
+		t.Fatalf("DeleteFood failed: %v", err)
 	}
 
 	// Verify deletion
-	listAfterDelete, err := ListRecipes(user.ID)
+	listAfterDelete, err := GetFoods(user.ID)
 	if err != nil {
-		t.Fatalf("ListRecipes (after delete) failed: %v", err)
+		t.Fatalf("GetFoods (after delete) failed: %v", err)
 	}
-	if len(listAfterDelete) != 0 {
-		t.Errorf("Expected 0 recipes, got %d", len(listAfterDelete))
+	for _, f := range listAfterDelete {
+		if f.ID == updated.ID {
+			t.Errorf("Deleted recipe found in list")
+		}
 	}
 
 	// Verify versions are all deleted
-	versionsAfterDelete, err := GetRecipeVersions(RecipeID(updated.ID))
+	versionsAfterDelete, err := GetFoodVersions(updated.ID)
 	if err != nil {
-		t.Fatalf("GetRecipeVersions (after delete) failed: %v", err)
+		t.Fatalf("GetFoodVersions (after delete) failed: %v", err)
 	}
 	if len(versionsAfterDelete) != 0 {
 		t.Errorf("Expected 0 versions after delete, got %d", len(versionsAfterDelete))

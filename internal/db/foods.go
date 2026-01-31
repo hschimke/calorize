@@ -16,7 +16,7 @@ func GetFoods(userID UserID) ([]Food, error) {
 			calories, protein, carbs, fat, type, 
 			measurement_unit, measurement_amount, public, created_at, deleted_at 
 		FROM foods 
-		WHERE (creator_id = ? OR public = true) AND type = 'food' AND is_current = true AND deleted_at IS NULL
+		WHERE (creator_id = ? OR public = true) AND is_current = true AND deleted_at IS NULL
 	`
 	rows, err := db.Query(query, userID)
 	if err != nil {
@@ -42,12 +42,12 @@ func GetFoods(userID UserID) ([]Food, error) {
 
 func GetFood(id FoodID) (*Food, error) {
 	query := `
-		SELECT 
-			id, creator_id, family_id, version, is_current, name, 
-			calories, protein, carbs, fat, type, 
-			measurement_unit, measurement_amount, public, created_at, deleted_at 
-		FROM foods 
-		WHERE id = ? AND type = 'food'
+		SELECT
+			id, creator_id, family_id, version, is_current, name,
+			calories, protein, carbs, fat, type,
+			measurement_unit, measurement_amount, public, created_at, deleted_at
+		FROM foods
+		WHERE id = ?
 	`
 	row := db.QueryRow(query, id)
 
@@ -84,6 +84,26 @@ func GetFood(id FoodID) (*Food, error) {
 		f.Nutrients = append(f.Nutrients, n)
 	}
 
+	// Fetch ingredients
+	ingredientsQuery := `
+		SELECT recipe_id, ingredient_id, amount
+		FROM recipe_items
+		WHERE recipe_id = ?
+	`
+	iRows, err := db.Query(ingredientsQuery, f.ID)
+	if err != nil {
+		return nil, fmt.Errorf("getting food ingredients: %w", err)
+	}
+	defer iRows.Close()
+
+	for iRows.Next() {
+		var i RecipeItems
+		if err := iRows.Scan(&i.RecipeID, &i.IngredientID, &i.Amount); err != nil {
+			return nil, fmt.Errorf("scanning ingredient: %w", err)
+		}
+		f.Ingredients = append(f.Ingredients, i)
+	}
+
 	return &f, nil
 }
 
@@ -103,7 +123,7 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 			calories, protein, carbs, fat, type, 
 			measurement_unit, measurement_amount, public, created_at, deleted_at 
 		FROM foods 
-		WHERE family_id = ? AND type = 'food' AND deleted_at IS NULL
+		WHERE family_id = ? AND deleted_at IS NULL
 		ORDER BY version DESC
 	`
 	rows, err := db.Query(query, familyID)
@@ -129,7 +149,11 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 }
 
 func CreateFood(food Food) (*Food, error) {
-	food.Type = "food" // Enforce type
+	if len(food.Ingredients) > 0 {
+		food.Type = "recipe"
+	} else if food.Type == "" {
+		food.Type = "food"
+	}
 	if food.ID == FoodID(uuid.Nil) {
 		id, err := uuid.NewV7()
 		if err != nil {
@@ -181,6 +205,21 @@ func CreateFood(food Food) (*Food, error) {
 		}
 	}
 
+	// Insert ingredients
+	if len(food.Ingredients) > 0 {
+		istmt, err := tx.Prepare("INSERT INTO recipe_items (recipe_id, ingredient_id, amount) VALUES (?, ?, ?)")
+		if err != nil {
+			return nil, fmt.Errorf("preparing ingredients stmt: %w", err)
+		}
+		defer istmt.Close()
+
+		for _, i := range food.Ingredients {
+			if _, err := istmt.Exec(food.ID, i.IngredientID, i.Amount); err != nil {
+				return nil, fmt.Errorf("inserting ingredient: %w", err)
+			}
+		}
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("committing food: %w", err)
 	}
@@ -205,7 +244,11 @@ func UpdateFood(id FoodID, food Food) (*Food, error) {
 	food.FamilyID = current.FamilyID
 	food.Version = current.Version + 1
 	food.IsCurrent = true
-	food.Type = "food"
+	if len(food.Ingredients) > 0 {
+		food.Type = "recipe"
+	} else if food.Type == "" {
+		food.Type = "food"
+	}
 	if food.CreatedAt.IsZero() {
 		food.CreatedAt = time.Now()
 	}
@@ -250,6 +293,21 @@ func UpdateFood(id FoodID, food Food) (*Food, error) {
 	for _, n := range food.Nutrients {
 		if _, err := stmt.Exec(food.ID, n.Name, n.Amount, n.Unit); err != nil {
 			return nil, fmt.Errorf("inserting nutrient: %w", err)
+		}
+	}
+
+	// Insert ingredients
+	if len(food.Ingredients) > 0 {
+		istmt, err := tx.Prepare("INSERT INTO recipe_items (recipe_id, ingredient_id, amount) VALUES (?, ?, ?)")
+		if err != nil {
+			return nil, fmt.Errorf("preparing ingredients stmt: %w", err)
+		}
+		defer istmt.Close()
+
+		for _, i := range food.Ingredients {
+			if _, err := istmt.Exec(food.ID, i.IngredientID, i.Amount); err != nil {
+				return nil, fmt.Errorf("inserting ingredient: %w", err)
+			}
 		}
 	}
 
