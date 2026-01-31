@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"time"
 
 	"azule.info/calorize/internal/api"
 	"azule.info/calorize/internal/auth"
+	"azule.info/calorize/internal/middleware"
 )
 
 func main() {
@@ -25,34 +25,20 @@ func main() {
 	auth.RegisterAuthPaths(mux)
 	api.RegisterApiPaths(mux)
 
-	mux.Handle("GET /hello/{name}", loggingMiddleware(http.HandlerFunc(helloHandler)))
+	mux.Handle("GET /hello/{name}", http.HandlerFunc(helloHandler))
+
+	// Wrap the entire mux with the logging middleware
+	finalHandler := middleware.Logger(mux)
 
 	// 4. Start the server
 	serverAddr := ":8080"
 	slog.Info("server starting", "addr", serverAddr)
 
-	err := http.ListenAndServe(serverAddr, mux)
+	err := http.ListenAndServe(serverAddr, finalHandler)
 	if err != nil {
 		slog.Error("server failed", "error", err)
 		os.Exit(1)
 	}
-}
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		// Move to the next handler
-		next.ServeHTTP(w, r.WithContext(r.Context()))
-
-		// Log the completion of the request
-		slog.Info("request processed",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"duration", time.Since(start),
-			"remote_addr", r.RemoteAddr,
-		)
-	})
 }
 
 // --- Handler ---
