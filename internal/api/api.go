@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -9,6 +11,18 @@ import (
 	"azule.info/calorize/internal/db"
 	"github.com/google/uuid"
 )
+
+func getUserID(r *http.Request) (db.UserID, error) {
+	v := r.Context().Value(auth.UserIDContextKey)
+	if v == nil {
+		return db.UserID(uuid.Nil), fmt.Errorf("no user id in context")
+	}
+	uid, ok := v.(db.UserID)
+	if !ok {
+		return db.UserID(uuid.Nil), fmt.Errorf("invalid user id type in context")
+	}
+	return uid, nil
+}
 
 func RegisterApiPaths(mux *http.ServeMux) {
 	RegisterLogsPaths(mux)
@@ -53,11 +67,17 @@ func RegisterFoodsPaths(mux *http.ServeMux) {
 }
 
 func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
-	foods, err := db.GetFoods(r.Context().Value(auth.UserIDContextKey).(db.UserID))
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	foods, err := db.GetFoods(userID)
 	if err != nil {
 		http.Error(w, "Failed to get foods", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(foods)
 }
 
@@ -79,8 +99,13 @@ func createFoodHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	food, err := db.CreateFood(db.Food{
-		CreatorID:         r.Context().Value(auth.UserIDContextKey).(db.UserID),
+		CreatorID:         userID,
 		Name:              req.Name,
 		Calories:          req.Calories,
 		Protein:           req.Protein,
@@ -95,6 +120,7 @@ func createFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create food", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(food)
 }
 
@@ -110,6 +136,11 @@ func getFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to get food", http.StatusInternalServerError)
 		return
 	}
+	if food == nil {
+		http.Error(w, "Food not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(food)
 }
 
@@ -137,8 +168,13 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	food, err := db.UpdateFood(db.FoodID(foodID), db.Food{
-		CreatorID:         r.Context().Value(auth.UserIDContextKey).(db.UserID),
+		CreatorID:         userID,
 		Name:              req.Name,
 		Calories:          req.Calories,
 		Protein:           req.Protein,
@@ -153,6 +189,7 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to update food", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(food)
 }
 
@@ -163,7 +200,12 @@ func deleteFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid food ID", http.StatusBadRequest)
 		return
 	}
-	db.DeleteFood(db.FoodID(foodID))
+	if err := db.DeleteFood(db.FoodID(foodID)); err != nil {
+		slog.Error("failed to delete food", "error", err, "id", foodID)
+		http.Error(w, "Failed to delete food", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ### Stats
@@ -176,11 +218,27 @@ func RegisterStatsPaths(mux *http.ServeMux) {
 }
 
 func getStatsHandler(w http.ResponseWriter, r *http.Request) {
-	stats, err := db.GetStats(r.Context().Value(auth.UserIDContextKey).(db.UserID), r.URL.Query().Get("period"), time.Now())
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	dateStr := r.URL.Query().Get("date")
+	date := time.Now()
+	if dateStr != "" {
+		parsed, err := time.Parse("2006-01-02", dateStr)
+		if err == nil {
+			date = parsed
+		}
+	}
+
+	stats, err := db.GetStats(userID, r.URL.Query().Get("period"), date)
 	if err != nil {
 		http.Error(w, "Failed to get stats", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
 }
 
@@ -200,11 +258,17 @@ func RegisterLogsPaths(mux *http.ServeMux) {
 }
 
 func getLogsHandler(w http.ResponseWriter, r *http.Request) {
-	logs, err := db.GetFoodLogEntries(r.Context().Value(auth.UserIDContextKey).(db.UserID), time.Now())
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	logs, err := db.GetFoodLogEntries(userID, time.Now())
 	if err != nil {
 		http.Error(w, "Failed to get logs", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(logs)
 }
 
@@ -221,11 +285,17 @@ func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	entry, err := db.CreateFoodLogEntry(db.FoodLogEntry{UserID: r.Context().Value(auth.UserIDContextKey).(db.UserID), FoodID: req.FoodID, Amount: req.Amount, MealTag: req.MealTag, LoggedAt: req.LoggedAt})
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	entry, err := db.CreateFoodLogEntry(db.FoodLogEntry{UserID: userID, FoodID: req.FoodID, Amount: req.Amount, MealTag: req.MealTag, LoggedAt: req.LoggedAt})
 	if err != nil {
 		http.Error(w, "Failed to create log entry", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(entry)
 }
 
@@ -236,5 +306,15 @@ func deleteLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid log entry ID", http.StatusBadRequest)
 		return
 	}
-	db.DeleteFoodLogEntry(db.FoodLogEntryID(logEntryId), r.Context().Value(auth.UserIDContextKey).(db.UserID))
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if err := db.DeleteFoodLogEntry(db.FoodLogEntryID(logEntryId), userID); err != nil {
+		slog.Error("failed to delete log entry", "error", err, "id", logEntryId)
+		http.Error(w, "Failed to delete log entry", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

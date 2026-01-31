@@ -61,18 +61,26 @@ func main() {
 	mux.Handle("GET /hello/{name}", http.HandlerFunc(helloHandler))
 
 	// Middleware
-	devAuthMiddleware := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := context.WithValue(r.Context(), auth.UserIDContextKey, devUserID)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+	var finalHandler http.Handler
+	if os.Getenv("DEV_AUTH") == "true" {
+		slog.Warn("DEV_AUTH enabled - using insecure dev user authentication")
+		devAuthMiddleware := func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ctx := context.WithValue(r.Context(), auth.UserIDContextKey, devUserID)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			})
+		}
+		finalHandler = middleware.Logger(devAuthMiddleware(mux))
+	} else {
+		finalHandler = middleware.Logger(middleware.RequireAuth(mux))
 	}
 
-	// Wrap the entire mux with the logging and dev auth middleware
-	finalHandler := middleware.Logger(devAuthMiddleware(mux))
-
 	// 4. Start the server
-	serverAddr := ":8080"
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	serverAddr := ":" + port
 	slog.Info("server starting", "addr", serverAddr)
 
 	err = http.ListenAndServe(serverAddr, finalHandler)

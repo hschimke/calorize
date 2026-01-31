@@ -1,6 +1,9 @@
 package token
 
 import (
+	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	paseto "aidanwoods.dev/go-paseto/v2"
@@ -11,8 +14,20 @@ import (
 var secretKey paseto.V4SymmetricKey
 
 func init() {
-	// TODO: Load from environment variable in production
-	secretKey = paseto.NewV4SymmetricKey()
+	keyHex := os.Getenv("PASETO_SECRET_KEY")
+	if keyHex == "" {
+		// Default dev key for local development convenience - DO NOT USE IN PRODUCTION
+		// This ensures existing dev workflows don't break immediately
+		slog.Warn("PASETO_SECRET_KEY not set - using insecure dev key")
+		// Hardcoded "random" hex string for dev
+		keyHex = "MANATEES ARE GREAT__AND You know it or YOU ARE A LIAR!!!!!!!!!!!"
+	}
+
+	var err error
+	secretKey, err = paseto.V4SymmetricKeyFromHex(keyHex)
+	if err != nil {
+		panic(fmt.Errorf("invalid PASETO_SECRET_KEY hex: %w", err))
+	}
 }
 
 // Generate creates a new PASETO v4 local token for the given user

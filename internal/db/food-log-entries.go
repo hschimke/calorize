@@ -1,15 +1,21 @@
 package db
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
-	rows, err := db.Query("SELECT * FROM food_log_entries WHERE user_id = ? AND date(logged_at) = date(?)", userID, date)
+	query := `
+		SELECT id, user_id, food_id, amount, meal_tag, logged_at, created_at, deleted_at 
+		FROM food_log_entries 
+		WHERE user_id = ? AND date(logged_at) = date(?) AND deleted_at IS NULL
+	`
+	rows, err := db.Query(query, userID, date)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing food log entries: %w", err)
 	}
 	defer rows.Close()
 
@@ -17,7 +23,7 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 	for rows.Next() {
 		var entry FoodLogEntry
 		if err := rows.Scan(&entry.ID, &entry.UserID, &entry.FoodID, &entry.Amount, &entry.MealTag, &entry.LoggedAt, &entry.CreatedAt, &entry.DeletedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scanning food log entry: %w", err)
 		}
 		entries = append(entries, entry)
 	}

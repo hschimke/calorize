@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"azule.info/calorize/internal/auth/token"
@@ -12,7 +14,9 @@ import (
 	"github.com/google/uuid"
 )
 
-const UserIDContextKey = "user_id"
+type contextKey string
+
+const UserIDContextKey = contextKey("user_id")
 const SessionCookieName = "reg_session"
 const AppSessionCookieName = "session_id"
 
@@ -22,12 +26,26 @@ var (
 
 func RegisterAuthPaths(mux *http.ServeMux) {
 	var err error
-	// Change details to match your environment
-	// In production these should come from config
+
+	rpDisplayName := os.Getenv("WEBAUTHN_RP_DISPLAY_NAME")
+	if rpDisplayName == "" {
+		rpDisplayName = "Calorize"
+	}
+
+	rpID := os.Getenv("WEBAUTHN_RP_ID")
+	if rpID == "" {
+		rpID = "calorize.test"
+	}
+
+	rpOrigins := []string{"https://calorize.test"}
+	if origins := os.Getenv("WEBAUTHN_RP_ORIGINS"); origins != "" {
+		rpOrigins = strings.Split(origins, ",")
+	}
+
 	wconfig := &webauthn.Config{
-		RPDisplayName: "Calorize",                        // Display Name
-		RPID:          "calorize.test",                   // ID - origin domain without port/protocol
-		RPOrigins:     []string{"https://calorize.test"}, // Allowed origins
+		RPDisplayName: rpDisplayName,
+		RPID:          rpID,
+		RPOrigins:     rpOrigins,
 	}
 
 	WebAuthn, err = webauthn.New(wconfig)
@@ -122,29 +140,20 @@ func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var wUser WebAuthnUser
-	if user != nil {
-		// Existing user
-		wUser = WebAuthnUser{User: user}
-	} else {
-		// New user - transient for registration ceremony
-		// We could create the user now or wait until finish.
-		// Standard flow often creates it now.
-		// Let's create a transient representation for `BeginRegistration`
-		// But `BeginRegistration` needs to know if user exists to exclude credentials if needed?
-		// Actually, if we want to register a NEW user, we need a unique ID.
-		newID, err := uuid.NewV7()
-		if err != nil {
-			http.Error(w, "failed to generate user id", http.StatusInternalServerError)
-			return
-		}
-		transientUser := db.User{
-			ID:        db.UserID(newID),
+	if user == nil {
+		// Create the user immediately
+		newUser := db.User{
 			Name:      username,
 			CreatedAt: time.Now(),
 		}
-		wUser = WebAuthnUser{User: &transientUser}
+		user, err = db.CreateUser(newUser)
+		if err != nil {
+			http.Error(w, "failed to create user", http.StatusInternalServerError)
+			return
+		}
 	}
+
+	wUser := WebAuthnUser{User: user}
 
 	options, sessionData, err := WebAuthn.BeginRegistration(&wUser)
 	if err != nil {

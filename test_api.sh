@@ -3,7 +3,7 @@
 
 set -e
 
-BASE_URL="http://localhost:8080"
+BASE_URL="${BASE_URL:-http://localhost:8080}"
 echo "Targeting $BASE_URL"
 
 # Check if jq is installed
@@ -205,8 +205,8 @@ fi
 echo "Non-existent UUID for Get Food..."
 RANDOM_UUID="00000000-0000-0000-0000-000000000000"
 NOT_FOUND_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/foods/$RANDOM_UUID")
-if [ "$NOT_FOUND_CODE" == "200" ]; then
-    echo "✅ Non-existent UUID returns 200 (null body)"
+if [ "$NOT_FOUND_CODE" == "404" ]; then
+    echo "✅ Non-existent UUID returns 404"
 else
     echo "❌ Unexpected code for non-existent UUID: $NOT_FOUND_CODE"
 fi
