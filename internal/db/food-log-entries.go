@@ -30,8 +30,12 @@ func CreateFoodLogEntry(entry FoodLogEntry) (*FoodLogEntry, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec("INSERT INTO food_log_entries (user_id, food_id, amount, meal_tag, logged_at) VALUES (?, ?, ?, ?, ?, ?)",
-		newID, entry.UserID, entry.FoodID, entry.Amount, entry.MealTag, entry.LoggedAt)
+	if entry.CreatedAt.IsZero() {
+		entry.CreatedAt = time.Now()
+	}
+
+	_, err = db.Exec("INSERT INTO food_log_entries (id, user_id, food_id, amount, meal_tag, logged_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		newID, entry.UserID, entry.FoodID, entry.Amount, entry.MealTag, entry.LoggedAt, entry.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
