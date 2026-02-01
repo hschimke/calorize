@@ -62,7 +62,7 @@ func UpdateFoodLogEntry(entry FoodLogEntry) (*FoodLogEntry, error) {
 }
 
 func DeleteFoodLogEntry(id FoodLogEntryID, userID UserID) error {
-	_, err := db.Exec("DELETE FROM food_log_entries WHERE id = ? AND user_id = ?", id, userID)
+	_, err := db.Exec("UPDATE food_log_entries SET deleted_at = ? WHERE id = ? AND user_id = ?", time.Now(), id, userID)
 	if err != nil {
 		return err
 	}

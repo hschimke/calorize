@@ -25,6 +25,10 @@ func init() {
 		panic(err)
 	}
 
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(0)
+
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		slog.Error("failed to set dialect", "error", err)
 		panic(err)

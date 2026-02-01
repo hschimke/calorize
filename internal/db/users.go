@@ -71,11 +71,11 @@ func UpdateUser(user User) (*User, error) {
 	return &user, nil
 }
 
-func DeleteUser(user User) error {
-	query := `DELETE FROM users WHERE id = ?`
-	_, err := db.Exec(query, user.ID)
+func DisableUser(user User) error {
+	query := `UPDATE users SET disabled_at = ? WHERE id = ?`
+	_, err := db.Exec(query, time.Now(), user.ID)
 	if err != nil {
-		return fmt.Errorf("deleting user: %w", err)
+		return fmt.Errorf("disabling user: %w", err)
 	}
 	return nil
 }
