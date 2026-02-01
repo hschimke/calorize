@@ -14,17 +14,17 @@ import (
 var secretKey paseto.V4SymmetricKey
 
 func init() {
-	keyHex := os.Getenv("PASETO_SECRET_KEY")
-	if keyHex == "" {
+	keyBytes := os.Getenv("PASETO_SECRET_KEY")
+	if keyBytes == "" {
 		// Default dev key for local development convenience - DO NOT USE IN PRODUCTION
 		// This ensures existing dev workflows don't break immediately
 		slog.Warn("PASETO_SECRET_KEY not set - using insecure dev key")
 		// Hardcoded "random" hex string for dev
-		keyHex = "MANATEES ARE GREAT__AND You know it or YOU ARE A LIAR!!!!!!!!!!!"
+		keyBytes = "매너티는 최고다 진실!!!"
 	}
 
 	var err error
-	secretKey, err = paseto.V4SymmetricKeyFromHex(keyHex)
+	secretKey, err = paseto.V4SymmetricKeyFromBytes([]byte(keyBytes))
 	if err != nil {
 		panic(fmt.Errorf("invalid PASETO_SECRET_KEY hex: %w", err))
 	}
