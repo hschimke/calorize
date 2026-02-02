@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { set_login } from "./auth.js";
 
 function main() {
     const login_form = document.getElementById("login-form");
@@ -21,13 +22,13 @@ function main() {
 async function login(username) {
     console.log(username);
     const response = await api.login(username);
-    console.log(response);
+    set_login(response);
 }
 
 async function register(username, email) {
     console.log(username, email);
     const response = await api.register(username, email);
-    console.log(response);
+    set_login(response);
 }
 
 main();

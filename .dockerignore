@@ -1,0 +1,10 @@
+.git
+.gitignore
+bin/
+tmp/
+*.db
+*.test
+node_modules/
+.DS_Store
+.idea/
+.vscode/
