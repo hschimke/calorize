@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -84,9 +85,10 @@ func RegisterAuthPaths(mux *http.ServeMux) {
 // Session storage helper
 func saveSession(w http.ResponseWriter, data *webauthn.SessionData) {
 	marshaled, _ := json.Marshal(data)
+	encoded := base64.StdEncoding.EncodeToString(marshaled)
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
-		Value:    string(marshaled),
+		Value:    encoded,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,
@@ -99,8 +101,14 @@ func loadSession(r *http.Request) (*webauthn.SessionData, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	decoded, err := base64.StdEncoding.DecodeString(c.Value)
+	if err != nil {
+		return nil, err
+	}
+
 	var data webauthn.SessionData
-	if err := json.Unmarshal([]byte(c.Value), &data); err != nil {
+	if err := json.Unmarshal(decoded, &data); err != nil {
 		return nil, err
 	}
 	return &data, nil
@@ -122,6 +130,8 @@ func clearSession(w http.ResponseWriter) {
 
 func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
+	user_email := r.URL.Query().Get("user_email")
+
 	if username == "" {
 		// Try form body
 		if err := r.ParseForm(); err == nil {
@@ -139,18 +149,21 @@ func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "database error", http.StatusInternalServerError)
 		return
 	}
+	if user != nil {
+		http.Error(w, "user already exists", http.StatusBadRequest)
+		return
+	}
 
-	if user == nil {
-		// Create the user immediately
-		newUser := db.User{
-			Name:      username,
-			CreatedAt: time.Now(),
-		}
-		user, err = db.CreateUser(newUser)
-		if err != nil {
-			http.Error(w, "failed to create user", http.StatusInternalServerError)
-			return
-		}
+	// Create the user immediately
+	newUser := db.User{
+		Name:      username,
+		Email:     user_email,
+		CreatedAt: time.Now(),
+	}
+	user, err = db.CreateUser(newUser)
+	if err != nil {
+		http.Error(w, "failed to create user", http.StatusInternalServerError)
+		return
 	}
 
 	wUser := WebAuthnUser{User: user}
@@ -199,11 +212,18 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user.ID != db.UserID(sessionData.UserID) {
+		http.Error(w, "user id mismatch", http.StatusBadRequest)
+		db.DeleteTemporaryUser(*user)
+		return
+	}
+
 	wUser := WebAuthnUser{User: user}
 
 	credential, err := WebAuthn.FinishRegistration(&wUser, *sessionData, r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("finish registration failed: %v", err), http.StatusInternalServerError)
+		db.DeleteTemporaryUser(*user)
 		return
 	}
 
@@ -222,6 +242,7 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 		LastUsedAt:      time.Now(),
 	}); err != nil {
 		http.Error(w, "failed to save credential", http.StatusInternalServerError)
+		db.DeleteTemporaryUser(*user)
 		return
 	}
 

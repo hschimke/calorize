@@ -80,6 +80,15 @@ func DisableUser(user User) error {
 	return nil
 }
 
+func DeleteTemporaryUser(user User) error {
+	query := `DELETE FROM users WHERE id = ?`
+	_, err := db.Exec(query, user.ID)
+	if err != nil {
+		return fmt.Errorf("deleting user: %w", err)
+	}
+	return nil
+}
+
 // User Auth functions
 func AddUserCredential(user User, auth UserCredential) error {
 	if len(auth.ID) == 0 {

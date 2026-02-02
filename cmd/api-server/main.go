@@ -55,13 +55,16 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	auth.RegisterAuthPaths(mux)
-	api.RegisterApiPaths(mux)
-
+	// Public Routes
+	auth.RegisterAuthPaths(mux) // Auth endpoints must be public
 	mux.Handle("GET /hello/{name}", http.HandlerFunc(helloHandler))
 
-	// Middleware
-	var finalHandler http.Handler
+	// Protected Routes (API)
+	apiMux := http.NewServeMux()
+	api.RegisterApiPaths(apiMux)
+
+	// Middleware wrapping for protected routes
+	var protectedHandler http.Handler
 	if os.Getenv("DEV_AUTH") == "true" {
 		slog.Warn("DEV_AUTH enabled - using insecure dev user authentication")
 		devAuthMiddleware := func(next http.Handler) http.Handler {
@@ -70,10 +73,20 @@ func main() {
 				next.ServeHTTP(w, r.WithContext(ctx))
 			})
 		}
-		finalHandler = middleware.Logger(devAuthMiddleware(mux))
+		// Apply dev auth to apiMux
+		protectedHandler = devAuthMiddleware(apiMux)
 	} else {
-		finalHandler = middleware.Logger(middleware.RequireAuth(mux))
+		// Apply real auth to apiMux
+		protectedHandler = middleware.RequireAuth(apiMux)
 	}
+
+	// Mount protected handler at root "/" to catch all non-matched routes
+	// Note: Since we registered specific paths on 'mux' above, those will take precedence.
+	// Any other path will fall through to "/" which we handle with our protected mux.
+	mux.Handle("/", protectedHandler)
+
+	// Global Middleware (Logger) - wraps everything
+	finalHandler := middleware.Logger(mux)
 
 	// 4. Start the server
 	port := os.Getenv("PORT")

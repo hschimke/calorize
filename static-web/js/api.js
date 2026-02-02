@@ -84,14 +84,15 @@ export class API {
         return bytes.buffer;
     }
 
-    async register(username) {
+    async register(username, user_email) {
         // 1. Begin Registration
         // Note: The server expects query param for username in begin
-        const options = await this.request(`/auth/register/begin?username=${encodeURIComponent(username)}`, 'POST');
+        const options = await this.request(`/auth/register/begin?username=${encodeURIComponent(username)}&user_email=${encodeURIComponent(user_email)}`, 'POST');
 
         // Decode challenge and user.id
-        options.challenge = this.base64URLToBuffer(options.publicKey.challenge);
-        options.user.id = this.base64URLToBuffer(options.publicKey.user.id);
+        options.publicKey.challenge = this.base64URLToBuffer(options.publicKey.challenge);
+        options.publicKey.user.id = this.base64URLToBuffer(options.publicKey.user.id);
+
         if (options.publicKey.excludeCredentials) {
             for (let cred of options.publicKey.excludeCredentials) {
                 cred.id = this.base64URLToBuffer(cred.id);
@@ -123,7 +124,7 @@ export class API {
         const options = await this.request(`/auth/login/begin?username=${encodeURIComponent(username)}`, 'POST');
 
         // Decode challenge
-        options.challenge = this.base64URLToBuffer(options.publicKey.challenge);
+        options.publicKey.challenge = this.base64URLToBuffer(options.publicKey.challenge);
         if (options.publicKey.allowCredentials) {
             for (let cred of options.publicKey.allowCredentials) {
                 cred.id = this.base64URLToBuffer(cred.id);
