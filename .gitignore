@@ -37,3 +37,4 @@ go.work.sum
 #build artifacts
 *.bin
 main
+.DS_Store
