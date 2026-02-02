@@ -26,6 +26,21 @@ func GetUser(userName string) (*User, error) {
 	return &user, nil
 }
 
+func GetUserByEmail(email string) (*User, error) {
+	query := `SELECT id, name, email, disabled_at, created_at FROM users WHERE email = ?`
+	row := db.QueryRow(query, email)
+
+	var user User
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // Return nil if user not found, typical pattern or could return error
+		}
+		return nil, fmt.Errorf("getting user: %w", err)
+	}
+	return &user, nil
+}
+
 func GetUserByID(id UserID) (*User, error) {
 	query := `SELECT id, name, email, disabled_at, created_at FROM users WHERE id = ?`
 	row := db.QueryRow(query, id)

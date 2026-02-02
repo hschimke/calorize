@@ -283,10 +283,15 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 func loginBeginHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
 	// Retrieve user by name
-	user, err := db.GetUser(username)
-	if err != nil {
-		http.Error(w, "user not found", http.StatusBadRequest)
-		return
+	var user *db.User
+	var err error
+	user, err = db.GetUser(username)
+	if err != nil || user == nil {
+		user, err = db.GetUserByEmail(username)
+		if err != nil || user == nil {
+			http.Error(w, "user not found", http.StatusBadRequest)
+			return
+		}
 	}
 
 	wUser := WebAuthnUser{User: user}
@@ -310,13 +315,7 @@ func loginFinishHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retrieve user by ID from sessionData
-	// We need `GetUserByID`. For now I assume username passed or...
-	// In login finish, we trust the `sessionData.UserID`?
-	// We must find the user to pass to `FinishLogin`.
-	// I really need `GetUserByID`.
-	// I will fetch by username from query as workaround until I add GetUserByID.
-	username := r.URL.Query().Get("username")
-	user, err := db.GetUser(username)
+	user, err := db.GetUserByID(db.UserID(sessionData.UserID))
 	if err != nil || user == nil {
 		http.Error(w, "user not found", http.StatusBadRequest)
 		return
