@@ -189,6 +189,14 @@ export class API {
         return await this.request(url);
     }
 
+    /**
+     * Create a log entry.
+     * @param {Object} logData - Log entry data.
+     * @param {string} [logData.food_id] - UUID of the food (optional if calories provided).
+     * @param {number} [logData.calories] - Quick add calories (required if food_id is null).
+     * @param {number} logData.amount - Amount (multiplier).
+     * @param {string} logData.meal_tag - Meal tag (e.g. 'breakfast').
+     */
     async createLog(logData) {
         return await this.request('/logs', 'POST', logData);
     }

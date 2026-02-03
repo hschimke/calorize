@@ -13,7 +13,7 @@ func createTestLogEntry(t *testing.T, user *User, food *Food, amount float64, lo
 
 	entry := FoodLogEntry{
 		UserID:   user.ID,
-		FoodID:   food.ID,
+		FoodID:   &food.ID,
 		Amount:   amount,
 		MealTag:  "breakfast",
 		LoggedAt: logTime,

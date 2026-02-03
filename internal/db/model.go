@@ -132,7 +132,8 @@ type FoodLogEntryID uuid.UUID
 type FoodLogEntry struct {
 	ID        FoodLogEntryID `json:"id"`
 	UserID    UserID         `json:"user_id"`
-	FoodID    FoodID         `json:"food_id"`
+	FoodID    *FoodID        `json:"food_id"`
+	Calories  *float64       `json:"calories"` // Nullable, used when FoodID is nil
 	Amount    float64        `json:"amount"`
 	MealTag   string         `json:"meal_tag"`
 	LoggedAt  time.Time      `json:"logged_at"`

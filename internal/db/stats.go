@@ -48,12 +48,12 @@ func GetStats(userID UserID, period string, date time.Time) (RangeStats, error) 
 
 	query := `
 		SELECT 
-			SUM((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.calories) as calories,
-			SUM((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.protein) as protein,
-			SUM((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.carbs) as carbs,
-			SUM((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.fat) as fat
+			SUM(COALESCE((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.calories, le.calories, 0)) as calories,
+			SUM(COALESCE((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.protein, 0)) as protein,
+			SUM(COALESCE((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.carbs, 0)) as carbs,
+			SUM(COALESCE((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.fat, 0)) as fat
 		FROM food_log_entries le
-		JOIN foods f ON le.food_id = f.id
+		LEFT JOIN foods f ON le.food_id = f.id
 		WHERE le.user_id = ? AND le.logged_at >= ? AND le.logged_at < ?
 		AND le.deleted_at IS NULL
 	`

@@ -273,10 +273,11 @@ func getLogsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type createLogEntryRequest struct {
-	FoodID   db.FoodID `json:"food_id"`
-	Amount   float64   `json:"amount"`
-	MealTag  string    `json:"meal_tag"`
-	LoggedAt time.Time `json:"logged_at"`
+	FoodID   *db.FoodID `json:"food_id"`
+	Calories *float64   `json:"calories"`
+	Amount   float64    `json:"amount"`
+	MealTag  string     `json:"meal_tag"`
+	LoggedAt time.Time  `json:"logged_at"`
 }
 
 func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
@@ -290,7 +291,24 @@ func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	entry, err := db.CreateFoodLogEntry(db.FoodLogEntry{UserID: userID, FoodID: req.FoodID, Amount: req.Amount, MealTag: req.MealTag, LoggedAt: req.LoggedAt})
+
+	if req.FoodID == nil && req.Calories == nil {
+		http.Error(w, "Either food_id or calories must be provided", http.StatusBadRequest)
+		return
+	}
+
+	if req.LoggedAt.IsZero() {
+		req.LoggedAt = time.Now()
+	}
+
+	entry, err := db.CreateFoodLogEntry(db.FoodLogEntry{
+		UserID:   userID,
+		FoodID:   req.FoodID,
+		Calories: req.Calories,
+		Amount:   req.Amount,
+		MealTag:  req.MealTag,
+		LoggedAt: req.LoggedAt,
+	})
 	if err != nil {
 		http.Error(w, "Failed to create log entry", http.StatusInternalServerError)
 		return
