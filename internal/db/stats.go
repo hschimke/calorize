@@ -48,14 +48,13 @@ func GetStats(userID UserID, period string, date time.Time) (RangeStats, error) 
 
 	query := `
 		SELECT 
-			SUM(COALESCE((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.calories, le.calories, 0)) as calories,
-			SUM(COALESCE((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.protein, 0)) as protein,
-			SUM(COALESCE((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.carbs, 0)) as carbs,
-			SUM(COALESCE((le.amount / CASE WHEN f.measurement_amount = 0 THEN 1 ELSE f.measurement_amount END) * f.fat, 0)) as fat
-		FROM food_log_entries le
-		LEFT JOIN foods f ON le.food_id = f.id
-		WHERE le.user_id = ? AND le.logged_at >= ? AND le.logged_at < ?
-		AND le.deleted_at IS NULL
+			SUM(COALESCE(calories, 0)) as calories,
+			SUM(COALESCE(protein, 0)) as protein,
+			SUM(COALESCE(carbs, 0)) as carbs,
+			SUM(COALESCE(fat, 0)) as fat
+		FROM food_log_entries
+		WHERE user_id = ? AND logged_at >= ? AND logged_at < ?
+		AND deleted_at IS NULL
 	`
 
 	row := db.QueryRow(query, userID, start, end)

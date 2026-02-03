@@ -16,7 +16,14 @@ func GetFoods(userID UserID) ([]Food, error) {
 			calories, protein, carbs, fat, type, 
 			measurement_unit, measurement_amount, public, created_at, deleted_at 
 		FROM foods 
-		WHERE (creator_id = ? OR public = true) AND is_current = true AND deleted_at IS NULL
+		WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
+		UNION
+		SELECT 
+			id, creator_id, family_id, version, is_current, name, 
+			calories, protein, carbs, fat, type, 
+			measurement_unit, measurement_amount, public, created_at, deleted_at 
+		FROM foods 
+		WHERE public = true AND is_current = true AND deleted_at IS NULL
 	`
 	rows, err := db.Query(query, userID)
 	if err != nil {

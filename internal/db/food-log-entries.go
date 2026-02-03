@@ -8,12 +8,15 @@ import (
 )
 
 func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
+	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	end := start.Add(24 * time.Hour)
+
 	query := `
-		SELECT id, user_id, food_id, calories, amount, meal_tag, logged_at, created_at, deleted_at 
+		SELECT id, user_id, food_id, calories, protein, carbs, fat, amount, meal_tag, logged_at, created_at, deleted_at 
 		FROM food_log_entries 
-		WHERE user_id = ? AND date(logged_at) = date(?) AND deleted_at IS NULL
+		WHERE user_id = ? AND logged_at >= ? AND logged_at < ? AND deleted_at IS NULL
 	`
-	rows, err := db.Query(query, userID, date)
+	rows, err := db.Query(query, userID, start, end)
 	if err != nil {
 		return nil, fmt.Errorf("listing food log entries: %w", err)
 	}
@@ -23,7 +26,7 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 	for rows.Next() {
 		var entry FoodLogEntry
 		var foodID uuid.NullUUID
-		if err := rows.Scan(&entry.ID, &entry.UserID, &foodID, &entry.Calories, &entry.Amount, &entry.MealTag, &entry.LoggedAt, &entry.CreatedAt, &entry.DeletedAt); err != nil {
+		if err := rows.Scan(&entry.ID, &entry.UserID, &foodID, &entry.Calories, &entry.Protein, &entry.Carbs, &entry.Fat, &entry.Amount, &entry.MealTag, &entry.LoggedAt, &entry.CreatedAt, &entry.DeletedAt); err != nil {
 			return nil, fmt.Errorf("scanning food log entry: %w", err)
 		}
 		if foodID.Valid {
@@ -45,8 +48,12 @@ func CreateFoodLogEntry(entry FoodLogEntry) (*FoodLogEntry, error) {
 		entry.CreatedAt = time.Now()
 	}
 
-	_, err = db.Exec("INSERT INTO food_log_entries (id, user_id, food_id, calories, amount, meal_tag, logged_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		newID, entry.UserID, entry.FoodID, entry.Calories, entry.Amount, entry.MealTag, entry.LoggedAt, entry.CreatedAt)
+	if err := populateMacros(&entry); err != nil {
+		return nil, err
+	}
+
+	_, err = db.Exec("INSERT INTO food_log_entries (id, user_id, food_id, calories, protein, carbs, fat, amount, meal_tag, logged_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		newID, entry.UserID, entry.FoodID, entry.Calories, entry.Protein, entry.Carbs, entry.Fat, entry.Amount, entry.MealTag, entry.LoggedAt, entry.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -56,12 +63,43 @@ func CreateFoodLogEntry(entry FoodLogEntry) (*FoodLogEntry, error) {
 }
 
 func UpdateFoodLogEntry(entry FoodLogEntry) (*FoodLogEntry, error) {
-	_, err := db.Exec("UPDATE food_log_entries SET food_id = ?, calories = ?, amount = ?, meal_tag = ?, logged_at = ? WHERE id = ? AND user_id = ?",
-		entry.FoodID, entry.Calories, entry.Amount, entry.MealTag, entry.LoggedAt, entry.ID, entry.UserID)
+	if err := populateMacros(&entry); err != nil {
+		return nil, err
+	}
+
+	_, err := db.Exec("UPDATE food_log_entries SET food_id = ?, calories = ?, protein = ?, carbs = ?, fat = ?, amount = ?, meal_tag = ?, logged_at = ? WHERE id = ? AND user_id = ?",
+		entry.FoodID, entry.Calories, entry.Protein, entry.Carbs, entry.Fat, entry.Amount, entry.MealTag, entry.LoggedAt, entry.ID, entry.UserID)
 	if err != nil {
 		return nil, err
 	}
 	return &entry, nil
+}
+
+func populateMacros(entry *FoodLogEntry) error {
+	if entry.FoodID != nil {
+		food, err := GetFood(*entry.FoodID)
+		if err != nil {
+			return fmt.Errorf("getting food for macro calculation: %w", err)
+		}
+		if food != nil {
+			measurement := food.MeasurementAmount
+			if measurement == 0 {
+				measurement = 1
+			}
+			ratio := entry.Amount / measurement
+
+			cal := ratio * food.Calories
+			prot := ratio * food.Protein
+			carb := ratio * food.Carbs
+			fat := ratio * food.Fat
+
+			entry.Calories = &cal
+			entry.Protein = &prot
+			entry.Carbs = &carb
+			entry.Fat = &fat
+		}
+	}
+	return nil
 }
 
 func DeleteFoodLogEntry(id FoodLogEntryID, userID UserID) error {

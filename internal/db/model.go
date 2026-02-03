@@ -134,6 +134,9 @@ type FoodLogEntry struct {
 	UserID    UserID         `json:"user_id"`
 	FoodID    *FoodID        `json:"food_id"`
 	Calories  *float64       `json:"calories"` // Nullable, used when FoodID is nil
+	Protein   *float64       `json:"protein"`
+	Carbs     *float64       `json:"carbs"`
+	Fat       *float64       `json:"fat"`
 	Amount    float64        `json:"amount"`
 	MealTag   string         `json:"meal_tag"`
 	LoggedAt  time.Time      `json:"logged_at"`
