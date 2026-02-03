@@ -57,7 +57,7 @@ func main() {
 
 	// Public Routes
 	auth.RegisterAuthPaths(mux) // Auth endpoints must be public
-	mux.Handle("GET /hello/{name}", http.HandlerFunc(helloHandler))
+	mux.Handle("GET /healthz", http.HandlerFunc(healthHandler))
 
 	// Protected Routes (API)
 	apiMux := http.NewServeMux()
@@ -105,10 +105,7 @@ func main() {
 
 // --- Handler ---
 
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-	// Extracting path parameter
-	name := r.PathValue("name")
-
+func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Hello, " + name + "!"))
+	w.Write([]byte(`{"status": "ok"}`))
 }

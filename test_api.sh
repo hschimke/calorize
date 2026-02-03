@@ -14,7 +14,7 @@ fi
 
 # Function to check if server is up
 check_server() {
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/hello/Checking")
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/healthz")
     if [ "$HTTP_CODE" != "200" ]; then
         echo "Server is not running or not healthy at $BASE_URL (Status: $HTTP_CODE). Please start it."
         exit 1
