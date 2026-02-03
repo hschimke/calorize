@@ -26,20 +26,25 @@ check_server
 echo "==================================================="
 echo "Cleanup: Removing existing logs and foods..."
 # Get all logs and delete them
+# Get all logs and delete them
 LOGS=$(curl -s "$BASE_URL/logs")
-LOG_IDS=$(echo $LOGS | jq -r '.[].id // empty')
-for id in $LOG_IDS; do
-    echo "Deleting log $id"
-    curl -s -X DELETE "$BASE_URL/logs/$id" > /dev/null
-done
+if [ "$LOGS" != "null" ] && [ "$LOGS" != "" ]; then
+    LOG_IDS=$(echo $LOGS | jq -r '.[].id // empty')
+    for id in $LOG_IDS; do
+        echo "Deleting log $id"
+        curl -s -X DELETE "$BASE_URL/logs/$id" > /dev/null
+    done
+fi
 
 # Get all foods and delete them
 FOODS=$(curl -s "$BASE_URL/foods")
-FOOD_IDS=$(echo $FOODS | jq -r '.[].id // empty')
-for id in $FOOD_IDS; do
-    echo "Deleting food $id"
-    curl -s -X DELETE "$BASE_URL/foods/$id" > /dev/null
-done
+if [ "$FOODS" != "null" ] && [ "$FOODS" != "" ]; then
+    FOOD_IDS=$(echo $FOODS | jq -r '.[].id // empty')
+    for id in $FOOD_IDS; do
+        echo "Deleting food $id"
+        curl -s -X DELETE "$BASE_URL/foods/$id" > /dev/null
+    done
+fi
 echo "✅ Cleanup Complete"
 
 echo "==================================================="
@@ -209,6 +214,32 @@ if [ "$NOT_FOUND_CODE" == "404" ]; then
     echo "✅ Non-existent UUID returns 404"
 else
     echo "❌ Unexpected code for non-existent UUID: $NOT_FOUND_CODE"
+fi
+
+echo "==================================================="
+echo "Test 4: Calories Only Log"
+echo "---------------------------------------------------"
+echo "Logging 500 calories (quick add)..."
+curl -s -X POST "$BASE_URL/logs" \
+  -H "Content-Type: application/json" \
+  -d "{
+  \"calories\": 500,
+  \"amount\": 1,
+  \"meal_tag\": \"snack\",
+  \"logged_at\": \"$NOW_ISO\"
+}" > /dev/null
+
+echo "Checking Stats (Should increase)..."
+STATS_QUICK=$(curl -s "$BASE_URL/stats?period=day")
+TOTAL_CAL_QUICK=$(echo $STATS_QUICK | jq -r .calories)
+# Expected: 73 + 500 = 573
+MATCH_QUICK=$(echo "$TOTAL_CAL_QUICK 573" | awk '{if ($1 >= 572.9 && $1 <= 573.1) print 1; else print 0}')
+if [ "$MATCH_QUICK" -eq 1 ]; then
+     echo "✅ Stats Correct (Quick add works): ~$TOTAL_CAL_QUICK kcal"
+else
+     echo "❌ Stats Incorrect after quick add: Expected 573, got $TOTAL_CAL_QUICK"
+     echo $STATS_QUICK | jq .
+     exit 1
 fi
 
 echo "==================================================="
