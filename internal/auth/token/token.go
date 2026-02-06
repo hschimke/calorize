@@ -23,6 +23,10 @@ func init() {
 		keyBytes = "매너티는 최고다 진실!!!"
 	}
 
+	if len(keyBytes) != 32 {
+		panic(fmt.Sprintf("PASETO_SECRET_KEY must be exactly 32 bytes (currently %d bytes)", len(keyBytes)))
+	}
+
 	var err error
 	secretKey, err = paseto.V4SymmetricKeyFromBytes([]byte(keyBytes))
 	if err != nil {

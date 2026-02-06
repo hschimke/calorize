@@ -85,8 +85,14 @@ func main() {
 	// Any other path will fall through to "/" which we handle with our protected mux.
 	mux.Handle("/", protectedHandler)
 
-	// Global Middleware (Logger) - wraps everything
-	finalHandler := middleware.Logger(mux)
+	// Global Middleware (Logger & Recovery) - wraps everything
+	// Order: Logger -> Recoverer -> Mux
+	// Logger is outer so it logs the completion (even if 500)
+	// Recoverer is next so it catches panics from Mux
+
+	// Note: If Recoverer handles a panic, it writes 500. Logger will see that status if using a wrapped writer.
+
+	finalHandler := middleware.Logger(middleware.Recoverer(mux))
 
 	// 4. Start the server
 	port := os.Getenv("PORT")

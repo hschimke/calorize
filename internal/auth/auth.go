@@ -193,7 +193,7 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 
 	// We need the user again.
 	// The `sessionData.UserID` contains the ID.
-	_, err = uuid.FromBytes(sessionData.UserID)
+	uid, err := uuid.FromBytes(sessionData.UserID)
 	if err != nil {
 		http.Error(w, "invalid user id in session", http.StatusBadRequest)
 		return
@@ -212,7 +212,7 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.ID != db.UserID(sessionData.UserID) {
+	if user.ID != db.UserID(uid) {
 		http.Error(w, "user id mismatch", http.StatusBadRequest)
 		db.DeleteTemporaryUser(*user)
 		return
@@ -315,7 +315,13 @@ func loginFinishHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retrieve user by ID from sessionData
-	user, err := db.GetUserByID(db.UserID(sessionData.UserID))
+	uid, err := uuid.FromBytes(sessionData.UserID)
+	if err != nil {
+		http.Error(w, "invalid user id in session", http.StatusBadRequest)
+		return
+	}
+
+	user, err := db.GetUserByID(db.UserID(uid))
 	if err != nil || user == nil {
 		http.Error(w, "user not found", http.StatusBadRequest)
 		return
