@@ -1,10 +1,17 @@
+{
+    debug
+}
+
 calorize.test {
+    log {
+        output stdout
+    }
     tls internal
     root * ./static-web
     file_server
 
     @api {
-        path /auth/* /foods* /logs* /stats*
+        path /auth/* /foods* /logs* /stats* /healthz
     }
-    reverse_proxy @api localhost:8080
+    reverse_proxy @api calorize.test:8080
 }
