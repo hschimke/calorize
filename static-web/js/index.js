@@ -5,9 +5,9 @@ async function main() {
     app_container.innerText = "Hello World";
 
     if (check_login()) {
-        app_container.innerText = "Welcome to the Calorize dashboard.";
+        app_container.innerHTML = "Welcome to the Calorize, visit the <a href='/dashboard.html'>dashboard</a>.";
     } else {
-        app_container.innerText = "You are not logged in.";
+        app_container.innerHTML = "You are not logged in. Please login or register at <a href='/login.html'>/login</a>.";
     }
 }
 
