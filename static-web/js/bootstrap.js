@@ -5,26 +5,26 @@ async function bootstrap() {
     const isLoggedIn = check_login();
     const nav = document.createElement("nav");
 
-    let navLinks = '';
+    let navLinkSource = [];
     if (isLoggedIn) {
-        navLinks = `
-            <li><a href="/dashboard.html">Dashboard</a></li>
-            <li><a href="/foodlog.html">Foodlog</a></li>
-            <li><a href="/foods.html">Foods</a></li>
-            <li><a href="/stats.html">Stats</a></li>
-        `;
+        navLinkSource = [
+            { href: "/dashboard.html", text: "Dashboard" },
+            { href: "/foodlog.html", text: "Foodlog" },
+            { href: "/food-ui.html", text: "Foods" },
+            { href: "/stat-ui.html", text: "Stats" },
+        ];
     } else {
-        navLinks = `
-            <li><a href="/index.html">Home</a></li>
-            <li><a href="/login.html">Login/Register</a></li>
-        `;
+        navLinkSource = [
+            { href: "/index.html", text: "Home" },
+            { href: "/login.html", text: "Login/Register" },
+        ];
     }
 
     nav.innerHTML = `
         <div class="nav-content">
             <div class="logo">Calorize</div>
             <ul>
-                ${navLinks}
+                ${navLinkSource.map(link => `<li><a href="${link.href}">${link.text}</a></li>`).join('')}
             </ul>
             <div id="auth-action"></div>
         </div>
