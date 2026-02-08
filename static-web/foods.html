@@ -10,9 +10,109 @@
 </head>
 
 <body>
-    <h1>Calorize Foods</h1>
-    <p>Welcome to the Calorize foods.</p>
-    <div id="app"></div>
+    <div id="app" class="container">
+        <h1>Foods</h1>
+
+        <div class="create-food-section">
+            <h2>Add New Food</h2>
+            <form id="create-food-form">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" required placeholder="e.g. Banana">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Calories</label>
+                        <input type="number" name="calories" required step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Protein (g)</label>
+                        <input type="number" name="protein" required step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Carbs (g)</label>
+                        <input type="number" name="carbs" required step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Fat (g)</label>
+                        <input type="number" name="fat" required step="0.1">
+                    </div>
+                </div>
+                <button type="submit">Add Food</button>
+            </form>
+        </div>
+
+        <div class="foods-list-section">
+            <h2>Your Foods</h2>
+            <ul id="foods-list">
+                <!-- Foods will be populated here -->
+            </ul>
+        </div>
+    </div>
+
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: sans-serif;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .create-food-section {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        #foods-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        #foods-list li {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #foods-list li:last-child {
+            border-bottom: none;
+        }
+
+        .food-info small {
+            color: #666;
+        }
+
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+    </style>
 </body>
 
 </html>

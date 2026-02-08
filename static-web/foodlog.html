@@ -4,15 +4,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calorize</title>
+    <title>Calorize - Food Log</title>
     <script type="module" src="js/bootstrap.js"></script>
     <script type="module" src="js/foodlog.js"></script>
 </head>
 
 <body>
-    <h1>Calorize Foodlog</h1>
-    <p>Welcome to the Calorize foodlog.</p>
-    <div id="app"></div>
+    <div id="app" class="container">
+        <h1>Food Log</h1>
+
+        <div class="controls">
+            <label for="log-date">Date:</label>
+            <input type="date" id="log-date">
+        </div>
+
+        <div class="add-log-section">
+            <h2>Add Log</h2>
+            <form id="add-log-form">
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2;">
+                        <label>Food</label>
+                        <select name="food_id" id="food-select" required>
+                            <option value="">Loading foods...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <input type="number" name="amount" value="1" step="0.1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Meal</label>
+                        <select name="meal_tag">
+                            <option value="breakfast">Breakfast</option>
+                            <option value="lunch">Lunch</option>
+                            <option value="dinner">Dinner</option>
+                            <option value="snack">Snack</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit">Log Food</button>
+            </form>
+        </div>
+
+        <div class="logs-list-section">
+            <h2>Logs</h2>
+            <ul id="logs-list">
+                <!-- Logs will be populated here -->
+            </ul>
+        </div>
+    </div>
+
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: sans-serif;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .add-log-section {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        #logs-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        #logs-list li {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #logs-list li:last-child {
+            border-bottom: none;
+        }
+
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+    </style>
 </body>
 
 </html>

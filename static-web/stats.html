@@ -4,15 +4,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calorize</title>
+    <title>Calorize - Stats</title>
     <script type="module" src="js/bootstrap.js"></script>
     <script type="module" src="js/stats.js"></script>
 </head>
 
 <body>
-    <h1>Calorize Stats</h1>
-    <p>Welcome to the Calorize stats.</p>
-    <div id="app"></div>
+    <div id="app" class="container">
+        <h1>Stats</h1>
+
+        <div class="period-selector">
+            <button data-period="day" class="period-btn active">Today</button>
+            <button data-period="week" class="period-btn">This Week</button>
+            <button data-period="month" class="period-btn">This Month</button>
+        </div>
+
+        <div class="stats-container">
+            <div class="stat-card">
+                <h3>Calories</h3>
+                <span id="stat-calories">0</span>
+            </div>
+            <div class="stat-card">
+                <h3>Protein</h3>
+                <span id="stat-protein">0</span>g
+            </div>
+            <div class="stat-card">
+                <h3>Carbs</h3>
+                <span id="stat-carbs">0</span>g
+            </div>
+            <div class="stat-card">
+                <h3>Fat</h3>
+                <span id="stat-fat">0</span>g
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: sans-serif;
+        }
+
+        .period-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+
+        .period-btn {
+            padding: 10px 20px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 20px;
+            font-size: 1em;
+        }
+
+        .period-btn.active {
+            background: #333;
+            color: #fff;
+            border-color: #333;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+            color: #666;
+        }
+
+        .stat-card span {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
 </body>
 
 </html>

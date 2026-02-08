@@ -20,15 +20,23 @@ function main() {
 }
 
 async function login(username) {
-    console.log(username);
-    const response = await api.login(username);
-    set_login(response);
+    try {
+        const response = await api.login(username);
+        set_login(response);
+        window.location.href = '/dashboard.html';
+    } catch (e) {
+        alert("Login failed: " + e.message);
+    }
 }
 
 async function register(username, email) {
-    console.log(username, email);
-    const response = await api.register(username, email);
-    set_login(response);
+    try {
+        const response = await api.register(username, email);
+        set_login(response);
+        window.location.href = '/dashboard.html';
+    } catch (e) {
+        alert("Registration failed: " + e.message);
+    }
 }
 
 main();
