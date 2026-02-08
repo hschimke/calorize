@@ -3,7 +3,9 @@ package db
 import (
 	"database/sql"
 	"embed"
+	"fmt"
 	"log/slog"
+	"os"
 
 	_ "github.com/glebarez/go-sqlite"
 	"github.com/pressly/goose/v3"
@@ -18,8 +20,15 @@ func init() {
 
 	var err error
 
-	slog.Info("opening database", "path", "./test.db?_fk=1&_journal=WAL&_busy_timeout=5000")
-	db, err = sql.Open("sqlite", "file:./test.db?_fk=1&_journal=WAL&_busy_timeout=5000")
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "./test.db"
+	}
+
+	dsn := fmt.Sprintf("file:%s?_fk=1&_journal=WAL&_busy_timeout=5000", dbPath)
+
+	slog.Info("opening database", "path", dsn)
+	db, err = sql.Open("sqlite", dsn)
 	if err != nil {
 		slog.Error("failed to open database", "error", err)
 		panic(err)

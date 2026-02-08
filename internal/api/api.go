@@ -78,7 +78,9 @@ func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(foods)
+	if err := json.NewEncoder(w).Encode(foods); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 func createFoodHandler(w http.ResponseWriter, r *http.Request) {
@@ -87,11 +89,18 @@ func createFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	if req.Name == "" {
+		http.Error(w, "Food name is required", http.StatusBadRequest)
+		return
+	}
+
 	var ingredients []db.RecipeItems
 	for id, amount := range req.Ingredients {
 		foodID, err := uuid.Parse(id)
 		if err != nil {
-			continue // or handle error
+			http.Error(w, fmt.Sprintf("Invalid ingredient ID: %s", id), http.StatusBadRequest)
+			return
 		}
 		ingredients = append(ingredients, db.RecipeItems{
 			IngredientID: db.FoodID(foodID),
@@ -115,13 +124,16 @@ func createFoodHandler(w http.ResponseWriter, r *http.Request) {
 		MeasurementUnit:   req.MeasurementUnit,
 		MeasurementAmount: req.MeasurementAmount,
 		Ingredients:       ingredients,
+		Public:            true, // Default to public
 	})
 	if err != nil {
 		http.Error(w, "Failed to create food", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(food)
+	if err := json.NewEncoder(w).Encode(food); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 func getFoodHandler(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +153,9 @@ func getFoodHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(food)
+	if err := json.NewEncoder(w).Encode(food); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
@@ -151,16 +165,45 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid food ID", http.StatusBadRequest)
 		return
 	}
+
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Check ownership
+	existing, err := db.GetFood(db.FoodID(foodID))
+	if err != nil {
+		http.Error(w, "Failed to check food ownership", http.StatusInternalServerError)
+		return
+	}
+	if existing == nil {
+		http.Error(w, "Food not found", http.StatusNotFound)
+		return
+	}
+	if existing.CreatorID != userID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	var req createFoodRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	if req.Name == "" {
+		http.Error(w, "Food name is required", http.StatusBadRequest)
+		return
+	}
+
 	var ingredients []db.RecipeItems
 	for id, amount := range req.Ingredients {
 		foodID, err := uuid.Parse(id)
 		if err != nil {
-			continue
+			http.Error(w, fmt.Sprintf("Invalid ingredient ID: %s", id), http.StatusBadRequest)
+			return
 		}
 		ingredients = append(ingredients, db.RecipeItems{
 			IngredientID: db.FoodID(foodID),
@@ -168,11 +211,6 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	userID, err := getUserID(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	food, err := db.UpdateFood(db.FoodID(foodID), db.Food{
 		CreatorID:         userID,
 		Name:              req.Name,
@@ -184,13 +222,16 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 		MeasurementUnit:   req.MeasurementUnit,
 		MeasurementAmount: req.MeasurementAmount,
 		Ingredients:       ingredients,
+		Public:            existing.Public, // Keep existing visibility
 	})
 	if err != nil {
 		http.Error(w, "Failed to update food", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(food)
+	if err := json.NewEncoder(w).Encode(food); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 func deleteFoodHandler(w http.ResponseWriter, r *http.Request) {
@@ -200,6 +241,28 @@ func deleteFoodHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid food ID", http.StatusBadRequest)
 		return
 	}
+
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Check ownership
+	existing, err := db.GetFood(db.FoodID(foodID))
+	if err != nil {
+		http.Error(w, "Failed to check food", http.StatusInternalServerError)
+		return
+	}
+	if existing == nil {
+		http.Error(w, "Food not found", http.StatusNotFound)
+		return
+	}
+	if existing.CreatorID != userID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	if err := db.DeleteFood(db.FoodID(foodID)); err != nil {
 		slog.Error("failed to delete food", "error", err, "id", foodID)
 		http.Error(w, "Failed to delete food", http.StatusInternalServerError)
@@ -239,7 +302,9 @@ func getStatsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 // ### Logs
@@ -263,13 +328,23 @@ func getLogsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	logs, err := db.GetFoodLogEntries(userID, time.Now())
+
+	date := time.Now()
+	if d := r.URL.Query().Get("date"); d != "" {
+		if parsed, err := time.Parse("2006-01-02", d); err == nil {
+			date = parsed
+		}
+	}
+
+	logs, err := db.GetFoodLogEntries(userID, date)
 	if err != nil {
 		http.Error(w, "Failed to get logs", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(logs)
+	if err := json.NewEncoder(w).Encode(logs); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 type createLogEntryRequest struct {
@@ -314,7 +389,9 @@ func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(entry)
+	if err := json.NewEncoder(w).Encode(entry); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 func deleteLogEntryHandler(w http.ResponseWriter, r *http.Request) {

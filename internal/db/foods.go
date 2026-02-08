@@ -155,6 +155,54 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 	return versions, nil
 }
 
+func insertFoodData(tx *sql.Tx, food *Food) error {
+	query := `
+		INSERT INTO foods (
+			id, creator_id, family_id, version, is_current, name, 
+			calories, protein, carbs, fat, type, 
+			measurement_unit, measurement_amount, public, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err := tx.Exec(query,
+		food.ID, food.CreatorID, food.FamilyID, food.Version, food.IsCurrent, food.Name,
+		food.Calories, food.Protein, food.Carbs, food.Fat, food.Type,
+		food.MeasurementUnit, food.MeasurementAmount, food.Public, food.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("inserting food: %w", err)
+	}
+
+	// Insert nutrients
+	stmt, err := tx.Prepare("INSERT INTO food_nutrients (food_id, name, amount, unit) VALUES (?, ?, ?, ?)")
+	if err != nil {
+		return fmt.Errorf("preparing nutrients stmt: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, n := range food.Nutrients {
+		if _, err := stmt.Exec(food.ID, n.Name, n.Amount, n.Unit); err != nil {
+			return fmt.Errorf("inserting nutrient: %w", err)
+		}
+	}
+
+	// Insert ingredients
+	if len(food.Ingredients) > 0 {
+		istmt, err := tx.Prepare("INSERT INTO recipe_items (recipe_id, ingredient_id, amount) VALUES (?, ?, ?)")
+		if err != nil {
+			return fmt.Errorf("preparing ingredients stmt: %w", err)
+		}
+		defer istmt.Close()
+
+		for _, i := range food.Ingredients {
+			if _, err := istmt.Exec(food.ID, i.IngredientID, i.Amount); err != nil {
+				return fmt.Errorf("inserting ingredient: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func CreateFood(food Food) (*Food, error) {
 	if len(food.Ingredients) > 0 {
 		food.Type = "recipe"
@@ -183,48 +231,8 @@ func CreateFood(food Food) (*Food, error) {
 	}
 	defer tx.Rollback()
 
-	query := `
-		INSERT INTO foods (
-			id, creator_id, family_id, version, is_current, name, 
-			calories, protein, carbs, fat, type, 
-			measurement_unit, measurement_amount, public, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
-	_, err = tx.Exec(query,
-		food.ID, food.CreatorID, food.FamilyID, food.Version, food.IsCurrent, food.Name,
-		food.Calories, food.Protein, food.Carbs, food.Fat, food.Type,
-		food.MeasurementUnit, food.MeasurementAmount, food.Public, food.CreatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("inserting food: %w", err)
-	}
-
-	// Insert nutrients
-	stmt, err := tx.Prepare("INSERT INTO food_nutrients (food_id, name, amount, unit) VALUES (?, ?, ?, ?)")
-	if err != nil {
-		return nil, fmt.Errorf("preparing nutrients stmt: %w", err)
-	}
-	defer stmt.Close()
-
-	for _, n := range food.Nutrients {
-		if _, err := stmt.Exec(food.ID, n.Name, n.Amount, n.Unit); err != nil {
-			return nil, fmt.Errorf("inserting nutrient: %w", err)
-		}
-	}
-
-	// Insert ingredients
-	if len(food.Ingredients) > 0 {
-		istmt, err := tx.Prepare("INSERT INTO recipe_items (recipe_id, ingredient_id, amount) VALUES (?, ?, ?)")
-		if err != nil {
-			return nil, fmt.Errorf("preparing ingredients stmt: %w", err)
-		}
-		defer istmt.Close()
-
-		for _, i := range food.Ingredients {
-			if _, err := istmt.Exec(food.ID, i.IngredientID, i.Amount); err != nil {
-				return nil, fmt.Errorf("inserting ingredient: %w", err)
-			}
-		}
+	if err := insertFoodData(tx, &food); err != nil {
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -275,47 +283,8 @@ func UpdateFood(id FoodID, food Food) (*Food, error) {
 		return nil, fmt.Errorf("deprecating old version: %w", err)
 	}
 
-	query := `
-		INSERT INTO foods (
-			id, creator_id, family_id, version, is_current, name, 
-			calories, protein, carbs, fat, type, 
-			measurement_unit, measurement_amount, public, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
-	_, err = tx.Exec(query,
-		food.ID, food.CreatorID, food.FamilyID, food.Version, food.IsCurrent, food.Name,
-		food.Calories, food.Protein, food.Carbs, food.Fat, food.Type,
-		food.MeasurementUnit, food.MeasurementAmount, food.Public, food.CreatedAt,
-	)
-	if err != nil {
+	if err := insertFoodData(tx, &food); err != nil {
 		return nil, fmt.Errorf("inserting new food version: %w", err)
-	}
-
-	stmt, err := tx.Prepare("INSERT INTO food_nutrients (food_id, name, amount, unit) VALUES (?, ?, ?, ?)")
-	if err != nil {
-		return nil, fmt.Errorf("preparing nutrients stmt: %w", err)
-	}
-	defer stmt.Close()
-
-	for _, n := range food.Nutrients {
-		if _, err := stmt.Exec(food.ID, n.Name, n.Amount, n.Unit); err != nil {
-			return nil, fmt.Errorf("inserting nutrient: %w", err)
-		}
-	}
-
-	// Insert ingredients
-	if len(food.Ingredients) > 0 {
-		istmt, err := tx.Prepare("INSERT INTO recipe_items (recipe_id, ingredient_id, amount) VALUES (?, ?, ?)")
-		if err != nil {
-			return nil, fmt.Errorf("preparing ingredients stmt: %w", err)
-		}
-		defer istmt.Close()
-
-		for _, i := range food.Ingredients {
-			if _, err := istmt.Exec(food.ID, i.IngredientID, i.Amount); err != nil {
-				return nil, fmt.Errorf("inserting ingredient: %w", err)
-			}
-		}
 	}
 
 	if err := tx.Commit(); err != nil {

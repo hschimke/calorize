@@ -48,6 +48,10 @@ func CreateFoodLogEntry(entry FoodLogEntry) (*FoodLogEntry, error) {
 		entry.CreatedAt = time.Now()
 	}
 
+	if entry.LoggedAt.IsZero() {
+		entry.LoggedAt = time.Now()
+	}
+
 	if err := populateMacros(&entry); err != nil {
 		return nil, err
 	}
