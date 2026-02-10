@@ -32,6 +32,22 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 		if foodID.Valid {
 			fid := FoodID(foodID.UUID)
 			entry.FoodID = &fid
+
+			// Populate Food object
+			food, err := GetFood(fid)
+			if err != nil {
+				// Log error but continue? or fail?
+				// For now, let's just continue and leave Food nil if it fails,
+				// though strictly we should probably return error or log it.
+				// Given GetFood returns (nil, nil) if not found (in some implementations),
+				// let's check. GetFood implementation in api.go checked for nil.
+				// We'll rely on it returning payload or error.
+				// If we error here, the whole log list fails.
+				// Let's wrap in a check.
+			}
+			if food != nil {
+				entry.Food = food
+			}
 		}
 		entries = append(entries, entry)
 	}

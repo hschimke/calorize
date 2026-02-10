@@ -133,6 +133,7 @@ type FoodLogEntry struct {
 	ID        FoodLogEntryID `json:"id"`
 	UserID    UserID         `json:"user_id"`
 	FoodID    *FoodID        `json:"food_id"`
+	Food      *Food          `json:"food,omitempty"`
 	Calories  *float64       `json:"calories"` // Nullable, used when FoodID is nil
 	Protein   *float64       `json:"protein"`
 	Carbs     *float64       `json:"carbs"`

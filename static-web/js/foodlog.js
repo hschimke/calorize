@@ -19,6 +19,34 @@ async function init() {
 
     // Form submit
     document.getElementById('add-log-form').addEventListener('submit', addLog);
+
+    // Mode toggling
+    const modeRadios = document.getElementsByName('entry_mode');
+    modeRadios.forEach(radio => {
+        radio.addEventListener('change', toggleMode);
+    });
+}
+
+function toggleMode(e) {
+    const mode = e.target.value;
+    const groupFood = document.getElementById('group-food');
+    const groupCalories = document.getElementById('group-calories');
+    const foodSelect = document.getElementById('food-select');
+    const caloriesInput = document.getElementById('calories-input');
+
+    if (mode === 'food') {
+        groupFood.style.display = 'block';
+        groupCalories.style.display = 'none';
+        foodSelect.required = true;
+        caloriesInput.required = false;
+        caloriesInput.value = '';
+    } else {
+        groupFood.style.display = 'none';
+        groupCalories.style.display = 'block';
+        foodSelect.required = false;
+        caloriesInput.required = true;
+        foodSelect.value = '';
+    }
 }
 
 async function loadFoods() {
@@ -88,27 +116,34 @@ async function loadLogs() {
 async function addLog(e) {
     e.preventDefault();
     const form = e.target;
+
+    // Determine mode
+    const mode = document.querySelector('input[name="entry_mode"]:checked').value;
+
     const logData = {
-        food_id: form.food_id.value,
         amount: parseFloat(form.amount.value),
         meal_tag: form.meal_tag.value,
-        date: currentDate // Assuming API might support date override if needed, though usually logs to 'current' or we might need to handle it.
-        // Wait, the API `createLog` does NOT take a date in the signature in `api.js`. 
-        // It says "Create a log entry". Usually this defaults to now.
-        // If the user selects a PAST date, creating a log might log it for NOW.
-        // I need to check if the API supports logging for a specific date.
-        // Viewing `api.js`: uses `POST /logs`.
+        // The backend expects 'logged_at' for the date/time. 
+        // We Append T12:00:00Z to ensure it's treated as a specific date, or just let backend handle it?
+        // Let's use the date picker value. 
+        logged_at: new Date(currentDate).toISOString()
     };
 
-    // If the API doesn't support date in POST /logs, it will log for today.
-    // That's a limitation I should probs note or fix, but for now I'll just send it.
-    // Wait, looking at `api.js` line 200: `createLog(logData)`.
+    if (mode === 'food') {
+        logData.food_id = form.food_id.value;
+    } else {
+        logData.calories = parseFloat(form.calories.value);
+    }
 
     try {
         await api.createLog(logData);
-        // form.reset(); // Don't fully reset, maybe keep meal tag? 
-        // But reset food and amount is good.
-        form.food_id.value = '';
+
+        // Reset specific fields
+        if (mode === 'food') {
+            form.food_id.value = '';
+        } else {
+            form.calories.value = '';
+        }
         form.amount.value = '1';
 
         loadLogs();
