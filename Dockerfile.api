@@ -19,11 +19,20 @@ FROM alpine:latest
 
 WORKDIR /root/
 
-# Install CA certificates to enable HTTPS calls if needed
-RUN apk --no-cache add ca-certificates
+# Install CA certificates to enable HTTPS calls if needed, and tzdata
+RUN apk --no-cache add ca-certificates tzdata
+
+# Create a non-root user
+RUN adduser -D -g '' appuser
 
 # Copy the binary from the builder stage
 COPY --from=builder /app/api-server .
+
+# Change ownership of the binary
+RUN chown appuser:appuser ./api-server
+
+# Switch to non-root user
+USER appuser
 
 # Expose the port the app runs on (matching common defaults, though main.go logs addr)
 EXPOSE 8080

@@ -8,3 +8,10 @@ node_modules/
 .DS_Store
 .idea/
 .vscode/
+
+# Added by antigravity
+coverage.out
+vendor/
+dist/
+build/
+*.md
