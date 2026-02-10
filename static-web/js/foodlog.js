@@ -132,7 +132,9 @@ async function addLog(e) {
     if (mode === 'food') {
         logData.food_id = form.food_id.value;
     } else {
-        logData.calories = parseFloat(form.calories.value);
+        const cals = parseFloat(form.calories.value);
+        const amt = parseFloat(form.amount.value);
+        logData.calories = cals * amt;
     }
 
     try {
