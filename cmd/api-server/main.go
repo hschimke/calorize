@@ -94,7 +94,7 @@ func main() {
 
 	// Note: If Recoverer handles a panic, it writes 500. Logger will see that status if using a wrapped writer.
 
-	finalHandler := middleware.Logger(middleware.Recoverer(mux))
+	finalHandler := middleware.Logger(middleware.Recoverer(middleware.CORS(mux)))
 
 	// 4. Start the server
 	port := os.Getenv("PORT")
