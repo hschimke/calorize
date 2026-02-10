@@ -3,9 +3,8 @@ import { api } from './api.js';
 async function updateDashboard() {
     try {
         // 1. Fetch Stats
-        // We assume 'day' period returns today's stats by default if no date provided, 
-        // or we can explicitly pass today's date. The API seems to handle defaulting.
-        const stats = await api.getStats('day');
+        const today = new Date().toISOString().split('T')[0];
+        const stats = await api.getStats('day', today);
 
         if (stats) {
             document.getElementById('dashboard-calories').textContent = Math.round(stats.calories || 0);
@@ -15,7 +14,7 @@ async function updateDashboard() {
         }
 
         // 2. Fetch Logs
-        const logs = await api.getLogs();
+        const logs = await api.getLogs(today);
         const logsList = document.getElementById('dashboard-logs-list');
         logsList.innerHTML = ''; // Clear loading state
 

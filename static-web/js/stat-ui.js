@@ -18,9 +18,13 @@ async function init() {
     loadStats('day');
 }
 
-async function loadStats(period) {
+async function loadStats(period, date) {
     try {
-        const stats = await api.getStats(period);
+        // Default to today if not provided
+        if (!date) {
+            date = new Date().toISOString().split('T')[0];
+        }
+        const stats = await api.getStats(period, date);
 
         // Reset to 0
         updateDisplay({ calories: 0, protein: 0, carbs: 0, fat: 0 });
