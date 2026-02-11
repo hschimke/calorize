@@ -14,7 +14,7 @@
         <h1>Foods</h1>
 
         <div class="create-food-section">
-            <h2>Add New Food</h2>
+            <h2 id="form-heading">Add New Food</h2>
             <form id="create-food-form">
                 <div class="form-group">
                     <label>Name</label>
@@ -77,7 +77,9 @@
                     </div>
                 </div>
 
-                <button type="submit">Add Food</button>
+                <button type="submit" id="form-submit-btn">Add Food</button>
+                <button type="button" id="cancel-edit-btn" onclick="cancelEdit()" class="secondary-btn"
+                    style="display: none; margin-left: 10px;">Cancel</button>
             </form>
         </div>
 
@@ -141,6 +143,13 @@
 
         #foods-list li:last-child {
             border-bottom: none;
+        }
+
+        .food-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            white-space: nowrap;
         }
 
         .food-info small {
