@@ -113,6 +113,14 @@ if [ "$INGREDIENT_COUNT" -ne 2 ]; then
 fi
 echo "✅ Recipe ingredients verified"
 
+# Check specific ingredient exists (Banana ID)
+BANANA_AMOUNT=$(echo $FETCHED_RECIPE | jq -r ".ingredients[] | select(.ingredient_id==\"$BANANA_ID\") | .amount")
+if [ "$BANANA_AMOUNT" != "100" ]; then
+    echo "❌ Expected Banana amount 100, got $BANANA_AMOUNT"
+    exit 1
+fi
+echo "✅ Banana ingredient amount verified"
+
 echo "==================================================="
 echo "Test 1.5: Complex Nutrients"
 echo "---------------------------------------------------"

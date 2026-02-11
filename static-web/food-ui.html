@@ -20,34 +20,66 @@
                     <label>Name</label>
                     <input type="text" name="name" required placeholder="e.g. Banana">
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Calories</label>
-                        <input type="number" name="calories" required step="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label>Protein (g)</label>
-                        <input type="number" name="protein" required step="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label>Carbs (g)</label>
-                        <input type="number" name="carbs" required step="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label>Fat (g)</label>
-                        <input type="number" name="fat" required step="0.1">
-                    </div>
-                </div>
-                <!-- Dynamic Nutrients Section -->
                 <div class="form-group">
-                    <label>Micro-Nutrients</label>
-                    <div id="nutrients-container">
-                        <!-- Dynamic rows will be added here -->
+                    <label>Type</label>
+                    <div class="toggle-container">
+                        <input type="radio" id="type-food" name="type" value="food" checked onchange="toggleFoodType()">
+                        <label for="type-food">Basic Food</label>
+                        <input type="radio" id="type-recipe" name="type" value="recipe" onchange="toggleFoodType()">
+                        <label for="type-recipe">Recipe</label>
                     </div>
-                    <button type="button" id="add-nutrient-btn" class="secondary-btn">+ Add Nutrient</button>
                 </div>
+
+                <div id="macros-section">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Calories</label>
+                            <input type="number" name="calories" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Protein (g)</label>
+                            <input type="number" name="protein" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Carbs (g)</label>
+                            <input type="number" name="carbs" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Fat (g)</label>
+                            <input type="number" name="fat" step="0.1">
+                        </div>
+                    </div>
+                    <!-- Dynamic Nutrients Section -->
+                    <div class="form-group">
+                        <label>Micro-Nutrients</label>
+                        <div id="nutrients-container">
+                            <!-- Dynamic rows will be added here -->
+                        </div>
+                        <button type="button" id="add-nutrient-btn" class="secondary-btn">+ Add Nutrient</button>
+                    </div>
+                </div>
+
+                <div id="ingredients-section" style="display: none;">
+                    <div class="form-group">
+                        <label>Ingredients</label>
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <select id="ingredient-search" style="flex-grow: 1; padding: 8px;">
+                                <option value="">Select a food...</option>
+                            </select>
+                            <input type="number" id="ingredient-amount" placeholder="Amount" step="0.1"
+                                style="width: 100px;">
+                            <button type="button" onclick="addIngredient()" class="secondary-btn"
+                                style="margin-bottom: 0;">Add</button>
+                        </div>
+                        <div id="ingredients-list">
+                            <!-- Added ingredients will appear here -->
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-row">
-                    <button type="submit">Add Food</button>
+                    <div class="form-row">
+                        <button type="submit">Add Food</button>
             </form>
         </div>
 
@@ -117,7 +149,7 @@
             color: #666;
         }
 
-        button {}
+
 
         .secondary-btn {
             background: #e0e0e0;
@@ -142,6 +174,37 @@
             padding: 5px 10px;
             border-radius: 4px;
             cursor: pointer;
+        }
+
+        /* Toggle Styles from foodlog.html */
+        .toggle-container {
+            display: inline-flex;
+            background: #e0e0e0;
+            border-radius: 20px;
+            padding: 4px;
+            position: relative;
+        }
+
+        .toggle-container input[type="radio"] {
+            display: none;
+        }
+
+        .toggle-container label {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            transition: all 0.2s ease;
+            margin: 0;
+            display: inline-block;
+        }
+
+        .toggle-container input[type="radio"]:checked+label {
+            background: #fff;
+            color: #000;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
     </style>
 </body>
