@@ -47,39 +47,7 @@ function addNutrientRow() {
     container.appendChild(row);
 }
 
-async function createFood(e) {
-    e.preventDefault();
-    const form = e.target;
 
-    // Collect nutrients
-    const nutrients = [];
-    document.querySelectorAll('.nutrient-row').forEach(row => {
-        const name = row.querySelector('.nutrient-name').value;
-        const amount = parseFloat(row.querySelector('.nutrient-amount').value);
-        const unit = row.querySelector('.nutrient-unit').value;
-        if (name && !isNaN(amount) && unit) {
-            nutrients.push({ name, amount, unit });
-        }
-    });
-
-    const foodData = {
-        name: form.name.value,
-        calories: parseFloat(form.calories.value),
-        protein: parseFloat(form.protein.value),
-        carbs: parseFloat(form.carbs.value),
-        fat: parseFloat(form.fat.value),
-        nutrients: nutrients
-    };
-
-    try {
-        await api.createFood(foodData);
-        form.reset();
-        document.getElementById('nutrients-container').innerHTML = ''; // Clear nutrients
-        loadFoods();
-    } catch (e) {
-        alert("Failed to create food: " + e.message);
-    }
-}
 
 
 async function deleteFood(id) {
@@ -98,6 +66,7 @@ let availableFoods = [];
 let recipeIngredients = []; // Array of {id, name, amount, unit}
 
 window.toggleFoodType = function () {
+    console.log("Toggling food type");
     const type = document.querySelector('input[name="type"]:checked').value;
     const macrosSection = document.getElementById('macros-section');
     const ingredientsSection = document.getElementById('ingredients-section');
@@ -298,6 +267,8 @@ window.addEventListener('load', () => {
     };
 
     loadFoods();
+    // Initialize toggle state
+    toggleFoodType();
     document.getElementById('create-food-form').addEventListener('submit', createFood);
     document.getElementById('add-nutrient-btn').addEventListener('click', addNutrientRow);
 });
