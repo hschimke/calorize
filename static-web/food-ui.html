@@ -38,7 +38,16 @@
                         <input type="number" name="fat" required step="0.1">
                     </div>
                 </div>
-                <button type="submit">Add Food</button>
+                <!-- Dynamic Nutrients Section -->
+                <div class="form-group">
+                    <label>Micro-Nutrients</label>
+                    <div id="nutrients-container">
+                        <!-- Dynamic rows will be added here -->
+                    </div>
+                    <button type="button" id="add-nutrient-btn" class="secondary-btn">+ Add Nutrient</button>
+                </div>
+                <div class="form-row">
+                    <button type="submit">Add Food</button>
             </form>
         </div>
 
@@ -108,8 +117,30 @@
             color: #666;
         }
 
-        button {
-            padding: 8px 16px;
+        button {}
+
+        .secondary-btn {
+            background: #e0e0e0;
+            color: #333;
+            border: none;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .nutrient-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .remove-btn {
+            background: #ffcccc;
+            color: #cc0000;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
             cursor: pointer;
         }
     </style>

@@ -124,6 +124,7 @@ func createFoodHandler(w http.ResponseWriter, r *http.Request) {
 		MeasurementUnit:   req.MeasurementUnit,
 		MeasurementAmount: req.MeasurementAmount,
 		Ingredients:       ingredients,
+		Nutrients:         req.Nutrients,
 		Public:            true, // Default to public
 	})
 	if err != nil {
@@ -222,6 +223,7 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 		MeasurementUnit:   req.MeasurementUnit,
 		MeasurementAmount: req.MeasurementAmount,
 		Ingredients:       ingredients,
+		Nutrients:         req.Nutrients,
 		Public:            existing.Public, // Keep existing visibility
 	})
 	if err != nil {

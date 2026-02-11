@@ -13,6 +13,9 @@ async function loadFoods() {
                     <div class="food-info">
                         <strong>${food.name}</strong><br>
                         <small>${Math.round(food.calories)} kcal | P: ${Math.round(food.protein)}g | C: ${Math.round(food.carbs)}g | F: ${Math.round(food.fat)}g</small>
+                        ${food.nutrients && food.nutrients.length > 0 ?
+                        `<br><small><em>${food.nutrients.map(n => `${n.name}: ${n.amount}${n.unit}`).join(', ')}</em></small>`
+                        : ''}
                     </div>
                 `;
                 // Add delete button
@@ -31,20 +34,47 @@ async function loadFoods() {
     }
 }
 
+function addNutrientRow() {
+    const container = document.getElementById('nutrients-container');
+    const row = document.createElement('div');
+    row.className = 'nutrient-row';
+    row.innerHTML = `
+        <input type="text" placeholder="Name (e.g. Vitamin C)" class="nutrient-name" required>
+        <input type="number" placeholder="Amount" class="nutrient-amount" step="0.1" required>
+        <input type="text" placeholder="Unit (e.g. mg)" class="nutrient-unit" required>
+        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>
+    `;
+    container.appendChild(row);
+}
+
 async function createFood(e) {
     e.preventDefault();
     const form = e.target;
+
+    // Collect nutrients
+    const nutrients = [];
+    document.querySelectorAll('.nutrient-row').forEach(row => {
+        const name = row.querySelector('.nutrient-name').value;
+        const amount = parseFloat(row.querySelector('.nutrient-amount').value);
+        const unit = row.querySelector('.nutrient-unit').value;
+        if (name && !isNaN(amount) && unit) {
+            nutrients.push({ name, amount, unit });
+        }
+    });
+
     const foodData = {
         name: form.name.value,
         calories: parseFloat(form.calories.value),
         protein: parseFloat(form.protein.value),
         carbs: parseFloat(form.carbs.value),
         fat: parseFloat(form.fat.value),
+        nutrients: nutrients
     };
 
     try {
         await api.createFood(foodData);
         form.reset();
+        document.getElementById('nutrients-container').innerHTML = ''; // Clear nutrients
         loadFoods();
     } catch (e) {
         alert("Failed to create food: " + e.message);
@@ -64,4 +94,5 @@ async function deleteFood(id) {
 window.addEventListener('load', () => {
     loadFoods();
     document.getElementById('create-food-form').addEventListener('submit', createFood);
+    document.getElementById('add-nutrient-btn').addEventListener('click', addNutrientRow);
 });

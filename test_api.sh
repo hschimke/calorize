@@ -114,6 +114,45 @@ fi
 echo "✅ Recipe ingredients verified"
 
 echo "==================================================="
+echo "Test 1.5: Complex Nutrients"
+echo "---------------------------------------------------"
+echo "Creating Orange with Vitamin C..."
+ORANGE_RESP=$(curl -s -X POST "$BASE_URL/foods" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "name": "Orange",
+  "calories": 47,
+  "protein": 0.9,
+  "carbs": 11.8,
+  "fat": 0.1,
+  "type": "food",
+  "measurement_unit": "g",
+  "measurement_amount": 100,
+  "nutrients": [
+      { "name": "Vitamin C", "amount": 53.2, "unit": "mg" },
+      { "name": "Folate", "amount": 30, "unit": "ug" }
+  ]
+}')
+ORANGE_ID=$(echo $ORANGE_RESP | jq -r .id)
+echo "✅ Created Orange ID: $ORANGE_ID"
+
+echo "Verifying Nutrients..."
+FETCHED_ORANGE=$(curl -s "$BASE_URL/foods/$ORANGE_ID")
+NUTRIENT_COUNT=$(echo $FETCHED_ORANGE | jq '.nutrients | length')
+if [ "$NUTRIENT_COUNT" -ne 2 ]; then
+    echo "❌ Expected 2 nutrients, got $NUTRIENT_COUNT"
+    echo $FETCHED_ORANGE | jq .
+    exit 1
+fi
+
+VIT_C=$(echo $FETCHED_ORANGE | jq -r '.nutrients[] | select(.name=="Vitamin C") | .amount')
+if [ "$VIT_C" != "53.2" ]; then
+    echo "❌ Expected Vitamin C 53.2, got $VIT_C"
+    exit 1
+fi
+echo "✅ Nutrients verified"
+
+echo "==================================================="
 echo "Test 2: Logging & Stats"
 echo "---------------------------------------------------"
 echo "Logging consumption..."
