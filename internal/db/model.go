@@ -86,6 +86,7 @@ type Food struct {
 	Type              string         `json:"type"`
 	MeasurementUnit   string         `json:"measurement_unit"`
 	MeasurementAmount float64        `json:"measurement_amount"`
+	Servings          float64        `json:"servings"`
 	Public            bool           `json:"public"`
 	Ingredients       []RecipeItems  `json:"ingredients,omitempty"`
 	Nutrients         []FoodNutrient `json:"nutrients,omitempty"`

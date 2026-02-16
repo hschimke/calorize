@@ -32,6 +32,7 @@ func createTestIngredient(t *testing.T, user *User, name string) *Food {
 		Type:              "food",
 		MeasurementUnit:   "g",
 		MeasurementAmount: 100,
+		Servings:          1,
 		Calories:          100,
 		Protein:           10,
 		Carbs:             10,
@@ -41,12 +42,12 @@ func createTestIngredient(t *testing.T, user *User, name string) *Food {
 
 	_, err := db.Exec(`
         INSERT INTO foods (
-            id, creator_id, family_id, version, is_current, name, type, 
-            calories, protein, carbs, fat, measurement_unit, measurement_amount, public, created_at
+            id, creator_id, family_id, version, is_current, name, type,
+            calories, protein, carbs, fat, measurement_unit, measurement_amount, servings, public, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, f.ID, f.CreatorID, f.FamilyID, f.Version, f.IsCurrent, f.Name, f.Type,
-		f.Calories, f.Protein, f.Carbs, f.Fat, f.MeasurementUnit, f.MeasurementAmount, f.Public, f.CreatedAt)
+		f.Calories, f.Protein, f.Carbs, f.Fat, f.MeasurementUnit, f.MeasurementAmount, f.Servings, f.Public, f.CreatedAt)
 	if err != nil {
 		t.Fatalf("failed to insert test ingredient: %v", err)
 	}
@@ -63,10 +64,15 @@ func TestRecipeLifecycle(t *testing.T) {
 	flour := createTestIngredient(t, user, "Flour")
 	sugar := createTestIngredient(t, user, "Sugar")
 
-	// 1. Create Recipe
+	// 1. Create Recipe with 4 servings
 	recipe := Food{
 		CreatorID: user.ID,
 		Name:      "Cake",
+		Servings:  4,
+		Calories:  250, // per-serving (total 1000)
+		Protein:   5,
+		Carbs:     40,
+		Fat:       8,
 		Ingredients: []RecipeItems{
 			{IngredientID: flour.ID, Amount: 500},
 			{IngredientID: sugar.ID, Amount: 200},
@@ -92,6 +98,9 @@ func TestRecipeLifecycle(t *testing.T) {
 	if created.Type != "recipe" {
 		t.Errorf("Expected type 'recipe', got '%s'", created.Type)
 	}
+	if created.Servings != 4 {
+		t.Errorf("Expected servings 4, got %v", created.Servings)
+	}
 
 	// 2. Get Recipe
 	fetched, err := GetFood(created.ID)
@@ -100,6 +109,9 @@ func TestRecipeLifecycle(t *testing.T) {
 	}
 	if fetched.ID != created.ID {
 		t.Errorf("Fetched ID mismatch")
+	}
+	if fetched.Servings != 4 {
+		t.Errorf("Expected servings 4 after fetch, got %v", fetched.Servings)
 	}
 	if len(fetched.Ingredients) != 2 {
 		t.Errorf("Expected 2 ingredients, got %d", len(fetched.Ingredients))

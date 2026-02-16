@@ -61,9 +61,14 @@
 
                 <div id="ingredients-section" style="display: none;">
                     <div class="form-group">
+                        <label>Makes (servings)</label>
+                        <input type="number" id="recipe-servings" value="1" min="1" step="1"
+                            style="width: 120px; padding: 8px;">
+                    </div>
+                    <div class="form-group">
                         <label>Ingredients</label>
-                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                            <select id="ingredient-search" style="flex-grow: 1; padding: 8px;">
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px; overflow: hidden;">
+                            <select id="ingredient-search" style="flex: 1 1 0; min-width: 0; padding: 8px;">
                                 <option value="">Select a food...</option>
                             </select>
                             <input type="number" id="ingredient-amount" placeholder="Amount" step="0.1"
@@ -73,6 +78,9 @@
                         </div>
                         <div id="ingredients-list">
                             <!-- Added ingredients will appear here -->
+                        </div>
+                        <div id="recipe-totals" style="margin-top: 10px; padding: 10px; background: #eef; border-radius: 4px; display: none;">
+                            <!-- Per-serving totals shown here -->
                         </div>
                     </div>
                 </div>
@@ -152,6 +160,18 @@
             white-space: nowrap;
         }
 
+        .food-info {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .food-info strong {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .food-info small {
             color: #666;
         }
@@ -184,6 +204,22 @@
             gap: 10px;
             margin-bottom: 10px;
             align-items: center;
+        }
+
+        .nutrient-row > span:first-child {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #ingredient-search {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #ingredients-section .form-group select {
+            max-width: 100%;
         }
 
         .remove-btn {

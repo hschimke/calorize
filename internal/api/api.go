@@ -54,6 +54,7 @@ type createFoodRequest struct {
 	Type              string             `json:"type"`
 	MeasurementUnit   string             `json:"measurement_unit"`
 	MeasurementAmount float64            `json:"measurement_amount"`
+	Servings          float64            `json:"servings"`
 	Nutrients         []db.FoodNutrient  `json:"nutrients"`
 	Ingredients       map[string]float64 `json:"ingredients"`
 }
@@ -123,6 +124,7 @@ func createFoodHandler(w http.ResponseWriter, r *http.Request) {
 		Type:              req.Type,
 		MeasurementUnit:   req.MeasurementUnit,
 		MeasurementAmount: req.MeasurementAmount,
+		Servings:          req.Servings,
 		Ingredients:       ingredients,
 		Nutrients:         req.Nutrients,
 		Public:            true, // Default to public
@@ -222,6 +224,7 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 		Type:              req.Type,
 		MeasurementUnit:   req.MeasurementUnit,
 		MeasurementAmount: req.MeasurementAmount,
+		Servings:          req.Servings,
 		Ingredients:       ingredients,
 		Nutrients:         req.Nutrients,
 		Public:            existing.Public, // Keep existing visibility

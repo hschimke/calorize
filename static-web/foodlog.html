@@ -132,8 +132,19 @@
             align-items: center;
         }
 
+        #logs-list li > div {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         #logs-list li:last-child {
             border-bottom: none;
+        }
+
+        .form-group select {
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* Segmented Control / Toggle Pill */

@@ -16,7 +16,8 @@ async function loadFoods() {
                 const li = document.createElement('li');
                 let details = `${Math.round(food.calories)} kcal | P: ${Math.round(food.protein)}g | C: ${Math.round(food.carbs)}g | F: ${Math.round(food.fat)}g`;
                 if (food.type === 'recipe') {
-                    details += ` <span style="background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em;">Recipe</span>`;
+                    const servingsLabel = food.servings > 1 ? ` (per serving, makes ${food.servings})` : '';
+                    details += ` <span style="background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em;">Recipe${servingsLabel}</span>`;
                 }
 
                 li.innerHTML = `
@@ -110,6 +111,9 @@ async function startEdit(foodId) {
     window.toggleFoodType();
 
     if (food.type === 'recipe') {
+        // Populate servings
+        document.getElementById('recipe-servings').value = food.servings || 1;
+
         // Populate ingredients
         recipeIngredients = [];
         if (food.ingredients && food.ingredients.length > 0) {
@@ -156,6 +160,8 @@ window.cancelEdit = function () {
     document.getElementById('form-submit-btn').textContent = 'Add Food';
     document.getElementById('cancel-edit-btn').style.display = 'none';
     document.getElementById('nutrients-container').innerHTML = '';
+    document.getElementById('recipe-servings').value = 1;
+    document.getElementById('recipe-totals').style.display = 'none';
     recipeIngredients = [];
     updateIngredientList();
     document.getElementById('type-food').checked = true;
@@ -194,6 +200,34 @@ function updateIngredientList() {
         `;
         list.appendChild(div);
     });
+    updateRecipeTotals();
+}
+
+function updateRecipeTotals() {
+    const totalsDiv = document.getElementById('recipe-totals');
+    if (recipeIngredients.length === 0) {
+        totalsDiv.style.display = 'none';
+        return;
+    }
+
+    let cal = 0, p = 0, c = 0, f = 0;
+    recipeIngredients.forEach(ing => {
+        const food = availableFoods.find(fd => fd.id === ing.id);
+        if (food) {
+            const factor = ing.amount / (food.measurement_amount || 100);
+            cal += food.calories * factor;
+            p += food.protein * factor;
+            c += food.carbs * factor;
+            f += food.fat * factor;
+        }
+    });
+
+    const servings = parseFloat(document.getElementById('recipe-servings').value) || 1;
+    totalsDiv.style.display = 'block';
+    totalsDiv.innerHTML = `
+        <strong>Total:</strong> ${Math.round(cal)} kcal | P: ${Math.round(p)}g | C: ${Math.round(c)}g | F: ${Math.round(f)}g<br>
+        <strong>Per serving (${servings}):</strong> ${Math.round(cal / servings)} kcal | P: ${Math.round(p / servings)}g | C: ${Math.round(c / servings)}g | F: ${Math.round(f / servings)}g
+    `;
 }
 
 window.removeIngredient = function (index) {
@@ -258,6 +292,7 @@ async function handleSubmit(e) {
             alert("Please add at least one ingredient for the recipe.");
             return;
         }
+        const servings = parseFloat(document.getElementById('recipe-servings').value) || 1;
         let cal = 0, p = 0, c = 0, fat = 0;
         const ingredientsMap = {};
 
@@ -273,10 +308,12 @@ async function handleSubmit(e) {
             }
         });
 
-        foodData.calories = cal;
-        foodData.protein = p;
-        foodData.carbs = c;
-        foodData.fat = fat;
+        // Store per-serving macros
+        foodData.calories = cal / servings;
+        foodData.protein = p / servings;
+        foodData.carbs = c / servings;
+        foodData.fat = fat / servings;
+        foodData.servings = servings;
         foodData.ingredients = ingredientsMap;
     } else {
         foodData.calories = parseFloat(form.calories.value);
@@ -313,6 +350,8 @@ async function handleSubmit(e) {
         document.getElementById('form-submit-btn').textContent = 'Add Food';
         document.getElementById('cancel-edit-btn').style.display = 'none';
         document.getElementById('nutrients-container').innerHTML = '';
+        document.getElementById('recipe-servings').value = 1;
+        document.getElementById('recipe-totals').style.display = 'none';
         recipeIngredients = [];
         updateIngredientList();
         document.getElementById('type-food').checked = true;
@@ -329,4 +368,5 @@ window.addEventListener('load', () => {
     window.toggleFoodType();
     document.getElementById('create-food-form').addEventListener('submit', handleSubmit);
     document.getElementById('add-nutrient-btn').addEventListener('click', () => addNutrientRow());
+    document.getElementById('recipe-servings').addEventListener('input', updateRecipeTotals);
 });

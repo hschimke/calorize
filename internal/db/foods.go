@@ -11,18 +11,18 @@ import (
 
 func GetFoods(userID UserID) ([]Food, error) {
 	query := `
-		SELECT 
-			id, creator_id, family_id, version, is_current, name, 
-			calories, protein, carbs, fat, type, 
-			measurement_unit, measurement_amount, public, created_at, deleted_at 
-		FROM foods 
+		SELECT
+			id, creator_id, family_id, version, is_current, name,
+			calories, protein, carbs, fat, type,
+			measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+		FROM foods
 		WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
 		UNION
-		SELECT 
-			id, creator_id, family_id, version, is_current, name, 
-			calories, protein, carbs, fat, type, 
-			measurement_unit, measurement_amount, public, created_at, deleted_at 
-		FROM foods 
+		SELECT
+			id, creator_id, family_id, version, is_current, name,
+			calories, protein, carbs, fat, type,
+			measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+		FROM foods
 		WHERE public = true AND is_current = true AND deleted_at IS NULL
 	`
 	rows, err := db.Query(query, userID)
@@ -37,7 +37,7 @@ func GetFoods(userID UserID) ([]Food, error) {
 		err := rows.Scan(
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
-			&f.MeasurementUnit, &f.MeasurementAmount, &f.Public, &f.CreatedAt, &f.DeletedAt,
+			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning food: %w", err)
@@ -52,7 +52,7 @@ func GetFood(id FoodID) (*Food, error) {
 		SELECT
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
-			measurement_unit, measurement_amount, public, created_at, deleted_at
+			measurement_unit, measurement_amount, servings, public, created_at, deleted_at
 		FROM foods
 		WHERE id = ?
 	`
@@ -62,7 +62,7 @@ func GetFood(id FoodID) (*Food, error) {
 	err := row.Scan(
 		&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 		&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
-		&f.MeasurementUnit, &f.MeasurementAmount, &f.Public, &f.CreatedAt, &f.DeletedAt,
+		&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.CreatedAt, &f.DeletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -125,11 +125,11 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 	}
 
 	query := `
-		SELECT 
-			id, creator_id, family_id, version, is_current, name, 
-			calories, protein, carbs, fat, type, 
-			measurement_unit, measurement_amount, public, created_at, deleted_at 
-		FROM foods 
+		SELECT
+			id, creator_id, family_id, version, is_current, name,
+			calories, protein, carbs, fat, type,
+			measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+		FROM foods
 		WHERE family_id = ? AND deleted_at IS NULL
 		ORDER BY version DESC
 	`
@@ -145,7 +145,7 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 		err := rows.Scan(
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
-			&f.MeasurementUnit, &f.MeasurementAmount, &f.Public, &f.CreatedAt, &f.DeletedAt,
+			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning food version: %w", err)
@@ -158,15 +158,15 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 func insertFoodData(tx *sql.Tx, food *Food) error {
 	query := `
 		INSERT INTO foods (
-			id, creator_id, family_id, version, is_current, name, 
-			calories, protein, carbs, fat, type, 
-			measurement_unit, measurement_amount, public, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			id, creator_id, family_id, version, is_current, name,
+			calories, protein, carbs, fat, type,
+			measurement_unit, measurement_amount, servings, public, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := tx.Exec(query,
 		food.ID, food.CreatorID, food.FamilyID, food.Version, food.IsCurrent, food.Name,
 		food.Calories, food.Protein, food.Carbs, food.Fat, food.Type,
-		food.MeasurementUnit, food.MeasurementAmount, food.Public, food.CreatedAt,
+		food.MeasurementUnit, food.MeasurementAmount, food.Servings, food.Public, food.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("inserting food: %w", err)
@@ -221,6 +221,9 @@ func CreateFood(food Food) (*Food, error) {
 	}
 	food.Version = 1
 	food.IsCurrent = true
+	if food.Servings == 0 {
+		food.Servings = 1
+	}
 	if food.CreatedAt.IsZero() {
 		food.CreatedAt = time.Now()
 	}
@@ -259,6 +262,9 @@ func UpdateFood(id FoodID, food Food) (*Food, error) {
 	food.FamilyID = current.FamilyID
 	food.Version = current.Version + 1
 	food.IsCurrent = true
+	if food.Servings == 0 {
+		food.Servings = 1
+	}
 	if len(food.Ingredients) > 0 {
 		food.Type = "recipe"
 	} else if food.Type == "" {
