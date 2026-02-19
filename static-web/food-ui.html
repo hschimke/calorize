@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calorize</title>
+    <link rel="stylesheet" href="css/main.css">
     <script type="module" src="js/bootstrap.js"></script>
     <script type="module" src="js/food-ui.js"></script>
 </head>
@@ -13,7 +14,7 @@
     <div id="app" class="container">
         <h1>Foods</h1>
 
-        <div class="create-food-section">
+        <div class="panel">
             <h2 id="form-heading">Add New Food</h2>
             <form id="create-food-form">
                 <div class="form-group">
@@ -55,213 +56,46 @@
                         <div id="nutrients-container">
                             <!-- Dynamic rows will be added here -->
                         </div>
-                        <button type="button" id="add-nutrient-btn" class="secondary-btn">+ Add Nutrient</button>
+                        <button type="button" id="add-nutrient-btn" class="btn btn-secondary">+ Add Nutrient</button>
                     </div>
                 </div>
 
                 <div id="ingredients-section" style="display: none;">
                     <div class="form-group">
                         <label>Makes (servings)</label>
-                        <input type="number" id="recipe-servings" value="1" min="1" step="1"
-                            style="width: 120px; padding: 8px;">
+                        <input type="number" id="recipe-servings" value="1" min="1" step="1">
                     </div>
                     <div class="form-group">
                         <label>Ingredients</label>
-                        <div style="display: flex; gap: 10px; margin-bottom: 15px; overflow: hidden;">
-                            <select id="ingredient-search" style="flex: 1 1 0; min-width: 0; padding: 8px;">
+                        <div class="ingredient-add-row">
+                            <select id="ingredient-search">
                                 <option value="">Select a food...</option>
                             </select>
-                            <input type="number" id="ingredient-amount" placeholder="Amount" step="0.1"
-                                style="width: 100px;">
-                            <button type="button" onclick="addIngredient()" class="secondary-btn"
-                                style="margin-bottom: 0;">Add</button>
+                            <input type="number" id="ingredient-amount" placeholder="Amount" step="0.1">
+                            <button type="button" onclick="addIngredient()" class="btn btn-secondary">Add</button>
                         </div>
                         <div id="ingredients-list">
                             <!-- Added ingredients will appear here -->
                         </div>
-                        <div id="recipe-totals" style="margin-top: 10px; padding: 10px; background: #eef; border-radius: 4px; display: none;">
+                        <div id="recipe-totals" style="display: none;">
                             <!-- Per-serving totals shown here -->
                         </div>
                     </div>
                 </div>
 
-                <button type="submit" id="form-submit-btn">Add Food</button>
-                <button type="button" id="cancel-edit-btn" onclick="cancelEdit()" class="secondary-btn"
-                    style="display: none; margin-left: 10px;">Cancel</button>
+                <button type="submit" id="form-submit-btn" class="btn btn-primary">Add Food</button>
+                <button type="button" id="cancel-edit-btn" onclick="cancelEdit()" class="btn btn-secondary"
+                    style="display: none;">Cancel</button>
             </form>
         </div>
 
         <div class="foods-list-section">
             <h2>Your Foods</h2>
-            <ul id="foods-list">
+            <ul id="foods-list" class="item-list">
                 <!-- Foods will be populated here -->
             </ul>
         </div>
     </div>
-
-    <style>
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            font-family: sans-serif;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-        }
-
-        .create-food-section {
-            background: #f9f9f9;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-
-        #foods-list {
-            list-style: none;
-            padding: 0;
-        }
-
-        #foods-list li {
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        #foods-list li:last-child {
-            border-bottom: none;
-        }
-
-        .food-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            white-space: nowrap;
-        }
-
-        .food-info {
-            min-width: 0;
-            overflow: hidden;
-        }
-
-        .food-info strong {
-            display: block;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .food-info small {
-            color: #666;
-        }
-
-        button {
-            padding: 8px 16px;
-            cursor: pointer;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-
-        button:hover {
-            background: #0056b3;
-        }
-
-        .secondary-btn {
-            background: #e0e0e0;
-            color: #333;
-            border: none;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-
-        .nutrient-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr auto;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: center;
-        }
-
-        .nutrient-row > span:first-child {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        #ingredient-search {
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        #ingredients-section .form-group select {
-            max-width: 100%;
-        }
-
-        .remove-btn {
-            background: #ffcccc;
-            color: #cc0000;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        /* Toggle Styles from foodlog.html */
-        .toggle-container {
-            display: inline-flex;
-            background: #e0e0e0;
-            border-radius: 20px;
-            padding: 4px;
-            position: relative;
-        }
-
-        .toggle-container input[type="radio"] {
-            display: none;
-        }
-
-        .toggle-container label {
-            padding: 8px 16px;
-            cursor: pointer;
-            border-radius: 16px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #555;
-            transition: all 0.2s ease;
-            margin: 0;
-            display: inline-block;
-        }
-
-        .toggle-container input[type="radio"]:checked+label {
-            background: #fff;
-            color: #000;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-    </style>
 </body>
 
 </html>

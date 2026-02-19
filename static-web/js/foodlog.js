@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { showToast, showConfirm } from './ui.js';
 
 let currentDate = new Date().toISOString().split('T')[0];
 
@@ -53,7 +54,11 @@ async function loadFoods() {
     try {
         const foods = await api.getFoods();
         const select = document.getElementById('food-select');
-        select.innerHTML = '<option value="">Select a food...</option>';
+        select.textContent = '';
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select a food...';
+        select.appendChild(defaultOption);
 
         if (foods) {
             foods.forEach(food => {
@@ -72,33 +77,38 @@ async function loadLogs() {
     try {
         const logs = await api.getLogs(currentDate);
         const logsList = document.getElementById('logs-list');
-        logsList.innerHTML = '';
+        logsList.textContent = '';
 
         if (logs && logs.length > 0) {
             logs.forEach(log => {
                 const li = document.createElement('li');
 
-                let text = '';
+                const div = document.createElement('div');
+
+                const nameSpan = document.createElement('strong');
                 if (log.food) {
-                    text = `<strong>${log.food.name}</strong> - ${Math.round(log.amount * 10) / 10}x`;
+                    nameSpan.textContent = log.food.name;
+                    div.appendChild(nameSpan);
+                    div.appendChild(document.createTextNode(` - ${Math.round(log.amount * 10) / 10}x`));
                 } else {
-                    text = 'Quick Add';
+                    nameSpan.textContent = 'Quick Add';
+                    div.appendChild(nameSpan);
                 }
 
                 if (log.calories) {
-                    text += ` (${Math.round(log.calories)} kcal)`;
+                    div.appendChild(document.createTextNode(` (${Math.round(log.calories)} kcal)`));
                 }
 
                 if (log.meal_tag) {
-                    text += ` <span style="background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:10px;">${log.meal_tag}</span>`;
+                    const badge = document.createElement('span');
+                    badge.style.cssText = 'background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:10px;';
+                    badge.textContent = log.meal_tag;
+                    div.appendChild(badge);
                 }
-
-                const div = document.createElement('div');
-                div.innerHTML = text;
 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.textContent = 'Remove';
-                deleteBtn.style.marginLeft = '10px';
+                deleteBtn.className = 'btn btn-danger btn-sm';
                 deleteBtn.onclick = () => deleteLog(log.id);
 
                 li.appendChild(div);
@@ -106,7 +116,9 @@ async function loadLogs() {
                 logsList.appendChild(li);
             });
         } else {
-            logsList.innerHTML = '<li>No logs for this date.</li>';
+            const li = document.createElement('li');
+            li.textContent = 'No logs for this date.';
+            logsList.appendChild(li);
         }
     } catch (e) {
         console.error("Failed to load logs:", e);
@@ -123,9 +135,9 @@ async function addLog(e) {
     const logData = {
         amount: parseFloat(form.amount.value),
         meal_tag: form.meal_tag.value,
-        // The backend expects 'logged_at' for the date/time. 
+        // The backend expects 'logged_at' for the date/time.
         // We Append T12:00:00Z to ensure it's treated as a specific date, or just let backend handle it?
-        // Let's use the date picker value. 
+        // Let's use the date picker value.
         logged_at: new Date(currentDate).toISOString()
     };
 
@@ -150,17 +162,18 @@ async function addLog(e) {
 
         loadLogs();
     } catch (e) {
-        alert("Failed to create log: " + e.message);
+        showToast("Failed to create log: " + e.message, 'error');
     }
 }
 
 async function deleteLog(id) {
-    if (!confirm("Remove this log?")) return;
+    const confirmed = await showConfirm("Remove this log?");
+    if (!confirmed) return;
     try {
         await api.deleteLog(id);
         loadLogs();
     } catch (e) {
-        alert("Failed to remove log: " + e.message);
+        showToast("Failed to remove log: " + e.message, 'error');
     }
 }
 

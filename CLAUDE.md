@@ -65,3 +65,66 @@ Global: Logger → Recoverer → CORS → Router. Protected routes are wrapped w
 
 ### Database migrations
 SQL files in `internal/db/migrations/`, auto-applied on startup via goose. When adding a migration, follow the existing `NNNNN_description.sql` naming pattern.
+
+## Frontend Design System
+
+All frontend styles live in **`static-web/css/main.css`**. No inline `<style>` blocks in HTML files. No CSS injected from JavaScript.
+
+### Font
+`Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
+
+### CSS Custom Properties
+| Token | Value | Use |
+|---|---|---|
+| `--color-primary` | `#2563eb` | CTA buttons |
+| `--color-primary-hover` | `#1d4ed8` | Button hover |
+| `--color-danger` | `#dc2626` | Destructive actions |
+| `--color-danger-bg` | `#fee2e2` | Danger button background |
+| `--color-text` | `#111827` | Body text |
+| `--color-text-muted` | `#6b7280` | Labels, secondary info |
+| `--color-border` | `#e5e7eb` | Dividers, input borders |
+| `--color-bg` | `#f9fafb` | Page background |
+| `--color-surface` | `#ffffff` | Cards, panels |
+| `--color-surface-muted` | `#f3f4f6` | Controls bg, segmented control |
+| `--color-nav` | `#111827` | Navigation bar |
+| `--space-1` – `--space-8` | `4px` – `32px` | Spacing scale |
+| `--radius-sm` | `4px` | Inputs, small buttons |
+| `--radius-md` | `8px` | Cards, panels |
+| `--radius-pill` | `20px` | Segmented controls, period buttons |
+
+### Button Classes
+- `.btn` — base styles (always combine with a variant)
+- `.btn-primary` — blue, white text (CTA / submit)
+- `.btn-secondary` — muted gray (secondary actions, no destructive)
+- `.btn-danger` — red tint (delete/destructive)
+- `.btn-sm` — smaller padding modifier for inline list buttons
+
+### Component Classes
+| Class | Purpose |
+|---|---|
+| `.container` | Max-width 800px centered layout |
+| `.panel` | White card with border, replaces ad-hoc section backgrounds |
+| `.controls-bar` | Date picker / filter row |
+| `.toggle-container` | Segmented radio control |
+| `.stat-card` / `.stats-container` | Metric display cards |
+| `.period-selector` / `.period-btn` | Time period filter buttons |
+| `.item-list` | Shared log/food `<ul>` list with dividers |
+| `.food-info` / `.food-actions` | Flex row layout inside list items |
+| `.nutrient-row` | Grid row for nutrient/ingredient entries |
+| `.ingredient-add-row` | Flex row for the ingredient search + add controls |
+
+### Toast Notifications
+Import and call `showToast` from `js/ui.js`:
+```js
+import { showToast, showConfirm } from './ui.js';
+
+showToast("Saved successfully");           // green
+showToast("Something went wrong", 'error'); // red
+```
+
+### Confirm Dialogs
+Replace `confirm()` with the async `showConfirm`:
+```js
+const ok = await showConfirm("Delete this item?");
+if (!ok) return;
+```

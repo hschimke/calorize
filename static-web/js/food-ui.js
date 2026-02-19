@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { showToast, showConfirm } from './ui.js';
 
 let availableFoods = [];
 let recipeIngredients = []; // Array of {id, name, amount, unit}
@@ -9,46 +10,65 @@ async function loadFoods() {
         const foods = await api.getFoods();
         populateIngredientSearch(foods || []);
         const foodsList = document.getElementById('foods-list');
-        foodsList.innerHTML = '';
+        foodsList.textContent = '';
 
         if (foods && foods.length > 0) {
             foods.forEach(food => {
                 const li = document.createElement('li');
-                let details = `${Math.round(food.calories)} kcal | P: ${Math.round(food.protein)}g | C: ${Math.round(food.carbs)}g | F: ${Math.round(food.fat)}g`;
+
+                const foodInfo = document.createElement('div');
+                foodInfo.className = 'food-info';
+
+                const nameEl = document.createElement('strong');
+                nameEl.textContent = food.name;
+                foodInfo.appendChild(nameEl);
+                foodInfo.appendChild(document.createElement('br'));
+
+                const detailsEl = document.createElement('small');
+                detailsEl.appendChild(document.createTextNode(
+                    `${Math.round(food.calories)} kcal | P: ${Math.round(food.protein)}g | C: ${Math.round(food.carbs)}g | F: ${Math.round(food.fat)}g`
+                ));
                 if (food.type === 'recipe') {
+                    const badge = document.createElement('span');
+                    badge.style.cssText = 'background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:4px;';
                     const servingsLabel = food.servings > 1 ? ` (per serving, makes ${food.servings})` : '';
-                    details += ` <span style="background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em;">Recipe${servingsLabel}</span>`;
+                    badge.textContent = `Recipe${servingsLabel}`;
+                    detailsEl.appendChild(badge);
+                }
+                foodInfo.appendChild(detailsEl);
+
+                if (food.nutrients && food.nutrients.length > 0) {
+                    foodInfo.appendChild(document.createElement('br'));
+                    const nutrientsEl = document.createElement('small');
+                    const em = document.createElement('em');
+                    em.textContent = food.nutrients.map(n => `${n.name}: ${n.amount}${n.unit}`).join(', ');
+                    nutrientsEl.appendChild(em);
+                    foodInfo.appendChild(nutrientsEl);
                 }
 
-                li.innerHTML = `
-                    <div class="food-info">
-                        <strong>${food.name}</strong><br>
-                        <small>${details}</small>
-                        ${food.nutrients && food.nutrients.length > 0 ?
-                        `<br><small><em>${food.nutrients.map(n => `${n.name}: ${n.amount}${n.unit}`).join(', ')}</em></small>`
-                        : ''}
-                    </div>
-                    <div class="food-actions">
-                    </div>
-                `;
-                const actionsDiv = li.querySelector('.food-actions');
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'food-actions';
 
                 const editBtn = document.createElement('button');
                 editBtn.textContent = 'Edit';
-                editBtn.className = 'secondary-btn';
-                editBtn.style.marginRight = '8px';
+                editBtn.className = 'btn btn-secondary btn-sm';
                 editBtn.onclick = () => startEdit(food.id);
                 actionsDiv.appendChild(editBtn);
 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.textContent = 'Delete';
+                deleteBtn.className = 'btn btn-danger btn-sm';
                 deleteBtn.onclick = () => deleteFood(food.id);
                 actionsDiv.appendChild(deleteBtn);
 
+                li.appendChild(foodInfo);
+                li.appendChild(actionsDiv);
                 foodsList.appendChild(li);
             });
         } else {
-            foodsList.innerHTML = '<li>No foods found.</li>';
+            const li = document.createElement('li');
+            li.textContent = 'No foods found.';
+            foodsList.appendChild(li);
         }
     } catch (e) {
         console.error("Failed to load foods:", e);
@@ -59,22 +79,50 @@ function addNutrientRow(name, amount, unit) {
     const container = document.getElementById('nutrients-container');
     const row = document.createElement('div');
     row.className = 'nutrient-row';
-    row.innerHTML = `
-        <input type="text" placeholder="Name (e.g. Vitamin C)" class="nutrient-name" required value="${name || ''}">
-        <input type="number" placeholder="Amount" class="nutrient-amount" step="0.1" required value="${amount || ''}">
-        <input type="text" placeholder="Unit (e.g. mg)" class="nutrient-unit" required value="${unit || ''}">
-        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">×</button>
-    `;
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.placeholder = 'Name (e.g. Vitamin C)';
+    nameInput.className = 'nutrient-name';
+    nameInput.required = true;
+    nameInput.value = name || '';
+
+    const amountInput = document.createElement('input');
+    amountInput.type = 'number';
+    amountInput.placeholder = 'Amount';
+    amountInput.className = 'nutrient-amount';
+    amountInput.step = '0.1';
+    amountInput.required = true;
+    amountInput.value = amount || '';
+
+    const unitInput = document.createElement('input');
+    unitInput.type = 'text';
+    unitInput.placeholder = 'Unit (e.g. mg)';
+    unitInput.className = 'nutrient-unit';
+    unitInput.required = true;
+    unitInput.value = unit || '';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-danger btn-sm';
+    removeBtn.textContent = '×';
+    removeBtn.onclick = () => row.remove();
+
+    row.appendChild(nameInput);
+    row.appendChild(amountInput);
+    row.appendChild(unitInput);
+    row.appendChild(removeBtn);
     container.appendChild(row);
 }
 
 async function deleteFood(id) {
-    if (!confirm("Are you sure you want to delete this food?")) return;
+    const confirmed = await showConfirm("Are you sure you want to delete this food?");
+    if (!confirmed) return;
     try {
         await api.deleteFood(id);
         loadFoods();
     } catch (e) {
-        alert("Failed to delete food: " + e.message);
+        showToast("Failed to delete food: " + e.message, 'error');
     }
 }
 
@@ -89,7 +137,7 @@ async function startEdit(foodId) {
 
     // Fetch full food details (includes nutrients and ingredients)
     const food = await api.getFood(foodId);
-    if (!food) { alert("Could not load food details."); return; }
+    if (!food) { showToast("Could not load food details.", 'error'); return; }
 
     editingFoodId = food.id;
     const form = document.getElementById('create-food-form');
@@ -97,7 +145,7 @@ async function startEdit(foodId) {
     // Update heading and button
     document.getElementById('form-heading').textContent = 'Edit Food';
     document.getElementById('form-submit-btn').textContent = 'Save Changes';
-    document.getElementById('cancel-edit-btn').style.display = 'inline-block';
+    document.getElementById('cancel-edit-btn').style.display = 'inline-flex';
 
     // Set name
     form.name.value = food.name;
@@ -142,7 +190,7 @@ async function startEdit(foodId) {
         form.fat.value = food.fat;
 
         // Populate nutrients
-        document.getElementById('nutrients-container').innerHTML = '';
+        document.getElementById('nutrients-container').textContent = '';
         if (food.nutrients && food.nutrients.length > 0) {
             food.nutrients.forEach(n => addNutrientRow(n.name, n.amount, n.unit));
         }
@@ -159,7 +207,7 @@ window.cancelEdit = function () {
     document.getElementById('form-heading').textContent = 'Add New Food';
     document.getElementById('form-submit-btn').textContent = 'Add Food';
     document.getElementById('cancel-edit-btn').style.display = 'none';
-    document.getElementById('nutrients-container').innerHTML = '';
+    document.getElementById('nutrients-container').textContent = '';
     document.getElementById('recipe-servings').value = 1;
     document.getElementById('recipe-totals').style.display = 'none';
     recipeIngredients = [];
@@ -189,18 +237,40 @@ window.toggleFoodType = function () {
 
 function updateIngredientList() {
     const list = document.getElementById('ingredients-list');
-    list.innerHTML = '';
+    list.textContent = '';
     recipeIngredients.forEach((ing, index) => {
         const div = document.createElement('div');
         div.className = 'nutrient-row';
-        div.innerHTML = `
-            <span>${ing.name}</span>
-            <span>${ing.amount} ${ing.unit}</span>
-            <button type="button" class="remove-btn" onclick="removeIngredient(${index})">×</button>
-        `;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = ing.name;
+
+        const amountSpan = document.createElement('span');
+        amountSpan.textContent = `${ing.amount} ${ing.unit}`;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-danger btn-sm';
+        removeBtn.textContent = '×';
+        removeBtn.onclick = () => removeIngredient(index);
+
+        div.appendChild(nameSpan);
+        div.appendChild(amountSpan);
+        div.appendChild(removeBtn);
         list.appendChild(div);
     });
     updateRecipeTotals();
+}
+
+function makeMacroLine(label, cal, p, c, f) {
+    const div = document.createElement('div');
+    const strong = document.createElement('strong');
+    strong.textContent = label;
+    div.appendChild(strong);
+    div.appendChild(document.createTextNode(
+        ` ${Math.round(cal)} kcal | P: ${Math.round(p)}g | C: ${Math.round(c)}g | F: ${Math.round(f)}g`
+    ));
+    return div;
 }
 
 function updateRecipeTotals() {
@@ -224,10 +294,9 @@ function updateRecipeTotals() {
 
     const servings = parseFloat(document.getElementById('recipe-servings').value) || 1;
     totalsDiv.style.display = 'block';
-    totalsDiv.innerHTML = `
-        <strong>Total:</strong> ${Math.round(cal)} kcal | P: ${Math.round(p)}g | C: ${Math.round(c)}g | F: ${Math.round(f)}g<br>
-        <strong>Per serving (${servings}):</strong> ${Math.round(cal / servings)} kcal | P: ${Math.round(p / servings)}g | C: ${Math.round(c / servings)}g | F: ${Math.round(f / servings)}g
-    `;
+    totalsDiv.textContent = '';
+    totalsDiv.appendChild(makeMacroLine('Total:', cal, p, c, f));
+    totalsDiv.appendChild(makeMacroLine(`Per serving (${servings}):`, cal / servings, p / servings, c / servings, f / servings));
 }
 
 window.removeIngredient = function (index) {
@@ -242,7 +311,7 @@ window.addIngredient = function () {
     const amount = parseFloat(amountInput.value);
 
     if (!foodId || isNaN(amount) || amount <= 0) {
-        alert("Please select a food and enter a valid amount.");
+        showToast("Please select a food and enter a valid amount.", 'error');
         return;
     }
 
@@ -264,7 +333,11 @@ window.addIngredient = function () {
 function populateIngredientSearch(foods) {
     availableFoods = foods;
     const select = document.getElementById('ingredient-search');
-    select.innerHTML = '<option value="">Select a food...</option>';
+    select.textContent = '';
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Select a food...';
+    select.appendChild(defaultOption);
     foods.forEach(f => {
         const option = document.createElement('option');
         option.value = f.id;
@@ -289,7 +362,7 @@ async function handleSubmit(e) {
 
     if (type === 'recipe') {
         if (recipeIngredients.length === 0) {
-            alert("Please add at least one ingredient for the recipe.");
+            showToast("Please add at least one ingredient for the recipe.", 'error');
             return;
         }
         const servings = parseFloat(document.getElementById('recipe-servings').value) || 1;
@@ -349,7 +422,7 @@ async function handleSubmit(e) {
         document.getElementById('form-heading').textContent = 'Add New Food';
         document.getElementById('form-submit-btn').textContent = 'Add Food';
         document.getElementById('cancel-edit-btn').style.display = 'none';
-        document.getElementById('nutrients-container').innerHTML = '';
+        document.getElementById('nutrients-container').textContent = '';
         document.getElementById('recipe-servings').value = 1;
         document.getElementById('recipe-totals').style.display = 'none';
         recipeIngredients = [];
@@ -359,7 +432,7 @@ async function handleSubmit(e) {
 
         loadFoods();
     } catch (e) {
-        alert("Failed to save food: " + e.message);
+        showToast("Failed to save food: " + e.message, 'error');
     }
 }
 
