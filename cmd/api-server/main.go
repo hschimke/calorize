@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"time"
@@ -116,6 +117,29 @@ func main() {
 		}
 	}()
 
+	// Session cleanup task
+	sessionCleanupTicker := time.NewTicker(1 * time.Hour)
+	cleanupDone := make(chan struct{})
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		slog.Info("session cleanup daemon starting")
+		for {
+			select {
+			case <-sessionCleanupTicker.C:
+				if err := db.CleanupExpiredSessions(); err != nil {
+					slog.Error("session cleanup failed", "error", err)
+				}
+			case <-cleanupDone:
+				slog.Info("session cleanup daemon stopping")
+				sessionCleanupTicker.Stop()
+				return
+			}
+		}
+	}()
+
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -129,6 +153,10 @@ func main() {
 	if err := server.Shutdown(ctx); err != nil {
 		slog.Error("server forced to shutdown", "error", err)
 	}
+
+	// Signal cleanup to stop
+	close(cleanupDone)
+	wg.Wait()
 
 	slog.Info("server exited")
 }

@@ -73,3 +73,12 @@ func DeleteSession(sessionID string) error {
 	}
 	return nil
 }
+
+func CleanupExpiredSessions() error {
+	query := `DELETE FROM sessions WHERE expires_at < ?`
+	_, err := db.Exec(query, time.Now())
+	if err != nil {
+		return fmt.Errorf("cleaning up expired sessions: %w", err)
+	}
+	return nil
+}
