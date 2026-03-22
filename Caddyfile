@@ -11,7 +11,7 @@ calorize.test {
     file_server
 
     @api {
-        path /auth/* /foods* /logs* /stats* /healthz
+        path /api/v1/*
     }
     reverse_proxy @api calorize.test:8080
 }

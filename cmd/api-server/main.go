@@ -49,11 +49,11 @@ func main() {
 
 	slog.SetDefault(logger)
 
-	mux := http.NewServeMux()
+	v1Mux := http.NewServeMux()
 
 	// Public Routes
-	auth.RegisterAuthPaths(mux) // Auth endpoints must be public
-	mux.Handle("GET /healthz", http.HandlerFunc(healthHandler))
+	auth.RegisterAuthPaths(v1Mux) // Auth endpoints must be public
+	v1Mux.Handle("GET /healthz", http.HandlerFunc(healthHandler))
 
 	// Protected Routes (API)
 	apiMux := http.NewServeMux()
@@ -82,10 +82,13 @@ func main() {
 		protectedHandler = middleware.RequireAuth(apiMux)
 	}
 
-	// Mount protected handler at root "/" to catch all non-matched routes
-	// Note: Since we registered specific paths on 'mux' above, those will take precedence.
+	// Mount protected handler at root "/" of v1Mux to catch all non-matched routes
+	// Note: Since we registered specific paths on 'v1Mux' above, those will take precedence.
 	// Any other path will fall through to "/" which we handle with our protected mux.
-	mux.Handle("/", protectedHandler)
+	v1Mux.Handle("/", protectedHandler)
+
+	mainMux := http.NewServeMux()
+	mainMux.Handle("/api/v1/", http.StripPrefix("/api/v1", v1Mux))
 
 	// Global Middleware (Logger & Recovery) - wraps everything
 	// Order: Logger -> Recoverer -> Mux
@@ -94,7 +97,7 @@ func main() {
 
 	// Note: If Recoverer handles a panic, it writes 500. Logger will see that status if using a wrapped writer.
 
-	finalHandler := middleware.Logger(middleware.Recoverer(middleware.CORS(mux)))
+	finalHandler := middleware.Logger(middleware.Recoverer(middleware.CORS(mainMux)))
 
 	// 4. Start the server
 	port := os.Getenv("PORT")

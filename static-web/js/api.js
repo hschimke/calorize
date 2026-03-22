@@ -3,7 +3,7 @@
  * Handles all server communication including Authentication (WebAuthn), Foods, Logs, and Stats.
  */
 export class API {
-    constructor(baseUrl = '') {
+    constructor(baseUrl = '/api/v1') {
         this.baseUrl = baseUrl;
     }
 
