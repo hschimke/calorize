@@ -44,6 +44,9 @@ func GetFoods(userID UserID) ([]Food, error) {
 		}
 		foods = append(foods, f)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating foods: %w", err)
+	}
 	return foods, nil
 }
 
@@ -54,7 +57,7 @@ func GetFood(id FoodID) (*Food, error) {
 			calories, protein, carbs, fat, type,
 			measurement_unit, measurement_amount, servings, public, created_at, deleted_at
 		FROM foods
-		WHERE id = ?
+		WHERE id = ? AND deleted_at IS NULL
 	`
 	row := db.QueryRow(query, id)
 
@@ -90,6 +93,9 @@ func GetFood(id FoodID) (*Food, error) {
 		}
 		f.Nutrients = append(f.Nutrients, n)
 	}
+	if err := nRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating nutrients: %w", err)
+	}
 
 	// Fetch ingredients
 	ingredientsQuery := `
@@ -109,6 +115,9 @@ func GetFood(id FoodID) (*Food, error) {
 			return nil, fmt.Errorf("scanning ingredient: %w", err)
 		}
 		f.Ingredients = append(f.Ingredients, i)
+	}
+	if err := iRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating ingredients: %w", err)
 	}
 
 	return &f, nil
@@ -151,6 +160,9 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 			return nil, fmt.Errorf("scanning food version: %w", err)
 		}
 		versions = append(versions, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating food versions: %w", err)
 	}
 	return versions, nil
 }
@@ -284,7 +296,7 @@ func UpdateFood(id FoodID, food Food) (*Food, error) {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec("UPDATE foods SET is_current = false WHERE id = ?", current.ID)
+	_, err = tx.Exec("UPDATE foods SET is_current = false WHERE family_id = ?", current.FamilyID)
 	if err != nil {
 		return nil, fmt.Errorf("deprecating old version: %w", err)
 	}

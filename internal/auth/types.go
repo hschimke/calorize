@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"log/slog"
+
 	"azule.info/calorize/internal/db"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
@@ -34,6 +36,7 @@ func (u *WebAuthnUser) WebAuthnIcon() string {
 func (u *WebAuthnUser) WebAuthnCredentials() []webauthn.Credential {
 	creds, err := db.GetUserCredentials(*u.User)
 	if err != nil {
+		slog.Error("failed to get user credentials for WebAuthn", "user_id", u.User.ID, "error", err)
 		return nil
 	}
 

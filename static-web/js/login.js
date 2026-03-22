@@ -1,5 +1,6 @@
 import { api } from "./api.js";
 import { set_login } from "./auth.js";
+import { showToast } from "./ui.js";
 
 function main() {
     const login_form = document.getElementById("login-form");
@@ -25,7 +26,7 @@ async function login(username) {
         set_login(response);
         window.location.href = '/dashboard.html';
     } catch (e) {
-        alert("Login failed: " + e.message);
+        showToast("Login failed: " + e.message, 'error');
     }
 }
 
@@ -35,7 +36,7 @@ async function register(username, email) {
         set_login(response);
         window.location.href = '/dashboard.html';
     } catch (e) {
-        alert("Registration failed: " + e.message);
+        showToast("Registration failed: " + e.message, 'error');
     }
 }
 

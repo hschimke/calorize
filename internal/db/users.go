@@ -198,6 +198,9 @@ func GetUserCredentials(user User) ([]UserCredential, error) {
 
 		credentials = append(credentials, c)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating credentials: %w", err)
+	}
 	return credentials, nil
 }
 

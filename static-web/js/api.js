@@ -150,7 +150,7 @@ export class API {
         };
 
         // 3. Finish Login
-        return await this.request(`/auth/login/finish?username=${encodeURIComponent(username)}`, 'POST', assertionForServer);
+        return await this.request('/auth/login/finish', 'POST', assertionForServer);
     }
 
     async logout() {

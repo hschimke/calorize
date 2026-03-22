@@ -83,8 +83,11 @@ func RegisterAuthPaths(mux *http.ServeMux) {
 }
 
 // Session storage helper
-func saveSession(w http.ResponseWriter, data *webauthn.SessionData) {
-	marshaled, _ := json.Marshal(data)
+func saveSession(w http.ResponseWriter, data *webauthn.SessionData) error {
+	marshaled, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("marshaling session data: %w", err)
+	}
 	encoded := base64.StdEncoding.EncodeToString(marshaled)
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
@@ -94,6 +97,7 @@ func saveSession(w http.ResponseWriter, data *webauthn.SessionData) {
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	})
+	return nil
 }
 
 func loadSession(r *http.Request) (*webauthn.SessionData, error) {
@@ -174,11 +178,11 @@ func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store session data including the user ID we just generated/fetched
-	// so we can use it in finish
-	// We might need to store the transient user ID in the session or cookie too if we didn't save to DB yet.
-	// But `SessionData` has `UserID` (bytes).
-	saveSession(w, sessionData)
+	if err := saveSession(w, sessionData); err != nil {
+		http.Error(w, "failed to save session", http.StatusInternalServerError)
+		db.DeleteTemporaryUser(*user)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(options)
@@ -191,30 +195,16 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// We need the user again.
-	// The `sessionData.UserID` contains the ID.
+	// Retrieve user by ID stored in the WebAuthn session data
 	uid, err := uuid.FromBytes(sessionData.UserID)
 	if err != nil {
 		http.Error(w, "invalid user id in session", http.StatusBadRequest)
 		return
 	}
 
-	// Reconstruct user
-	username := r.URL.Query().Get("username")
-	user, err := db.GetUser(username)
+	user, err := db.GetUserByID(db.UserID(uid))
 	if err != nil || user == nil {
-		// if nil, maybe we just created it and need to find it?
-		// If we created it, `GetUser` should find it.
-		// If we haven't created it yet (transient), we are in trouble.
-
-		// Let's assume `registerBeginHandler` creates the user.
 		http.Error(w, "user not found", http.StatusBadRequest)
-		return
-	}
-
-	if user.ID != db.UserID(uid) {
-		http.Error(w, "user id mismatch", http.StatusBadRequest)
-		db.DeleteTemporaryUser(*user)
 		return
 	}
 
@@ -246,15 +236,21 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto-login? Create session.
+	// Auto-login: Create session.
 	session, err := db.CreateSession(user.ID)
 	if err != nil {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return
 	}
 
-	// Return session token? Or set cookie?
-	// Let's set a cookie for the app session
+	// Generate PASETO token
+	t, err := token.Generate(user.ID)
+	if err != nil {
+		http.Error(w, "failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
+	// Set all cookies before writing the response body
 	http.SetCookie(w, &http.Cookie{
 		Name:     AppSessionCookieName,
 		Value:    session.ID,
@@ -264,15 +260,8 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	})
-
-	// Generate PASETO token
-	t, err := token.Generate(user.ID)
-	if err != nil {
-		http.Error(w, "failed to generate token", http.StatusInternalServerError)
-		return
-	}
-
 	clearSession(w)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Registration Success",
@@ -302,7 +291,11 @@ func loginBeginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	saveSession(w, sessionData)
+	if err := saveSession(w, sessionData); err != nil {
+		http.Error(w, "failed to save session", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(options)
 }
@@ -349,6 +342,14 @@ func loginFinishHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate PASETO token
+	t, err := token.Generate(user.ID)
+	if err != nil {
+		http.Error(w, "failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
+	// Set all cookies before writing the response body
 	http.SetCookie(w, &http.Cookie{
 		Name:     AppSessionCookieName,
 		Value:    session.ID,
@@ -358,15 +359,8 @@ func loginFinishHandler(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	})
-
-	// Generate PASETO token
-	t, err := token.Generate(user.ID)
-	if err != nil {
-		http.Error(w, "failed to generate token", http.StatusInternalServerError)
-		return
-	}
-
 	clearSession(w)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Login Success",

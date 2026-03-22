@@ -1,0 +1,26 @@
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      - PORT=8080
+      - DB_PATH=/data/calorize.db
+      - DEV_AUTH=true
+    volumes:
+      - output-data:/data
+    ports:
+      - "8080:8080"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+volumes:
+  output-data:

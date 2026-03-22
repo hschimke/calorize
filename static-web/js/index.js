@@ -2,12 +2,22 @@ import { check_login } from "./auth.js";
 
 async function main() {
     const app_container = document.getElementById("app");
-    app_container.innerText = "Hello World";
+    app_container.textContent = "";
 
     if (check_login()) {
-        app_container.innerHTML = "Welcome to the Calorize, visit the <a href='/dashboard.html'>dashboard</a>.";
+        app_container.appendChild(document.createTextNode("Welcome to Calorize, visit the "));
+        const link = document.createElement("a");
+        link.href = "/dashboard.html";
+        link.textContent = "dashboard";
+        app_container.appendChild(link);
+        app_container.appendChild(document.createTextNode("."));
     } else {
-        app_container.innerHTML = "You are not logged in. Please login or register at <a href='/login.html'>/login</a>.";
+        app_container.appendChild(document.createTextNode("You are not logged in. Please login or register at "));
+        const link = document.createElement("a");
+        link.href = "/login.html";
+        link.textContent = "/login";
+        app_container.appendChild(link);
+        app_container.appendChild(document.createTextNode("."));
     }
 }
 

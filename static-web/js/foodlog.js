@@ -147,6 +147,7 @@ async function addLog(e) {
         const cals = parseFloat(form.calories.value);
         const amt = parseFloat(form.amount.value);
         logData.calories = cals * amt;
+        logData.amount = 1; // Calories already pre-multiplied
     }
 
     try {

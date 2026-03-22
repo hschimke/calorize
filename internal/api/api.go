@@ -296,9 +296,11 @@ func getStatsHandler(w http.ResponseWriter, r *http.Request) {
 	date := time.Now()
 	if dateStr != "" {
 		parsed, err := time.Parse("2006-01-02", dateStr)
-		if err == nil {
-			date = parsed
+		if err != nil {
+			http.Error(w, "Invalid date format, expected YYYY-MM-DD", http.StatusBadRequest)
+			return
 		}
+		date = parsed
 	}
 
 	stats, err := db.GetStats(userID, r.URL.Query().Get("period"), date)
@@ -336,9 +338,12 @@ func getLogsHandler(w http.ResponseWriter, r *http.Request) {
 
 	date := time.Now()
 	if d := r.URL.Query().Get("date"); d != "" {
-		if parsed, err := time.Parse("2006-01-02", d); err == nil {
-			date = parsed
+		parsed, err := time.Parse("2006-01-02", d)
+		if err != nil {
+			http.Error(w, "Invalid date format, expected YYYY-MM-DD", http.StatusBadRequest)
+			return
 		}
+		date = parsed
 	}
 
 	logs, err := db.GetFoodLogEntries(userID, date)

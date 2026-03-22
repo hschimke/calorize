@@ -49,13 +49,6 @@ func main() {
 
 	slog.SetDefault(logger)
 
-	devUserID, err := setupDevUser()
-	if err != nil {
-		slog.Error("failed to setup dev user", "error", err)
-		os.Exit(1)
-	}
-	slog.Info("dev user ready", "user_id", devUserID)
-
 	mux := http.NewServeMux()
 
 	// Public Routes
@@ -70,6 +63,12 @@ func main() {
 	var protectedHandler http.Handler
 	if os.Getenv("DEV_AUTH") == "true" {
 		slog.Warn("DEV_AUTH enabled - using insecure dev user authentication")
+		devUserID, err := setupDevUser()
+		if err != nil {
+			slog.Error("failed to setup dev user", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("dev user ready", "user_id", devUserID)
 		devAuthMiddleware := func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				ctx := context.WithValue(r.Context(), auth.UserIDContextKey, devUserID)
@@ -164,6 +163,7 @@ func main() {
 // --- Handler ---
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "ok"}`))
 }

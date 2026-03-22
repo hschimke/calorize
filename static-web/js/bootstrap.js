@@ -57,6 +57,18 @@ async function bootstrap() {
 
     if (isLoggedIn) {
         render_logout_button(authAction);
+
+        // Validate that the cookie-based session is still active.
+        // If the server returns 401, clear the stale localStorage token.
+        try {
+            await api.getStats('day', new Date().toISOString().split('T')[0]);
+        } catch (e) {
+            if (e.message && e.message.includes('401')) {
+                unset_login();
+                window.location.href = '/login.html';
+                return;
+            }
+        }
     }
 }
 
