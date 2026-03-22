@@ -560,3 +560,178 @@ select:focus {
 .login-page .panel {
   margin-bottom: var(--space-6);
 }
+
+/* ============================================================
+   Meal Badge (extracted from inline JS styles)
+   ============================================================ */
+.meal-badge {
+  background: var(--color-surface-muted);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8em;
+  margin-left: 10px;
+}
+
+/* ============================================================
+   Mobile Navigation Toggle
+   ============================================================ */
+.nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  line-height: 1;
+}
+
+/* ============================================================
+   Responsive Styles (Mobile ≤ 600px)
+   ============================================================ */
+@media (max-width: 600px) {
+
+  /* --- Navigation --- */
+  .nav-toggle {
+    display: block;
+  }
+
+  .nav-content {
+    flex-wrap: wrap;
+  }
+
+  .nav-content > ul {
+    display: none !important;
+    flex-direction: column;
+    width: 100%;
+    gap: 0;
+    padding-top: var(--space-3);
+  }
+
+  nav.nav-open .nav-content > ul {
+    display: flex !important;
+  }
+
+  nav ul li {
+    padding: var(--space-2) 0;
+  }
+
+  nav a {
+    font-size: 1rem;
+    opacity: 0.9;
+  }
+
+  #auth-action {
+    display: none;
+    width: 100%;
+    padding-top: var(--space-2);
+  }
+
+  nav.nav-open #auth-action {
+    display: block;
+  }
+
+  .logout-btn {
+    width: 100%;
+    text-align: center;
+    padding: var(--space-2);
+  }
+
+  /* --- Container & Typography --- */
+  .container {
+    padding: 0 var(--space-3) var(--space-6);
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: var(--space-4);
+  }
+
+  /* --- Forms: Stack on Mobile --- */
+  .form-row {
+    flex-direction: column !important;
+    gap: 0;
+  }
+
+  .ingredient-add-row {
+    flex-direction: column;
+  }
+
+  .ingredient-add-row input[type="number"] {
+    width: 100%;
+  }
+
+  .nutrient-row {
+    grid-template-columns: 1fr 1fr auto;
+  }
+
+  /* --- Buttons: Full Width --- */
+  .panel .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  form .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .container .btn-primary {
+    width: 100%;
+  }
+
+  /* Keep inline button groups (edit/delete) compact */
+  .food-actions .btn {
+    width: auto;
+  }
+
+  /* --- List Items: Better Touch Targets --- */
+  .item-list li,
+  .logs-section li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .food-actions {
+    width: 100%;
+  }
+
+  /* --- Controls Bar --- */
+  .controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .controls-bar input[type="date"] {
+    width: 100%;
+  }
+
+  /* --- Period Selector: scroll horizontally --- */
+  .period-selector {
+    overflow-x: auto;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .period-btn {
+    flex-shrink: 0;
+  }
+
+  /* --- Toast: Full Width at Bottom --- */
+  .toast-container {
+    right: var(--space-3);
+    left: var(--space-3);
+    bottom: var(--space-4);
+  }
+
+  .toast {
+    max-width: 100%;
+  }
+
+  /* --- Stats: 2-column grid --- */
+  .stats-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

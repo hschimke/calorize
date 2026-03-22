@@ -27,12 +27,25 @@ async function bootstrap() {
     logo.className = "logo";
     logo.textContent = "Calorize";
 
+    // Hamburger toggle (visible only on mobile via CSS)
+    const toggle = document.createElement("button");
+    toggle.className = "nav-toggle";
+    toggle.setAttribute("aria-label", "Toggle navigation");
+    toggle.textContent = "☰";
+    toggle.addEventListener("click", () => {
+        nav.classList.toggle("nav-open");
+    });
+
     const ul = document.createElement("ul");
     navLinkSource.forEach(link => {
         const li = document.createElement("li");
         const a = document.createElement("a");
         a.href = link.href;
         a.textContent = link.text;
+        // Close mobile menu on link tap
+        a.addEventListener("click", () => {
+            nav.classList.remove("nav-open");
+        });
         li.appendChild(a);
         ul.appendChild(li);
     });
@@ -41,6 +54,7 @@ async function bootstrap() {
     authAction.id = "auth-action";
 
     navContent.appendChild(logo);
+    navContent.appendChild(toggle);
     navContent.appendChild(ul);
     navContent.appendChild(authAction);
     nav.appendChild(navContent);

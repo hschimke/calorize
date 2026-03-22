@@ -101,7 +101,7 @@ async function loadLogs() {
 
                 if (log.meal_tag) {
                     const badge = document.createElement('span');
-                    badge.style.cssText = 'background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:10px;';
+                    badge.className = 'meal-badge';
                     badge.textContent = log.meal_tag;
                     div.appendChild(badge);
                 }
