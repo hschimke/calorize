@@ -6,7 +6,7 @@ services:
   calorize-api:
     build:
       context: ../
-      dockerfile: Dockerfile.api
+      dockerfile: docker/Dockerfile.api
     environment:
       - PORT=${API_PORT:-8080}
       - DB_PATH=/data/calorize.db
@@ -22,7 +22,7 @@ services:
   calorize-web:
     build:
       context: ../
-      dockerfile: Dockerfile.web
+      dockerfile: docker/Dockerfile.web
     ports:
       - "127.0.0.1:${NGINX_PORT:-8080}:80"
     depends_on:

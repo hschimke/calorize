@@ -19,7 +19,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o api-server ./cmd/api-server/main.go
 # Stage 2: Create the final minimal image
 FROM alpine:latest
 
-WORKDIR /app/
+WORKDIR /app
 
 # Install CA certificates to enable HTTPS calls if needed, and tzdata
 RUN apk --no-cache add ca-certificates tzdata
@@ -31,10 +31,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=builder /app/api-server .
 
 # Change ownership of the binary
-RUN chown appuser:appuser ./api-server
-
-# Switch to non-root user
-USER appuser
+RUN chown appuser:appgroup ./api-server
 
 # Standard persistence volume
 VOLUME ["/data"]
