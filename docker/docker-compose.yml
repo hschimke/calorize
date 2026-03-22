@@ -11,6 +11,9 @@ services:
       - PORT=${API_PORT:-8080}
       - DB_PATH=/data/calorize.db
       - DEV_AUTH=false
+      - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-calorize.test}
+      - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-https://calorize.test}
+      - WEBAUTHN_RP_DISPLAY_NAME=${WEBAUTHN_RP_DISPLAY_NAME:-Calorize}
     networks:
       - app-network
     expose:
