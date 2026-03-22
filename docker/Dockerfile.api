@@ -1,8 +1,6 @@
 # Stage 1: Build the application
 FROM golang:1.26.1-alpine AS builder
 
-RUN apk add --no-cache curl ca-certificates su-exec
-
 WORKDIR /app
 
 # Download dependencies
@@ -18,6 +16,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o api-server ./cmd/api-server/main.go
 
 # Stage 2: Create the final minimal image
 FROM alpine:latest
+
+RUN apk add --no-cache curl ca-certificates su-exec
 
 WORKDIR /app
 
