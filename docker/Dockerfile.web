@@ -1,0 +1,42 @@
+# Use Alpine directly (instead of the official nginx image) so we can install
+# the pre-compiled Alpine modules for Brotli and Zstd without ABI mismatches.
+FROM alpine:3.23
+
+# Install Nginx, compression modules, and compression CLIs
+RUN apk add --no-cache \
+    nginx \
+    nginx-mod-http-brotli \
+    nginx-mod-http-zstd \
+    gzip \
+    brotli \
+    zstd \
+    curl
+
+# Create directory for Nginx PID/Run files if needed
+RUN mkdir -p /run/nginx
+
+# Copy static assets into the image
+COPY static-web /srv/static
+
+# Pre-compress static assets (HTML, CSS, JS, WASM, SVG)
+RUN find /srv/static -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' -o -name '*.wasm' -o -name '*.svg' -o -name '*.json' -o -name '*.txt' -o -name '*.md' \) -exec sh -c ' \
+    for file; do \
+        gzip -f -k -9 "$file"; \
+        brotli -f -k -Z "$file"; \
+        zstd -f -k -19 -q "$file"; \
+    done \
+    ' sh {} +
+
+# Fix permissions
+RUN chown -R nginx:nginx /srv/static
+
+# The modules will be available at /etc/nginx/modules/ or /usr/lib/nginx/modules/
+# Our mounted nginx.conf will load them.
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

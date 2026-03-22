@@ -1,6 +1,8 @@
 # Stage 1: Build the application
 FROM golang:1.26.1-alpine AS builder
 
+RUN apk add --no-cache curl ca-certificates su-exec
+
 WORKDIR /app
 
 # Download dependencies
@@ -17,13 +19,13 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o api-server ./cmd/api-server/main.go
 # Stage 2: Create the final minimal image
 FROM alpine:latest
 
-WORKDIR /root/
+WORKDIR /app/
 
 # Install CA certificates to enable HTTPS calls if needed, and tzdata
 RUN apk --no-cache add ca-certificates tzdata
 
 # Create a non-root user
-RUN adduser -D -g '' appuser
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Copy the binary from the builder stage
 COPY --from=builder /app/api-server .
@@ -34,8 +36,11 @@ RUN chown appuser:appuser ./api-server
 # Switch to non-root user
 USER appuser
 
+# Standard persistence volume
+VOLUME ["/data"]
+
 # Expose the port the app runs on (matching common defaults, though main.go logs addr)
 EXPOSE 8080
 
 # Command to run the application
-CMD ["./api-server"]
+ENTRYPOINT ["sh", "-c", "chown -R appuser:appgroup /data && exec su-exec appuser /app/api-server"]
