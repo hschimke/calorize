@@ -1,6 +1,6 @@
 module azule.info/calorize
 
-go 1.25.7
+go 1.26.1
 
 require (
 	aidanwoods.dev/go-paseto/v2 v2.0.0-alpha1
