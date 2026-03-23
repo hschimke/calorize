@@ -21,7 +21,7 @@ services:
     expose:
       - "8080"                      # internal only — not host-mapped
     volumes:
-      - ./data:/data           
+      - ${MAPDIR:-~/docker-dirs/calorize.azule.info/}:/data           
     restart: unless-stopped
 
   calorize-web:
