@@ -327,6 +327,18 @@ export class FoodSearch {
     }
 
     /**
+     * Clear input and selection, re-show recent list, but do NOT open dropdown.
+     */
+    clear() {
+        this._input.value = '';
+        this._clearBtn.classList.remove('visible');
+        clearTimeout(this._debounceTimer);
+        this._activeIndex = -1;
+        this._renderRecent();
+        // intentionally does not open the dropdown
+    }
+
+    /**
      * Remove all DOM created by this instance and detach listeners.
      */
     destroy() {

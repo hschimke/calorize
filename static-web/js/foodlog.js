@@ -133,7 +133,7 @@ async function addLog(e) {
             showToast("Please select a food.", 'error');
             return;
         }
-        logData.food_id = selectedFood?.id;
+        logData.food_id = selectedFood.id;
     } else {
         const cals = parseFloat(form.calories.value);
         const amt = parseFloat(form.amount.value);
@@ -147,7 +147,7 @@ async function addLog(e) {
         // Reset specific fields
         if (mode === 'food') {
             selectedFood = null;
-            foodSearch.reset();
+            foodSearch.clear();
         } else {
             form.calories.value = '';
         }
