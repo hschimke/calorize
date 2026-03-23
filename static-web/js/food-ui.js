@@ -14,7 +14,7 @@ async function loadFoods() {
         foodsList.textContent = '';
 
         if (foods && foods.length > 0) {
-            foods.forEach(food => {
+            foods.filter(f => f.creator_id !== "00000000-0000-0000-0000-000000000000").forEach(food => {
                 const li = document.createElement('li');
 
                 const foodInfo = document.createElement('div');

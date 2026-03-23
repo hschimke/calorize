@@ -149,7 +149,12 @@ type FoodLogEntry struct {
 
 // SQL Driver Support
 
-func (id UserID) Value() (driver.Value, error) { return uuid.UUID(id).Value() }
+func (id UserID) Value() (driver.Value, error) {
+	if uuid.UUID(id) == uuid.Nil {
+		return nil, nil
+	}
+	return uuid.UUID(id).Value()
+}
 func (id *UserID) Scan(src any) error {
 	var u uuid.UUID
 	if err := u.Scan(src); err != nil {
