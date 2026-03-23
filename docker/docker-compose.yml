@@ -14,6 +14,8 @@ services:
       - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-calorize.test}
       - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-https://calorize.test}
       - WEBAUTHN_RP_DISPLAY_NAME=${WEBAUTHN_RP_DISPLAY_NAME:-Calorize}
+      - IMPORT_DIR=/data/import
+      - IMPORTED_DIR=/data/imported
     networks:
       - app-network
     expose:
