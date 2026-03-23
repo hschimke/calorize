@@ -98,23 +98,50 @@ func upsertFood(fdcFood FdcFood) error {
 
 	// Map nutrients
 	var calories, protein, carbs, fat float64
+	var calKcal, calAtwaterGeneral, calAtwaterSpecific, calKj float64
+	var carbDiff, carbSum, carbSugars, carbStarch, carbFiber float64
+	var fatLipid, fatNlea float64
 	var microNutrients []db.FoodNutrient
 
 	for _, fn := range fdcFood.FoodNutrients {
 		// FDC Numbers:
-		// 208 = Energy (Calories)
-		// 203 = Protein
-		// 205 = Carbohydrate, by difference
-		// 204 = Total lipid (fat)
+		// 208, 1008 = Energy (kcal)
+		// 957 = Energy (Atwater General Factors)
+		// 958 = Energy (Atwater Specific Factors)
+		// 268, 1062 = Energy (kJ)
+		// 203, 1003 = Protein
+		// 205, 1005 = Carbohydrate, by difference
+		// 205.2, 1050 = Carbohydrate, by summation
+		// 269, 269.3, 2000, 1063 = Sugars, Total
+		// 209, 1009 = Starch
+		// 291, 1079 = Fiber, total dietary
+		// 204, 1004 = Total lipid (fat)
+		// 298, 1085 = Total fat (NLEA)
 		switch fn.Nutrient.Number {
 		case "208", "1008": // kcal
-			calories = fn.Amount
+			calKcal = fn.Amount
+		case "957": // Atwater General Factors
+			calAtwaterGeneral = fn.Amount
+		case "958": // Atwater Specific Factors
+			calAtwaterSpecific = fn.Amount
+		case "268", "1062": // kJ
+			calKj = fn.Amount
 		case "203", "1003":
 			protein = fn.Amount
 		case "205", "1005":
-			carbs = fn.Amount
+			carbDiff = fn.Amount
+		case "205.2", "1050":
+			carbSum = fn.Amount
+		case "269", "269.3", "2000", "1063":
+			carbSugars = fn.Amount
+		case "209", "1009":
+			carbStarch = fn.Amount
+		case "291", "1079":
+			carbFiber = fn.Amount
 		case "204", "1004":
-			fat = fn.Amount
+			fatLipid = fn.Amount
+		case "298", "1085":
+			fatNlea = fn.Amount
 		default:
 			if fn.Amount > 0 {
 				microNutrients = append(microNutrients, db.FoodNutrient{
@@ -124,6 +151,38 @@ func upsertFood(fdcFood FdcFood) error {
 				})
 			}
 		}
+	}
+
+	// Resolve Fat (priority: lipid > nlea)
+	if fatLipid > 0 {
+		fat = fatLipid
+	} else {
+		fat = fatNlea
+	}
+
+	// Resolve Carbs (priority: difference > summation > calculation from components)
+	if carbDiff > 0 {
+		carbs = carbDiff
+	} else if carbSum > 0 {
+		carbs = carbSum
+	} else {
+		// Fallback to components
+		carbs = carbSugars + carbStarch + carbFiber
+	}
+
+	// Resolve Energy (priority: kcal > specific > general > kJ > macro estimation)
+	if calKcal > 0 {
+		calories = calKcal
+	} else if calAtwaterSpecific > 0 {
+		calories = calAtwaterSpecific
+	} else if calAtwaterGeneral > 0 {
+		calories = calAtwaterGeneral
+	} else if calKj > 0 {
+		calories = calKj / 4.184
+	} else {
+		// Fallback: estimation from macros
+		// This helps with Foundation Foods that might only provide raw components.
+		calories = (protein * 4) + (carbs * 4) + (fat * 9)
 	}
 
 	foodData := db.Food{
