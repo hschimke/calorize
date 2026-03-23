@@ -33,6 +33,12 @@ COPY --from=builder /app/api-server .
 # Change ownership of the binary
 RUN chown appuser:appgroup ./api-server
 
+# Create the import directory and set permissions
+RUN mkdir -p /data/import && chown appuser:appgroup /data/import
+
+# Create the imported directory and set permissions
+RUN mkdir -p /data/imported && chown appuser:appgroup /data/imported
+
 # Standard persistence volume
 VOLUME ["/data"]
 
