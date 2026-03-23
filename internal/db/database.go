@@ -25,7 +25,7 @@ func init() {
 		dbPath = "./test.db"
 	}
 
-	dsn := fmt.Sprintf("file:%s?_fk=1&_journal=WAL&_busy_timeout=5000", dbPath)
+	dsn := fmt.Sprintf("%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)", dbPath)
 
 	slog.Info("opening database", "path", dsn)
 	db, err = sql.Open("sqlite", dsn)
