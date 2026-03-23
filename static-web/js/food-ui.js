@@ -154,6 +154,9 @@ async function startEdit(foodId) {
     window.toggleFoodType();
 
     if (food.type === 'recipe') {
+        ingredientSearch.clear();
+        selectedIngredientFood = null;
+
         // Populate servings
         document.getElementById('recipe-servings').value = food.servings || 1;
 
