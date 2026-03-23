@@ -1,14 +1,15 @@
 import { api } from './api.js';
 import { showToast, showConfirm } from './ui.js';
+import { FoodSearch } from './food-search.js';
 
-let availableFoods = [];
-let recipeIngredients = []; // Array of {id, name, amount, unit}
+let recipeIngredients = []; // Array of {id, name, amount, unit, calories, protein, carbs, fat, measurement_amount}
 let editingFoodId = null; // null = create mode, string = edit mode
+let ingredientSearch = null;
+let selectedIngredientFood = null;
 
 async function loadFoods() {
     try {
         const foods = await api.getFoods();
-        populateIngredientSearch(foods || []);
         const foodsList = document.getElementById('foods-list');
         foodsList.textContent = '';
 
@@ -129,12 +130,6 @@ async function deleteFood(id) {
 // --- Edit Logic ---
 
 async function startEdit(foodId) {
-    // Ensure available foods are loaded first
-    if (availableFoods.length === 0) {
-        const foods = await api.getFoods();
-        populateIngredientSearch(foods || []);
-    }
-
     // Fetch full food details (includes nutrients and ingredients)
     const food = await api.getFood(foodId);
     if (!food) { showToast("Could not load food details.", 'error'); return; }
@@ -166,18 +161,21 @@ async function startEdit(foodId) {
         recipeIngredients = [];
         if (food.ingredients && food.ingredients.length > 0) {
             for (const ing of food.ingredients) {
-                let ingredientFood = availableFoods.find(f => f.id === ing.ingredient_id);
-                // Fallback: fetch the ingredient food individually if not found in list
-                if (!ingredientFood) {
-                    try {
-                        ingredientFood = await api.getFood(ing.ingredient_id);
-                    } catch (err) { /* ignore */ }
-                }
+                let ingredientFood = null;
+                // Fetch the ingredient food individually
+                try {
+                    ingredientFood = await api.getFood(ing.ingredient_id);
+                } catch (err) { /* ignore */ }
                 recipeIngredients.push({
                     id: ing.ingredient_id,
                     name: ingredientFood ? ingredientFood.name : '(unknown food)',
                     amount: ing.amount,
-                    unit: ingredientFood ? (ingredientFood.measurement_unit || '') : ''
+                    unit: ingredientFood ? (ingredientFood.measurement_unit || '') : '',
+                    calories: ingredientFood ? ingredientFood.calories : 0,
+                    protein: ingredientFood ? ingredientFood.protein : 0,
+                    carbs: ingredientFood ? ingredientFood.carbs : 0,
+                    fat: ingredientFood ? ingredientFood.fat : 0,
+                    measurement_amount: ingredientFood ? (ingredientFood.measurement_amount || 100) : 100,
                 });
             }
         }
@@ -214,6 +212,8 @@ window.cancelEdit = function () {
     updateIngredientList();
     document.getElementById('type-food').checked = true;
     window.toggleFoodType();
+    ingredientSearch.clear();
+    selectedIngredientFood = null;
 }
 
 // --- Toggle Logic ---
@@ -282,14 +282,11 @@ function updateRecipeTotals() {
 
     let cal = 0, p = 0, c = 0, f = 0;
     recipeIngredients.forEach(ing => {
-        const food = availableFoods.find(fd => fd.id === ing.id);
-        if (food) {
-            const factor = ing.amount / (food.measurement_amount || 100);
-            cal += food.calories * factor;
-            p += food.protein * factor;
-            c += food.carbs * factor;
-            f += food.fat * factor;
-        }
+        const factor = ing.amount / (ing.measurement_amount || 100);
+        cal += ing.calories * factor;
+        p += ing.protein * factor;
+        c += ing.carbs * factor;
+        f += ing.fat * factor;
     });
 
     const servings = parseFloat(document.getElementById('recipe-servings').value) || 1;
@@ -305,45 +302,28 @@ window.removeIngredient = function (index) {
 }
 
 window.addIngredient = function () {
-    const select = document.getElementById('ingredient-search');
     const amountInput = document.getElementById('ingredient-amount');
-    const foodId = select.value;
     const amount = parseFloat(amountInput.value);
-
-    if (!foodId || isNaN(amount) || amount <= 0) {
+    if (!selectedIngredientFood || isNaN(amount) || amount <= 0) {
         showToast("Please select a food and enter a valid amount.", 'error');
         return;
     }
-
-    const food = availableFoods.find(f => f.id === foodId);
-    if (!food) return;
-
+    const food = selectedIngredientFood;
     recipeIngredients.push({
         id: food.id,
         name: food.name,
         amount: amount,
-        unit: food.measurement_unit
+        unit: food.measurement_unit,
+        calories: food.calories,
+        protein: food.protein,
+        carbs: food.carbs,
+        fat: food.fat,
+        measurement_amount: food.measurement_amount || 100,
     });
-
     updateIngredientList();
-    select.value = "";
-    amountInput.value = "";
-}
-
-function populateIngredientSearch(foods) {
-    availableFoods = foods;
-    const select = document.getElementById('ingredient-search');
-    select.textContent = '';
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = 'Select a food...';
-    select.appendChild(defaultOption);
-    foods.forEach(f => {
-        const option = document.createElement('option');
-        option.value = f.id;
-        option.textContent = f.name;
-        select.appendChild(option);
-    });
+    ingredientSearch.clear();
+    selectedIngredientFood = null;
+    amountInput.value = '';
 }
 
 // --- Submit (Create or Update) ---
@@ -371,14 +351,11 @@ async function handleSubmit(e) {
 
         recipeIngredients.forEach(ing => {
             ingredientsMap[ing.id] = ing.amount;
-            const food = availableFoods.find(f => f.id === ing.id);
-            if (food) {
-                const factor = ing.amount / (food.measurement_amount || 100);
-                cal += food.calories * factor;
-                p += food.protein * factor;
-                c += food.carbs * factor;
-                fat += food.fat * factor;
-            }
+            const factor = ing.amount / (ing.measurement_amount || 100);
+            cal += ing.calories * factor;
+            p += ing.protein * factor;
+            c += ing.carbs * factor;
+            fat += ing.fat * factor;
         });
 
         // Store per-serving macros
@@ -429,6 +406,8 @@ async function handleSubmit(e) {
         updateIngredientList();
         document.getElementById('type-food').checked = true;
         window.toggleFoodType();
+        ingredientSearch.clear();
+        selectedIngredientFood = null;
 
         loadFoods();
     } catch (e) {
@@ -442,4 +421,8 @@ window.addEventListener('load', () => {
     document.getElementById('create-food-form').addEventListener('submit', handleSubmit);
     document.getElementById('add-nutrient-btn').addEventListener('click', () => addNutrientRow());
     document.getElementById('recipe-servings').addEventListener('input', updateRecipeTotals);
+    ingredientSearch = new FoodSearch(
+        document.getElementById('ingredient-search-container'),
+        { onSelect: (food) => { selectedIngredientFood = food; } }
+    );
 });
