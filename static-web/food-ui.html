@@ -24,9 +24,9 @@
                 <div class="form-group">
                     <label>Type</label>
                     <div class="toggle-container">
-                        <input type="radio" id="type-food" name="type" value="food" checked onchange="toggleFoodType()">
+                        <input type="radio" id="type-food" name="type" value="food" checked>
                         <label for="type-food">Basic Food</label>
-                        <input type="radio" id="type-recipe" name="type" value="recipe" onchange="toggleFoodType()">
+                        <input type="radio" id="type-recipe" name="type" value="recipe">
                         <label for="type-recipe">Recipe</label>
                     </div>
                 </div>
@@ -70,7 +70,7 @@
                         <div class="ingredient-add-row">
                             <div id="ingredient-search-container"></div>
                             <input type="number" id="ingredient-amount" placeholder="Amount" step="0.1">
-                            <button type="button" onclick="addIngredient()" class="btn btn-secondary">Add</button>
+                            <button type="button" id="add-ingredient-btn" class="btn btn-secondary">Add</button>
                         </div>
                         <div id="ingredients-list">
                             <!-- Added ingredients will appear here -->
@@ -82,7 +82,7 @@
                 </div>
 
                 <button type="submit" id="form-submit-btn" class="btn btn-primary">Add Food</button>
-                <button type="button" id="cancel-edit-btn" onclick="cancelEdit()" class="btn btn-secondary"
+                <button type="button" id="cancel-edit-btn" class="btn btn-secondary"
                     style="display: none;">Cancel</button>
             </form>
         </div>

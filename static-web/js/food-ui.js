@@ -151,7 +151,7 @@ async function startEdit(foodId) {
     } else {
         document.getElementById('type-food').checked = true;
     }
-    window.toggleFoodType();
+    toggleFoodType();
 
     if (food.type === 'recipe') {
         ingredientSearch.clear();
@@ -201,7 +201,7 @@ async function startEdit(foodId) {
     form.scrollIntoView({ behavior: 'smooth' });
 }
 
-window.cancelEdit = function () {
+function cancelEdit() {
     editingFoodId = null;
     const form = document.getElementById('create-food-form');
     form.reset();
@@ -214,14 +214,14 @@ window.cancelEdit = function () {
     recipeIngredients = [];
     updateIngredientList();
     document.getElementById('type-food').checked = true;
-    window.toggleFoodType();
+    toggleFoodType();
     ingredientSearch.clear();
     selectedIngredientFood = null;
 }
 
 // --- Toggle Logic ---
 
-window.toggleFoodType = function () {
+function toggleFoodType() {
     const type = document.querySelector('input[name="type"]:checked').value;
     const macrosSection = document.getElementById('macros-section');
     const ingredientsSection = document.getElementById('ingredients-section');
@@ -299,12 +299,12 @@ function updateRecipeTotals() {
     totalsDiv.appendChild(makeMacroLine(`Per serving (${servings}):`, cal / servings, p / servings, c / servings, f / servings));
 }
 
-window.removeIngredient = function (index) {
+function removeIngredient(index) {
     recipeIngredients.splice(index, 1);
     updateIngredientList();
 }
 
-window.addIngredient = function () {
+function addIngredient() {
     const amountInput = document.getElementById('ingredient-amount');
     const amount = parseFloat(amountInput.value);
     if (!selectedIngredientFood || isNaN(amount) || amount <= 0) {
@@ -408,7 +408,7 @@ async function handleSubmit(e) {
         recipeIngredients = [];
         updateIngredientList();
         document.getElementById('type-food').checked = true;
-        window.toggleFoodType();
+        toggleFoodType();
         ingredientSearch.clear();
         selectedIngredientFood = null;
 
@@ -420,10 +420,15 @@ async function handleSubmit(e) {
 
 window.addEventListener('load', () => {
     loadFoods();
-    window.toggleFoodType();
+    toggleFoodType();
     document.getElementById('create-food-form').addEventListener('submit', handleSubmit);
     document.getElementById('add-nutrient-btn').addEventListener('click', () => addNutrientRow());
+    document.querySelectorAll('input[name="type"]').forEach(radio => {
+        radio.addEventListener('change', toggleFoodType);
+    });
     document.getElementById('recipe-servings').addEventListener('input', updateRecipeTotals);
+    document.getElementById('add-ingredient-btn').addEventListener('click', addIngredient);
+    document.getElementById('cancel-edit-btn').addEventListener('click', cancelEdit);
     ingredientSearch = new FoodSearch(
         document.getElementById('ingredient-search-container'),
         { onSelect: (food) => { selectedIngredientFood = food; } }
