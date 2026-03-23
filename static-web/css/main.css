@@ -772,3 +772,5 @@ select:focus {
 .food-search-item.active { background: #eff6ff; }
 
 .food-search-item-calories { color: var(--color-text-muted); font-size: 13px; }
+
+.food-search-empty { color: var(--color-text-muted); pointer-events: none; font-style: italic; }

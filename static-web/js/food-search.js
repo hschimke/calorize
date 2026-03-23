@@ -15,6 +15,7 @@ export class FoodSearch {
         this._activeIndex = -1;
         this._renderedFoods = new Map();
         this._outsideClickListener = null;
+        this._destroyed = false;
 
         this._buildDOM();
         this._attachEvents();
@@ -70,6 +71,8 @@ export class FoodSearch {
         } catch (e) {
             this.recentFoods = [];
         }
+        // Don't overwrite an in-progress search result
+        if (this._input.value.trim() !== '') return;
         this._renderRecent();
     }
 
@@ -104,12 +107,10 @@ export class FoodSearch {
 
     _createNoRecentItem() {
         const li = document.createElement('li');
-        li.className = 'food-search-item';
-        li.style.pointerEvents = 'none';
+        li.className = 'food-search-item food-search-empty';
 
         const span = document.createElement('span');
         span.textContent = 'No recent foods';
-        span.style.color = 'var(--color-text-muted)';
 
         li.appendChild(span);
         return li;
@@ -185,6 +186,7 @@ export class FoodSearch {
                 try {
                     const results = await api.getFoods({ q: capturedQuery });
                     // Guard again after async resolves
+                    if (this._destroyed) return;
                     if (this._input.value !== capturedQuery) return;
 
                     const serverResults = Array.isArray(results) ? results : [];
@@ -224,8 +226,8 @@ export class FoodSearch {
         this._clearBtn.classList.remove('visible');
         clearTimeout(this._debounceTimer);
         this._renderRecent();
-        this.onSelect(null);
         this._openDropdown();
+        this.onSelect(null);
     }
 
     // ------------------------------------------------------------------ Keyboard navigation
@@ -250,6 +252,10 @@ export class FoodSearch {
             }
             case 'ArrowUp': {
                 e.preventDefault();
+                if (!this._dropdown.classList.contains('open')) {
+                    this._openDropdown();
+                    return;
+                }
                 if (selectableItems.length === 0) return;
                 if (this._activeIndex <= 0) {
                     this._activeIndex = selectableItems.length - 1;
@@ -324,6 +330,7 @@ export class FoodSearch {
      * Remove all DOM created by this instance and detach listeners.
      */
     destroy() {
+        this._destroyed = true;
         if (this._outsideClickListener) {
             document.removeEventListener('click', this._outsideClickListener);
             this._outsideClickListener = null;
