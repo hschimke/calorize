@@ -336,4 +336,27 @@ func TestSearchFoods(t *testing.T) {
 	if len(results) != 0 {
 		t.Errorf("Expected 0 results for query 'Banan_' (underscore treated literally), got %d", len(results))
 	}
+
+	// Public food from another user should appear in results
+	user2 := createTestUser(t)
+	publicFood := createTestIngredient(t, user2, "PublicBanana")
+	// Mark the food as public
+	_, err = db.Exec("UPDATE foods SET public = true WHERE id = ?", publicFood.ID)
+	if err != nil {
+		t.Fatalf("Failed to mark food public: %v", err)
+	}
+	results, err = SearchFoods(user.ID, "PublicBan", 50)
+	if err != nil {
+		t.Fatalf("SearchFoods (public food) failed: %v", err)
+	}
+	found := false
+	for _, r := range results {
+		if r.ID == publicFood.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected public food 'PublicBanana' to appear in search results for user1, got %d results", len(results))
+	}
 }

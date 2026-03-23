@@ -51,6 +51,7 @@ function toggleMode(e) {
         groupCalories.style.display = 'block';
         caloriesInput.required = true;
         selectedFood = null;
+        if (foodSearch) foodSearch.clear();
     }
 }
 

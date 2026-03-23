@@ -88,6 +88,7 @@ func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
 		foods, dbErr = db.GetFoods(userID)
 	}
 	if dbErr != nil {
+		slog.Error("failed to get foods", "error", dbErr)
 		http.Error(w, "Failed to get foods", http.StatusInternalServerError)
 		return
 	}

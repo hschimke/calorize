@@ -369,24 +369,35 @@ func SearchFoods(userID UserID, q string, limit int) ([]Food, error) {
 		SELECT id, creator_id, family_id, version, is_current, name,
 		       calories, protein, carbs, fat, type,
 		       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
-		FROM foods
-		WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
-		  AND name LIKE ? ESCAPE ?
+		FROM (
+			SELECT id, creator_id, family_id, version, is_current, name,
+			       calories, protein, carbs, fat, type,
+			       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+			FROM foods
+			WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
+			  AND name LIKE ? ESCAPE ?
+			LIMIT ?
+		)
 		UNION
 		SELECT id, creator_id, family_id, version, is_current, name,
 		       calories, protein, carbs, fat, type,
 		       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
-		FROM foods
-		WHERE public = true AND is_current = true AND deleted_at IS NULL
-		  AND name LIKE ? ESCAPE ?
-		LIMIT ?
+		FROM (
+			SELECT id, creator_id, family_id, version, is_current, name,
+			       calories, protein, carbs, fat, type,
+			       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+			FROM foods
+			WHERE public = true AND is_current = true AND deleted_at IS NULL
+			  AND name LIKE ? ESCAPE ?
+			LIMIT ?
+		)
 	`
 	escaped := strings.ReplaceAll(q, `\`, `\\`)
 	escaped = strings.ReplaceAll(escaped, `%`, `\%`)
 	escaped = strings.ReplaceAll(escaped, `_`, `\_`)
 	pattern := escaped + "%"
 	const escChar = `\`
-	rows, err := db.Query(query, userID, pattern, escChar, pattern, escChar, limit)
+	rows, err := db.Query(query, userID, pattern, escChar, limit, pattern, escChar, limit)
 	if err != nil {
 		return nil, fmt.Errorf("searching foods: %w", err)
 	}
