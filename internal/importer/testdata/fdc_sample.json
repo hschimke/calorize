@@ -1,0 +1,14 @@
+{"FoundationFoods": [
+	{
+		"foodClass": "FinalFood",
+		"description": "Hummus, commercial",
+		"fdcId": 123456,
+		"foodNutrients": [
+			{"type": "FoodNutrient", "nutrient": {"id": 1008, "number": "1008", "name": "Energy", "unitName": "kcal"}, "amount": 250.0},
+			{"type": "FoodNutrient", "nutrient": {"id": 1003, "number": "1003", "name": "Protein", "unitName": "g"}, "amount": 8.0},
+			{"type": "FoodNutrient", "nutrient": {"id": 1005, "number": "1005", "name": "Carbohydrate, by difference", "unitName": "g"}, "amount": 14.5},
+			{"type": "FoodNutrient", "nutrient": {"id": 1004, "number": "1004", "name": "Total lipid (fat)", "unitName": "g"}, "amount": 18.0},
+			{"type": "FoodNutrient", "nutrient": {"id": 1162, "number": "401", "name": "Vitamin C, total ascorbic acid", "unitName": "mg"}, "amount": 3.2}
+		]
+	}
+]}

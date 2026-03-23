@@ -88,6 +88,7 @@ type Food struct {
 	MeasurementAmount float64        `json:"measurement_amount"`
 	Servings          float64        `json:"servings"`
 	Public            bool           `json:"public"`
+	ExternalID        *string        `json:"external_id"`
 	Ingredients       []RecipeItems  `json:"ingredients,omitempty"`
 	Nutrients         []FoodNutrient `json:"nutrients,omitempty"`
 	CreatedAt         time.Time      `json:"created_at"`

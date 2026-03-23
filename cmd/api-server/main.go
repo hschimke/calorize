@@ -14,6 +14,7 @@ import (
 	"azule.info/calorize/internal/api"
 	"azule.info/calorize/internal/auth"
 	"azule.info/calorize/internal/db"
+	"azule.info/calorize/internal/importer"
 	"azule.info/calorize/internal/middleware"
 	"github.com/google/uuid"
 )
@@ -142,6 +143,40 @@ func main() {
 		}
 	}()
 
+	importerTicker := time.NewTicker(24 * time.Hour)
+	importerDone := make(chan struct{})
+	importDir := os.Getenv("IMPORT_DIR")
+	if importDir == "" {
+		importDir = "./imports"
+	}
+	importedDir := os.Getenv("IMPORTED_DIR")
+	if importedDir == "" {
+		importedDir = "./imported"
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		slog.Info("importer scanner daemon starting")
+		
+		// Run initial scan
+		if err := importer.ScanAndImport(importDir, importedDir, importerDone); err != nil {
+			slog.Error("initial importer scan failed", "error", err)
+		}
+
+		for {
+			select {
+			case <-importerTicker.C:
+				if err := importer.ScanAndImport(importDir, importedDir, importerDone); err != nil {
+					slog.Error("importer scan failed", "error", err)
+				}
+			case <-importerDone:
+				slog.Info("importer scanner daemon stopping")
+				importerTicker.Stop()
+				return
+			}
+		}
+	}()
+
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -158,6 +193,7 @@ func main() {
 
 	// Signal cleanup to stop
 	close(cleanupDone)
+	close(importerDone)
 	wg.Wait()
 
 	slog.Info("server exited")
