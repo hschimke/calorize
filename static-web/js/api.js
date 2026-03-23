@@ -159,8 +159,9 @@ export class API {
 
     // --- Foods ---
 
-    async getFoods() {
-        return await this.request('/foods');
+    async getFoods(params = {}) {
+        const qs = new URLSearchParams(params).toString();
+        return await this.request('/foods' + (qs ? '?' + qs : ''));
     }
 
     async createFood(foodData) {

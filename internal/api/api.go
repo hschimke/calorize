@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"azule.info/calorize/internal/auth"
@@ -74,7 +75,15 @@ func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	foods, err := db.GetFoods(userID)
+
+	var foods []db.Food
+	if r.URL.Query().Get("recent") == "true" {
+		foods, err = db.GetRecentFoods(userID, 50)
+	} else if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
+		foods, err = db.SearchFoods(userID, q, 20)
+	} else {
+		foods, err = db.GetFoods(userID)
+	}
 	if err != nil {
 		http.Error(w, "Failed to get foods", http.StatusInternalServerError)
 		return
