@@ -312,6 +312,97 @@ func UpdateFood(id FoodID, food Food) (*Food, error) {
 	return &food, nil
 }
 
+func GetRecentFoods(userID UserID, limit int) ([]Food, error) {
+	query := `
+		SELECT f.id, f.creator_id, f.family_id, f.version, f.is_current, f.name,
+		       f.calories, f.protein, f.carbs, f.fat, f.type,
+		       f.measurement_unit, f.measurement_amount, f.servings, f.public, f.created_at, f.deleted_at
+		FROM foods f
+		INNER JOIN (
+			SELECT food_id, MAX(logged_at) AS last_used
+			FROM food_log_entries
+			WHERE user_id = ? AND food_id IS NOT NULL AND deleted_at IS NULL
+			GROUP BY food_id
+			ORDER BY last_used DESC
+			LIMIT ?
+		) recent ON f.id = recent.food_id
+		WHERE f.is_current = true AND f.deleted_at IS NULL
+		ORDER BY recent.last_used DESC
+	`
+	rows, err := db.Query(query, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("getting recent foods: %w", err)
+	}
+	defer rows.Close()
+
+	var foods []Food
+	for rows.Next() {
+		var f Food
+		err := rows.Scan(
+			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
+			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
+			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.CreatedAt, &f.DeletedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scanning recent food: %w", err)
+		}
+		foods = append(foods, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating recent foods: %w", err)
+	}
+	if foods == nil {
+		foods = []Food{}
+	}
+	return foods, nil
+}
+
+func SearchFoods(userID UserID, q string, limit int) ([]Food, error) {
+	query := `
+		SELECT id, creator_id, family_id, version, is_current, name,
+		       calories, protein, carbs, fat, type,
+		       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+		FROM foods
+		WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
+		  AND name LIKE ? ESCAPE '\'
+		UNION
+		SELECT id, creator_id, family_id, version, is_current, name,
+		       calories, protein, carbs, fat, type,
+		       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+		FROM foods
+		WHERE public = true AND is_current = true AND deleted_at IS NULL
+		  AND name LIKE ? ESCAPE '\'
+		LIMIT ?
+	`
+	pattern := q + "%"
+	rows, err := db.Query(query, userID, pattern, pattern, limit)
+	if err != nil {
+		return nil, fmt.Errorf("searching foods: %w", err)
+	}
+	defer rows.Close()
+
+	var foods []Food
+	for rows.Next() {
+		var f Food
+		err := rows.Scan(
+			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
+			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
+			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.CreatedAt, &f.DeletedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scanning food search result: %w", err)
+		}
+		foods = append(foods, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating food search results: %w", err)
+	}
+	if foods == nil {
+		foods = []Food{}
+	}
+	return foods, nil
+}
+
 func DeleteFood(id FoodID) error {
 	var familyID FoodFamilyID
 	err := db.QueryRow("SELECT family_id FROM foods WHERE id = ?", id).Scan(&familyID)

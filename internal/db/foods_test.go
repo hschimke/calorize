@@ -2,6 +2,7 @@ package db
 
 import (
 	"testing"
+	"time"
 )
 
 func TestFoodLifecycle(t *testing.T) {
@@ -161,5 +162,128 @@ func TestFoodLifecycle(t *testing.T) {
 	}
 	if len(versionsAfterDelete) != 0 {
 		t.Errorf("Expected 0 versions after delete")
+	}
+}
+
+func TestGetRecentFoods(t *testing.T) {
+	if db == nil {
+		t.Skip("Database not initialized")
+	}
+
+	user := createTestUser(t)
+
+	// No log entries: should return empty slice without error
+	recent, err := GetRecentFoods(user.ID, 50)
+	if err != nil {
+		t.Fatalf("GetRecentFoods (empty) failed: %v", err)
+	}
+	if len(recent) != 0 {
+		t.Errorf("Expected 0 recent foods, got %d", len(recent))
+	}
+
+	// Create foods and log entries
+	apple := createTestIngredient(t, user, "Apple")
+	banana := createTestIngredient(t, user, "Banana")
+	carrot := createTestIngredient(t, user, "Carrot")
+
+	now := time.Now().UTC()
+	// Log apple first (oldest), then carrot, then banana (most recent)
+	createTestLogEntry(t, user, apple, 100, now.Add(-2*time.Hour))
+	createTestLogEntry(t, user, carrot, 100, now.Add(-1*time.Hour))
+	createTestLogEntry(t, user, banana, 100, now)
+
+	recent, err = GetRecentFoods(user.ID, 50)
+	if err != nil {
+		t.Fatalf("GetRecentFoods failed: %v", err)
+	}
+	if len(recent) != 3 {
+		t.Fatalf("Expected 3 recent foods, got %d", len(recent))
+	}
+	// Verify order: banana (most recent) first, apple (oldest) last
+	if recent[0].ID != banana.ID {
+		t.Errorf("Expected banana first (most recent), got %s", recent[0].Name)
+	}
+	if recent[1].ID != carrot.ID {
+		t.Errorf("Expected carrot second, got %s", recent[1].Name)
+	}
+	if recent[2].ID != apple.ID {
+		t.Errorf("Expected apple third (oldest), got %s", recent[2].Name)
+	}
+
+	// Limit is respected: only return 2
+	limited, err := GetRecentFoods(user.ID, 2)
+	if err != nil {
+		t.Fatalf("GetRecentFoods (limited) failed: %v", err)
+	}
+	if len(limited) != 2 {
+		t.Errorf("Expected 2 recent foods with limit=2, got %d", len(limited))
+	}
+	// Should still be most recent first
+	if limited[0].ID != banana.ID {
+		t.Errorf("Expected banana first with limit, got %s", limited[0].Name)
+	}
+}
+
+func TestSearchFoods(t *testing.T) {
+	if db == nil {
+		t.Skip("Database not initialized")
+	}
+
+	user := createTestUser(t)
+
+	// No results: should return empty slice without error
+	results, err := SearchFoods(user.ID, "zzznomatch", 50)
+	if err != nil {
+		t.Fatalf("SearchFoods (no results) failed: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("Expected 0 results for no-match query, got %d", len(results))
+	}
+
+	// Create foods
+	createTestIngredient(t, user, "Banana")
+	createTestIngredient(t, user, "Blueberry")
+	createTestIngredient(t, user, "Apple")
+
+	// Prefix match: "Ban" should return "Banana"
+	results, err = SearchFoods(user.ID, "Ban", 50)
+	if err != nil {
+		t.Fatalf("SearchFoods (prefix) failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result for 'Ban', got %d", len(results))
+	}
+	if results[0].Name != "Banana" {
+		t.Errorf("Expected 'Banana', got '%s'", results[0].Name)
+	}
+
+	// Case-insensitive: "ban" should match "Banana"
+	results, err = SearchFoods(user.ID, "ban", 50)
+	if err != nil {
+		t.Fatalf("SearchFoods (case-insensitive) failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result for 'ban', got %d", len(results))
+	}
+	if results[0].Name != "Banana" {
+		t.Errorf("Expected 'Banana', got '%s'", results[0].Name)
+	}
+
+	// "B" prefix should match both "Banana" and "Blueberry"
+	results, err = SearchFoods(user.ID, "B", 50)
+	if err != nil {
+		t.Fatalf("SearchFoods ('B' prefix) failed: %v", err)
+	}
+	if len(results) != 2 {
+		t.Errorf("Expected 2 results for 'B', got %d", len(results))
+	}
+
+	// Limit is respected
+	limited, err := SearchFoods(user.ID, "B", 1)
+	if err != nil {
+		t.Fatalf("SearchFoods (limit) failed: %v", err)
+	}
+	if len(limited) != 1 {
+		t.Errorf("Expected 1 result with limit=1, got %d", len(limited))
 	}
 }
