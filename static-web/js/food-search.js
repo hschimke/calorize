@@ -225,6 +225,7 @@ export class FoodSearch {
         clearTimeout(this._debounceTimer);
         this._renderRecent();
         this.onSelect(null);
+        this._openDropdown();
     }
 
     // ------------------------------------------------------------------ Keyboard navigation
