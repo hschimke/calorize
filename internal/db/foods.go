@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -313,6 +314,9 @@ func UpdateFood(id FoodID, food Food) (*Food, error) {
 }
 
 func GetRecentFoods(userID UserID, limit int) ([]Food, error) {
+	if limit <= 0 {
+		limit = 50
+	}
 	query := `
 		SELECT f.id, f.creator_id, f.family_id, f.version, f.is_current, f.name,
 		       f.calories, f.protein, f.carbs, f.fat, f.type,
@@ -358,24 +362,31 @@ func GetRecentFoods(userID UserID, limit int) ([]Food, error) {
 }
 
 func SearchFoods(userID UserID, q string, limit int) ([]Food, error) {
+	if limit <= 0 {
+		limit = 20
+	}
 	query := `
 		SELECT id, creator_id, family_id, version, is_current, name,
 		       calories, protein, carbs, fat, type,
 		       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
 		FROM foods
 		WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
-		  AND name LIKE ? ESCAPE '\'
+		  AND name LIKE ? ESCAPE ?
 		UNION
 		SELECT id, creator_id, family_id, version, is_current, name,
 		       calories, protein, carbs, fat, type,
 		       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
 		FROM foods
 		WHERE public = true AND is_current = true AND deleted_at IS NULL
-		  AND name LIKE ? ESCAPE '\'
+		  AND name LIKE ? ESCAPE ?
 		LIMIT ?
 	`
-	pattern := q + "%"
-	rows, err := db.Query(query, userID, pattern, pattern, limit)
+	escaped := strings.ReplaceAll(q, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `%`, `\%`)
+	escaped = strings.ReplaceAll(escaped, `_`, `\_`)
+	pattern := escaped + "%"
+	const escChar = `\`
+	rows, err := db.Query(query, userID, pattern, escChar, pattern, escChar, limit)
 	if err != nil {
 		return nil, fmt.Errorf("searching foods: %w", err)
 	}

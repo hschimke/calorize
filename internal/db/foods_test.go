@@ -224,6 +224,37 @@ func TestGetRecentFoods(t *testing.T) {
 	}
 }
 
+func TestGetRecentFoodsUserIsolation(t *testing.T) {
+	if db == nil {
+		t.Skip("Database not initialized")
+	}
+
+	user1 := createTestUser(t)
+	user2 := createTestUser(t)
+
+	// Create distinct foods for each user
+	apple := createTestIngredient(t, user1, "Apple")
+	mango := createTestIngredient(t, user2, "Mango")
+
+	now := time.Now().UTC()
+	createTestLogEntry(t, user1, apple, 100, now)
+	createTestLogEntry(t, user2, mango, 100, now)
+
+	// user1 should see only apple, not mango
+	recent, err := GetRecentFoods(user1.ID, 50)
+	if err != nil {
+		t.Fatalf("GetRecentFoods (user1) failed: %v", err)
+	}
+	for _, f := range recent {
+		if f.ID == mango.ID {
+			t.Errorf("GetRecentFoods returned user2's food (mango) for user1")
+		}
+	}
+	if len(recent) != 1 || recent[0].ID != apple.ID {
+		t.Errorf("Expected only apple for user1, got %d results", len(recent))
+	}
+}
+
 func TestSearchFoods(t *testing.T) {
 	if db == nil {
 		t.Skip("Database not initialized")
@@ -285,5 +316,24 @@ func TestSearchFoods(t *testing.T) {
 	}
 	if len(limited) != 1 {
 		t.Errorf("Expected 1 result with limit=1, got %d", len(limited))
+	}
+
+	// LIKE special chars are treated as literals, not wildcards
+	// "Ban%" should match nothing (no food named "Ban%...")
+	results, err = SearchFoods(user.ID, "Ban%", 50)
+	if err != nil {
+		t.Fatalf("SearchFoods (LIKE special char) failed: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("Expected 0 results for query 'Ban%%' (percent treated literally), got %d", len(results))
+	}
+
+	// "_" as a literal: "Banan_" should not match "Banana" (underscore is literal, not wildcard)
+	results, err = SearchFoods(user.ID, "Banan_", 50)
+	if err != nil {
+		t.Fatalf("SearchFoods (underscore literal) failed: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("Expected 0 results for query 'Banan_' (underscore treated literally), got %d", len(results))
 	}
 }
