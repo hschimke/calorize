@@ -23,25 +23,26 @@ func GetStats(userID UserID, period string, date time.Time) (RangeStats, error) 
 
 	var start, end time.Time
 
-	// Normalize date to start of day
+	loc := date.Location()
 	y, m, d := date.Date()
-	todayStart := time.Date(y, m, d, 0, 0, 0, 0, date.Location())
+	localStart := time.Date(y, m, d, 0, 0, 0, 0, loc)
 
 	switch period {
 	case "day":
-		start = todayStart
-		end = start.AddDate(0, 0, 1)
+		start = localStart.UTC()
+		end = start.Add(24 * time.Hour)
 	case "week":
-		// Assume week starting Monday? Or Sunday. Let's say Monday.
-		weekday := int(todayStart.Weekday())
+		// Assume week starting Monday
+		weekday := int(localStart.Weekday())
 		if weekday == 0 {
 			weekday = 7
 		}
-		start = todayStart.AddDate(0, 0, -weekday+1)
+		start = localStart.AddDate(0, 0, -weekday+1).UTC()
 		end = start.AddDate(0, 0, 7)
 	case "month":
-		start = time.Date(y, m, 1, 0, 0, 0, 0, date.Location())
+		start = time.Date(y, m, 1, 0, 0, 0, 0, loc).UTC()
 		end = start.AddDate(0, 1, 0) // Start of next month
+
 	default:
 		return RangeStats{}, fmt.Errorf("invalid period: %s", period)
 	}
@@ -79,7 +80,7 @@ func GetStats(userID UserID, period string, date time.Time) (RangeStats, error) 
 	if fat != nil {
 		s.Fat = *fat
 	}
-	s.Date = start.Format("2006-01-02") // Just label with start date
+	s.Date = start.In(loc).Format("2006-01-02") // Just label with start date
 
 	return s, nil
 }

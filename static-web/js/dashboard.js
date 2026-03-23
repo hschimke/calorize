@@ -1,9 +1,10 @@
 import { api } from './api.js';
+import { getLocalDateString } from './utils.js';
 
 async function updateDashboard() {
     try {
         // 1. Fetch Stats
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         const stats = await api.getStats('day', today);
 
         if (stats) {

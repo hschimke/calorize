@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-export BASE_URL="${BASE_URL:-http://localhost:8080}"
+export BASE_URL="${BASE_URL:-http://localhost:8080/api/v1}"
 export NOW_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Colors

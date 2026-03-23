@@ -33,13 +33,11 @@ else
 fi
 
 echo "Fetching logs with invalid date format..."
-INVALID_DATE_LOGS=$(curl -s "$BASE_URL/logs?date=not-a-date")
-INVALID_COUNT=$(echo $INVALID_DATE_LOGS | jq 'length')
-# Falls back to today silently
-if [ "$INVALID_COUNT" == "$TODAY_COUNT" ]; then
-    log_info "✅ Invalid date falls back to today (got $INVALID_COUNT logs)"
+INVALID_DATE_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/logs?date=not-a-date")
+if [ "$INVALID_DATE_CODE" == "400" ]; then
+    log_info "✅ Invalid date returns 400 Bad Request"
 else
-    log_warn "Invalid date returned $INVALID_COUNT logs (today has $TODAY_COUNT)"
+    log_err "Invalid date returned $INVALID_DATE_CODE"
 fi
 
 echo "==================================================="
@@ -103,10 +101,8 @@ fi
 
 echo "Stats with invalid date format..."
 BAD_DATE_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/stats?period=day&date=bad-date")
-BAD_DATE_STATS=$(curl -s "$BASE_URL/stats?period=day&date=bad-date")
-BAD_DATE_CAL=$(echo $BAD_DATE_STATS | jq -r .calories)
-if [ "$BAD_DATE_CODE" == "200" ]; then
-    log_info "✅ Invalid date silently falls back to today (calories: $BAD_DATE_CAL)"
+if [ "$BAD_DATE_CODE" == "400" ]; then
+    log_info "✅ Invalid date returns 400 Bad Request"
 else
     log_warn "Invalid date returned $BAD_DATE_CODE"
 fi

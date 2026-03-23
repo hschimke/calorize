@@ -1,5 +1,6 @@
 import { check_login, unset_login } from './auth.js';
 import { api } from './api.js';
+import { getLocalDateString } from './utils.js';
 
 async function bootstrap() {
     const isLoggedIn = check_login();
@@ -75,7 +76,7 @@ async function bootstrap() {
         // Validate that the cookie-based session is still active.
         // If the server returns 401, clear the stale localStorage token.
         try {
-            await api.getStats('day', new Date().toISOString().split('T')[0]);
+            await api.getStats('day', getLocalDateString());
         } catch (e) {
             if (e.message && e.message.includes('401')) {
                 unset_login();

@@ -65,7 +65,7 @@ func CreateUser(user User) (*User, error) {
 		user.ID = UserID(newID)
 	}
 	if user.CreatedAt.IsZero() {
-		user.CreatedAt = time.Now()
+		user.CreatedAt = time.Now().UTC()
 	}
 
 	query := `INSERT INTO users (id, name, email, disabled_at, created_at) VALUES (?, ?, ?, ?, ?)`
@@ -88,7 +88,7 @@ func UpdateUser(user User) (*User, error) {
 
 func DisableUser(user User) error {
 	query := `UPDATE users SET disabled_at = ? WHERE id = ?`
-	_, err := db.Exec(query, time.Now(), user.ID)
+	_, err := db.Exec(query, time.Now().UTC(), user.ID)
 	if err != nil {
 		return fmt.Errorf("disabling user: %w", err)
 	}
@@ -114,10 +114,10 @@ func AddUserCredential(user User, auth UserCredential) error {
 		auth.ID = UserCredentialID(id[:])
 	}
 	if auth.CreatedAt.IsZero() {
-		auth.CreatedAt = time.Now()
+		auth.CreatedAt = time.Now().UTC()
 	}
 	if auth.LastUsedAt.IsZero() {
-		auth.LastUsedAt = time.Now() // Initialize to now
+		auth.LastUsedAt = time.Now().UTC() // Initialize to now
 	}
 
 	transportsJSON, err := json.Marshal(auth.Transports)
@@ -206,7 +206,7 @@ func GetUserCredentials(user User) ([]UserCredential, error) {
 
 func SetCredentialLastUsed(user User, auth UserCredential) error {
 	query := `UPDATE user_credentials SET last_used_at = ? WHERE id = ? AND user_id = ?`
-	_, err := db.Exec(query, time.Now(), auth.ID, user.ID)
+	_, err := db.Exec(query, time.Now().UTC(), auth.ID, user.ID)
 	if err != nil {
 		return fmt.Errorf("setting credential last used: %w", err)
 	}

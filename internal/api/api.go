@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"azule.info/calorize/internal/auth"
@@ -276,6 +277,19 @@ func deleteFoodHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func getClientLocation(r *http.Request) *time.Location {
+	tzOffset := r.URL.Query().Get("tz_offset")
+	if tzOffset == "" {
+		return time.UTC
+	}
+	offsetMins, err := strconv.Atoi(tzOffset)
+	if err != nil {
+		slog.Warn("invalid tz_offset, defaulting to UTC", "tz_offset", tzOffset)
+		return time.UTC
+	}
+	return time.FixedZone("Client", -offsetMins*60)
+}
+
 // ### Stats
 // - GET /stats
 //     - Query Params: ?period={day,week,month}&date=YYYY-MM-DD
@@ -293,9 +307,11 @@ func getStatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dateStr := r.URL.Query().Get("date")
-	date := time.Now()
+	loc := getClientLocation(r)
+
+	date := time.Now().In(loc)
 	if dateStr != "" {
-		parsed, err := time.Parse("2006-01-02", dateStr)
+		parsed, err := time.ParseInLocation("2006-01-02", dateStr, loc)
 		if err != nil {
 			http.Error(w, "Invalid date format, expected YYYY-MM-DD", http.StatusBadRequest)
 			return
@@ -336,9 +352,11 @@ func getLogsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	date := time.Now()
+	loc := getClientLocation(r)
+
+	date := time.Now().In(loc)
 	if d := r.URL.Query().Get("date"); d != "" {
-		parsed, err := time.Parse("2006-01-02", d)
+		parsed, err := time.ParseInLocation("2006-01-02", d, loc)
 		if err != nil {
 			http.Error(w, "Invalid date format, expected YYYY-MM-DD", http.StatusBadRequest)
 			return
@@ -383,7 +401,9 @@ func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.LoggedAt.IsZero() {
-		req.LoggedAt = time.Now()
+		req.LoggedAt = time.Now().UTC()
+	} else {
+		req.LoggedAt = req.LoggedAt.UTC()
 	}
 
 	entry, err := db.CreateFoodLogEntry(db.FoodLogEntry{

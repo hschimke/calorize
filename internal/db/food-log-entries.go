@@ -9,7 +9,7 @@ import (
 )
 
 func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
-	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location()).UTC()
 	end := start.Add(24 * time.Hour)
 
 	query := `
@@ -58,11 +58,11 @@ func CreateFoodLogEntry(entry FoodLogEntry) (*FoodLogEntry, error) {
 	}
 
 	if entry.CreatedAt.IsZero() {
-		entry.CreatedAt = time.Now()
+		entry.CreatedAt = time.Now().UTC()
 	}
 
 	if entry.LoggedAt.IsZero() {
-		entry.LoggedAt = time.Now()
+		entry.LoggedAt = time.Now().UTC()
 	}
 
 	if err := populateMacros(&entry); err != nil {
@@ -108,7 +108,7 @@ func populateMacros(entry *FoodLogEntry) error {
 }
 
 func DeleteFoodLogEntry(id FoodLogEntryID, userID UserID) error {
-	_, err := db.Exec("UPDATE food_log_entries SET deleted_at = ? WHERE id = ? AND user_id = ?", time.Now(), id, userID)
+	_, err := db.Exec("UPDATE food_log_entries SET deleted_at = ? WHERE id = ? AND user_id = ?", time.Now().UTC(), id, userID)
 	if err != nil {
 		return err
 	}

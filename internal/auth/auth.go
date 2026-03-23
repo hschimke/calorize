@@ -162,7 +162,7 @@ func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
 	newUser := db.User{
 		Name:      username,
 		Email:     user_email,
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
 	}
 	user, err = db.CreateUser(newUser)
 	if err != nil {
@@ -228,8 +228,8 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 		Transports:      nil,
 		BackupEligible:  credential.Flags.BackupEligible,
 		BackupState:     credential.Flags.BackupState,
-		CreatedAt:       time.Now(),
-		LastUsedAt:      time.Now(),
+		CreatedAt:       time.Now().UTC(),
+		LastUsedAt:      time.Now().UTC(),
 	}); err != nil {
 		http.Error(w, "failed to save credential", http.StatusInternalServerError)
 		db.DeleteTemporaryUser(*user)

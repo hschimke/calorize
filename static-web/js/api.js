@@ -183,9 +183,11 @@ export class API {
 
     async getLogs(date) {
         let url = '/logs';
+        let params = new URLSearchParams({ tz_offset: new Date().getTimezoneOffset() });
         if (date) {
-            url += `?date=${date}`;
+            params.append('date', date);
         }
+        url += `?${params.toString()}`;
         return await this.request(url);
     }
 
@@ -208,7 +210,10 @@ export class API {
     // --- Stats ---
 
     async getStats(period, date) {
-        const params = new URLSearchParams({ period, date });
+        const params = new URLSearchParams({ period, tz_offset: new Date().getTimezoneOffset() });
+        if (date) {
+            params.append('date', date);
+        }
         return await this.request(`/stats?${params.toString()}`);
     }
 }

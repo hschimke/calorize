@@ -11,7 +11,7 @@ func createTestUser(t *testing.T) *User {
 	u := User{
 		Name:      "Test User " + uuid.NewString(),
 		Email:     "test+" + uuid.NewString() + "@example.com",
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
 	}
 	created, err := CreateUser(u)
 	if err != nil {
@@ -37,7 +37,7 @@ func createTestIngredient(t *testing.T, user *User, name string) *Food {
 		Protein:           10,
 		Carbs:             10,
 		Fat:               2,
-		CreatedAt:         time.Now(),
+		CreatedAt:         time.Now().UTC(),
 	}
 
 	_, err := db.Exec(`

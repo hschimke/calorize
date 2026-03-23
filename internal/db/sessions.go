@@ -25,7 +25,7 @@ type Session struct {
 func CreateSession(userID UserID) (*Session, error) {
 	// Create a new session ID (UUID)
 	sessionID := uuid.New().String()
-	now := time.Now()
+	now := time.Now().UTC()
 	// Set expiry to 30 days for example
 	expiresAt := now.Add(30 * 24 * time.Hour)
 
@@ -57,7 +57,7 @@ func GetSession(sessionID string) (*Session, error) {
 	}
 
 	// Check expiry
-	if time.Now().After(session.ExpiresAt) {
+	if time.Now().UTC().After(session.ExpiresAt) {
 		_ = DeleteSession(sessionID) // Clean up expired session
 		return nil, nil
 	}
@@ -76,7 +76,7 @@ func DeleteSession(sessionID string) error {
 
 func CleanupExpiredSessions() error {
 	query := `DELETE FROM sessions WHERE expires_at < ?`
-	_, err := db.Exec(query, time.Now())
+	_, err := db.Exec(query, time.Now().UTC())
 	if err != nil {
 		return fmt.Errorf("cleaning up expired sessions: %w", err)
 	}

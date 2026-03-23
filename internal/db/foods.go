@@ -237,7 +237,7 @@ func CreateFood(food Food) (*Food, error) {
 		food.Servings = 1
 	}
 	if food.CreatedAt.IsZero() {
-		food.CreatedAt = time.Now()
+		food.CreatedAt = time.Now().UTC()
 	}
 
 	tx, err := db.Begin()
@@ -283,7 +283,7 @@ func UpdateFood(id FoodID, food Food) (*Food, error) {
 		food.Type = "food"
 	}
 	if food.CreatedAt.IsZero() {
-		food.CreatedAt = time.Now()
+		food.CreatedAt = time.Now().UTC()
 	}
 	// Keep creator unless specified
 	if food.CreatorID == UserID(uuid.Nil) {
@@ -322,7 +322,7 @@ func DeleteFood(id FoodID) error {
 		return fmt.Errorf("finding food to delete: %w", err)
 	}
 
-	_, err = db.Exec("UPDATE foods SET deleted_at = ? WHERE family_id = ?", time.Now(), familyID)
+	_, err = db.Exec("UPDATE foods SET deleted_at = ? WHERE family_id = ?", time.Now().UTC(), familyID)
 	if err != nil {
 		return fmt.Errorf("deleting food family: %w", err)
 	}

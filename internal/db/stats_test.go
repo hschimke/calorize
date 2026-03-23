@@ -45,7 +45,7 @@ func TestGetStats(t *testing.T) {
 		t.Fatalf("UpdateFood failed: %v", err)
 	}
 
-	today := time.Now()
+	today := time.Now().UTC()
 
 	// Log 1: 200g (200kcal, 20p, 40c, 10f)
 	createTestLogEntry(t, user, updatedFood, 200, today)

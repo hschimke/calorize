@@ -1,7 +1,8 @@
 import { api } from './api.js';
 import { showToast, showConfirm } from './ui.js';
+import { getLocalDateString } from './utils.js';
 
-let currentDate = new Date().toISOString().split('T')[0];
+let currentDate = getLocalDateString();
 
 async function init() {
     // Setup date picker
@@ -132,13 +133,19 @@ async function addLog(e) {
     // Determine mode
     const mode = document.querySelector('input[name="entry_mode"]:checked').value;
 
+    let logged_at;
+    const now = new Date();
+    if (currentDate === getLocalDateString(now)) {
+        logged_at = now.toISOString();
+    } else {
+        // Approximate noon local time for a past/future selected date
+        logged_at = new Date(`${currentDate}T12:00:00`).toISOString();
+    }
+
     const logData = {
         amount: parseFloat(form.amount.value),
         meal_tag: form.meal_tag.value,
-        // The backend expects 'logged_at' for the date/time.
-        // We Append T12:00:00Z to ensure it's treated as a specific date, or just let backend handle it?
-        // Let's use the date picker value.
-        logged_at: new Date(currentDate).toISOString()
+        logged_at: logged_at
     };
 
     if (mode === 'food') {

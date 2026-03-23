@@ -37,9 +37,9 @@ func init() {
 // Generate creates a new PASETO v4 local token for the given user
 func Generate(userID db.UserID) (string, error) {
 	token := paseto.NewToken()
-	token.SetIssuedAt(time.Now())
-	token.SetNotBefore(time.Now())
-	token.SetExpiration(time.Now().Add(24 * time.Hour))
+	token.SetIssuedAt(time.Now().UTC())
+	token.SetNotBefore(time.Now().UTC())
+	token.SetExpiration(time.Now().UTC().Add(24 * time.Hour))
 
 	// Convert UUID to string
 	uid := uuid.UUID(userID)

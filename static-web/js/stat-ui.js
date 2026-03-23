@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { getLocalDateString } from './utils.js';
 
 async function init() {
     // Period buttons
@@ -22,7 +23,7 @@ async function loadStats(period, date) {
     try {
         // Default to today if not provided
         if (!date) {
-            date = new Date().toISOString().split('T')[0];
+            date = getLocalDateString();
         }
         const stats = await api.getStats(period, date);
 
