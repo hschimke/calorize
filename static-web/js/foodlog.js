@@ -116,11 +116,16 @@ async function addLog(e) {
 
     let logged_at;
     const now = new Date();
-    if (currentDate === getLocalDateString(now)) {
+    const todayStr = getLocalDateString(now);
+
+    if (currentDate === todayStr) {
+        // For today, use the current precise time
         logged_at = now.toISOString();
     } else {
-        // Approximate noon local time for a past/future selected date
-        logged_at = new Date(`${currentDate}T12:00:00`).toISOString();
+        // For other dates, use local noon to avoid day-boundary shifts when converted to UTC
+        const [year, month, day] = currentDate.split('-').map(Number);
+        const localNoon = new Date(year, month - 1, day, 12, 0, 0);
+        logged_at = localNoon.toISOString();
     }
 
     const logData = {
