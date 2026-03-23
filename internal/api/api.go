@@ -76,15 +76,18 @@ func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var foods []db.Food
-	if r.URL.Query().Get("recent") == "true" {
-		foods, err = db.GetRecentFoods(userID, 50)
+	var (
+		foods []db.Food
+		dbErr error
+	)
+	if r.URL.Query().Has("recent") {
+		foods, dbErr = db.GetRecentFoods(userID, 50)
 	} else if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
-		foods, err = db.SearchFoods(userID, q, 20)
+		foods, dbErr = db.SearchFoods(userID, q, 20)
 	} else {
-		foods, err = db.GetFoods(userID)
+		foods, dbErr = db.GetFoods(userID)
 	}
-	if err != nil {
+	if dbErr != nil {
 		http.Error(w, "Failed to get foods", http.StatusInternalServerError)
 		return
 	}
