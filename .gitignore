@@ -43,3 +43,5 @@ api-server
 .DS_Store
 
 imports/
+
+*.zip
