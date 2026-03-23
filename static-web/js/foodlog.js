@@ -1,8 +1,11 @@
 import { api } from './api.js';
 import { showToast, showConfirm } from './ui.js';
 import { getLocalDateString } from './utils.js';
+import { FoodSearch } from './food-search.js';
 
 let currentDate = getLocalDateString();
+let selectedFood = null;
+let foodSearch = null;
 
 async function init() {
     // Setup date picker
@@ -13,8 +16,11 @@ async function init() {
         loadLogs();
     });
 
-    // Populate foods
-    await loadFoods();
+    // Create food search component
+    foodSearch = new FoodSearch(
+        document.getElementById('food-search-container'),
+        { onSelect: (food) => { selectedFood = food; } }
+    );
 
     // Initial load of logs
     loadLogs();
@@ -33,44 +39,18 @@ function toggleMode(e) {
     const mode = e.target.value;
     const groupFood = document.getElementById('group-food');
     const groupCalories = document.getElementById('group-calories');
-    const foodSelect = document.getElementById('food-select');
     const caloriesInput = document.getElementById('calories-input');
 
     if (mode === 'food') {
         groupFood.style.display = 'block';
         groupCalories.style.display = 'none';
-        foodSelect.required = true;
         caloriesInput.required = false;
         caloriesInput.value = '';
     } else {
         groupFood.style.display = 'none';
         groupCalories.style.display = 'block';
-        foodSelect.required = false;
         caloriesInput.required = true;
-        foodSelect.value = '';
-    }
-}
-
-async function loadFoods() {
-    try {
-        const foods = await api.getFoods();
-        const select = document.getElementById('food-select');
-        select.textContent = '';
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Select a food...';
-        select.appendChild(defaultOption);
-
-        if (foods) {
-            foods.forEach(food => {
-                const option = document.createElement('option');
-                option.value = food.id;
-                option.textContent = `${food.name} (${Math.round(food.calories)} kcal)`;
-                select.appendChild(option);
-            });
-        }
-    } catch (e) {
-        console.error("Failed to load foods:", e);
+        selectedFood = null;
     }
 }
 
@@ -149,7 +129,11 @@ async function addLog(e) {
     };
 
     if (mode === 'food') {
-        logData.food_id = form.food_id.value;
+        if (!selectedFood) {
+            showToast("Please select a food.", 'error');
+            return;
+        }
+        logData.food_id = selectedFood?.id;
     } else {
         const cals = parseFloat(form.calories.value);
         const amt = parseFloat(form.amount.value);
@@ -162,7 +146,8 @@ async function addLog(e) {
 
         // Reset specific fields
         if (mode === 'food') {
-            form.food_id.value = '';
+            selectedFood = null;
+            foodSearch.reset();
         } else {
             form.calories.value = '';
         }
