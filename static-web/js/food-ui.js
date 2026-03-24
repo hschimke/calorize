@@ -26,13 +26,16 @@ async function loadFoods() {
                 foodInfo.appendChild(document.createElement('br'));
 
                 const detailsEl = document.createElement('small');
+                const servingAmt = food.measurement_amount || 1;
+                const servingUnit = food.measurement_unit || 'serving';
+                const servingDesc = servingAmt === 1 ? servingUnit : `${servingAmt} ${servingUnit}`;
                 detailsEl.appendChild(document.createTextNode(
-                    `${Math.round(food.calories)} kcal | P: ${Math.round(food.protein)}g | C: ${Math.round(food.carbs)}g | F: ${Math.round(food.fat)}g`
+                    `${Math.round(food.calories)} kcal | P: ${Math.round(food.protein)}g | C: ${Math.round(food.carbs)}g | F: ${Math.round(food.fat)}g · per ${servingDesc}`
                 ));
                 if (food.type === 'recipe') {
                     const badge = document.createElement('span');
                     badge.style.cssText = 'background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:4px;';
-                    const servingsLabel = food.servings > 1 ? ` (per serving, makes ${food.servings})` : '';
+                    const servingsLabel = food.servings > 1 ? ` (makes ${food.servings})` : '';
                     badge.textContent = `Recipe${servingsLabel}`;
                     detailsEl.appendChild(badge);
                 }
@@ -160,6 +163,11 @@ async function startEdit(foodId) {
         // Populate servings
         document.getElementById('recipe-servings').value = food.servings || 1;
 
+        // Populate serving size
+        const recipeSection = document.getElementById('ingredients-section');
+        recipeSection.querySelector('[name="measurement_amount"]').value = food.measurement_amount || 1;
+        recipeSection.querySelector('[name="measurement_unit"]').value = food.measurement_unit || 'serving';
+
         // Populate ingredients
         recipeIngredients = [];
         if (food.ingredients && food.ingredients.length > 0) {
@@ -190,6 +198,11 @@ async function startEdit(foodId) {
         form.carbs.value = food.carbs;
         form.fat.value = food.fat;
 
+        // Populate serving size
+        const macrosSection = document.getElementById('macros-section');
+        macrosSection.querySelector('[name="measurement_amount"]').value = food.measurement_amount || 1;
+        macrosSection.querySelector('[name="measurement_unit"]').value = food.measurement_unit || 'serving';
+
         // Populate nutrients
         document.getElementById('nutrients-container').textContent = '';
         if (food.nutrients && food.nutrients.length > 0) {
@@ -211,6 +224,8 @@ function cancelEdit() {
     document.getElementById('nutrients-container').textContent = '';
     document.getElementById('recipe-servings').value = 1;
     document.getElementById('recipe-totals').style.display = 'none';
+    document.querySelectorAll('[name="measurement_amount"]').forEach(el => { el.value = 1; });
+    document.querySelectorAll('[name="measurement_unit"]').forEach(el => { el.value = 'serving'; });
     recipeIngredients = [];
     updateIngredientList();
     document.getElementById('type-food').checked = true;
@@ -336,11 +351,15 @@ async function handleSubmit(e) {
     const form = e.target;
     const type = document.querySelector('input[name="type"]:checked').value;
 
+    const activeSection = document.getElementById(type === 'recipe' ? 'ingredients-section' : 'macros-section');
+    const measurement_amount = parseFloat(activeSection.querySelector('[name="measurement_amount"]').value) || 1;
+    const measurement_unit = activeSection.querySelector('[name="measurement_unit"]').value.trim() || 'serving';
+
     let foodData = {
         name: form.name.value,
         type: type,
-        measurement_unit: 'serving',
-        measurement_amount: 1,
+        measurement_unit,
+        measurement_amount,
     };
 
     if (type === 'recipe') {
@@ -405,6 +424,8 @@ async function handleSubmit(e) {
         document.getElementById('nutrients-container').textContent = '';
         document.getElementById('recipe-servings').value = 1;
         document.getElementById('recipe-totals').style.display = 'none';
+        document.querySelectorAll('[name="measurement_amount"]').forEach(el => { el.value = 1; });
+        document.querySelectorAll('[name="measurement_unit"]').forEach(el => { el.value = 'serving'; });
         recipeIngredients = [];
         updateIngredientList();
         document.getElementById('type-food').checked = true;

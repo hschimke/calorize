@@ -19,7 +19,13 @@ async function init() {
     // Create food search component
     foodSearch = new FoodSearch(
         document.getElementById('food-search-container'),
-        { onSelect: (food) => { selectedFood = food; } }
+        {
+            onSelect: (food) => {
+                selectedFood = food;
+                const unitLabel = document.getElementById('amount-unit-label');
+                if (unitLabel) unitLabel.textContent = food.measurement_unit ? `(${food.measurement_unit})` : '';
+            }
+        }
     );
 
     // Initial load of logs
@@ -41,6 +47,7 @@ function toggleMode(e) {
     const groupCalories = document.getElementById('group-calories');
     const caloriesInput = document.getElementById('calories-input');
 
+    const unitLabel = document.getElementById('amount-unit-label');
     if (mode === 'food') {
         groupFood.style.display = 'block';
         groupCalories.style.display = 'none';
@@ -52,6 +59,7 @@ function toggleMode(e) {
         caloriesInput.required = true;
         selectedFood = null;
         if (foodSearch) foodSearch.clear();
+        if (unitLabel) unitLabel.textContent = '';
     }
 }
 
@@ -71,7 +79,8 @@ async function loadLogs() {
                 if (log.food) {
                     nameSpan.textContent = log.food.name;
                     div.appendChild(nameSpan);
-                    div.appendChild(document.createTextNode(` - ${Math.round(log.amount * 10) / 10}x`));
+                    const unit = log.food.measurement_unit || 'serving';
+                    div.appendChild(document.createTextNode(` — ${Math.round(log.amount * 10) / 10} ${unit}`));
                 } else {
                     nameSpan.textContent = 'Quick Add';
                     div.appendChild(nameSpan);

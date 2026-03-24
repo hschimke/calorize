@@ -34,6 +34,16 @@
                 <div id="macros-section">
                     <div class="form-row">
                         <div class="form-group">
+                            <label>Serving Amount</label>
+                            <input type="number" name="measurement_amount" value="1" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Serving Unit</label>
+                            <input type="text" name="measurement_unit" value="serving" placeholder="e.g. g, ml, serving" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
                             <label>Calories</label>
                             <input type="number" name="calories" step="0.1">
                         </div>
@@ -61,9 +71,21 @@
                 </div>
 
                 <div id="ingredients-section" style="display: none;">
-                    <div class="form-group">
-                        <label>Makes (servings)</label>
-                        <input type="number" id="recipe-servings" value="1" min="1" step="1">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Makes (servings)</label>
+                            <input type="number" id="recipe-servings" value="1" min="1" step="1">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Serving Amount</label>
+                            <input type="number" name="measurement_amount" value="1" step="0.01" min="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label>Serving Unit</label>
+                            <input type="text" name="measurement_unit" value="serving" placeholder="e.g. g, ml, serving">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Ingredients</label>
