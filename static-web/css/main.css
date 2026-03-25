@@ -14,6 +14,8 @@
   --color-surface: #ffffff;
   --color-surface-muted: #f3f4f6;
   --color-nav: #111827;
+  --color-carbs: #f59e0b;
+  --color-fat:   #ef4444;
 
   /* Spacing */
   --space-1: 4px;
@@ -773,3 +775,29 @@ select:focus {
 .food-search-item-calories { color: var(--color-text-muted); font-size: 13px; }
 
 .food-search-empty { color: var(--color-text-muted); pointer-events: none; font-style: italic; }
+
+/* ============================================================
+   Chart Panels
+   ============================================================ */
+.chart-panel {
+  margin-bottom: var(--space-6);
+}
+
+.chart-panel h2 {
+  margin-bottom: var(--space-3);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.chart-panel canvas {
+  display: block;
+  width: 100%;
+}
+
+#chart-macro  { height: 60px; }
+#chart-meals,
+#chart-days,
+#chart-weeks  { height: 200px; }

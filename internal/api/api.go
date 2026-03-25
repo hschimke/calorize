@@ -310,6 +310,7 @@ func getClientLocation(r *http.Request) *time.Location {
 
 func RegisterStatsPaths(mux *http.ServeMux) {
 	mux.HandleFunc("GET /stats", getStatsHandler)
+	mux.HandleFunc("GET /stats/breakdown", getStatsBreakdownHandler)
 }
 
 func getStatsHandler(w http.ResponseWriter, r *http.Request) {
@@ -339,6 +340,51 @@ func getStatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
+}
+
+func getStatsBreakdownHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	period := r.URL.Query().Get("period")
+	if period == "day" || period == "" {
+		http.Error(w, "period must be 'week' or 'month'", http.StatusBadRequest)
+		return
+	}
+
+	dateStr := r.URL.Query().Get("date")
+	loc := getClientLocation(r)
+
+	date := time.Now().In(loc)
+	if dateStr != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", dateStr, loc)
+		if err != nil {
+			http.Error(w, "Invalid date format, expected YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		date = parsed
+	}
+
+	tzOffset := 0
+	if s := r.URL.Query().Get("tz_offset"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			tzOffset = v
+		}
+	}
+
+	breakdown, err := db.GetStatsByDay(userID, period, date, tzOffset)
+	if err != nil {
+		slog.Error("failed to get stats breakdown", "error", err)
+		http.Error(w, "Failed to get stats breakdown", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(breakdown); err != nil {
 		slog.Error("failed to encode response", "error", err)
 	}
 }

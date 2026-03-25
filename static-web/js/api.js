@@ -217,6 +217,14 @@ export class API {
         }
         return await this.request(`/stats?${params.toString()}`);
     }
+
+    async getStatsBreakdown(period, date) {
+        const params = new URLSearchParams({ period, tz_offset: new Date().getTimezoneOffset() });
+        if (date) {
+            params.append('date', date);
+        }
+        return await this.request(`/stats/breakdown?${params.toString()}`);
+    }
 }
 
 // Export singleton instance

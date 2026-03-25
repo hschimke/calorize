@@ -5,6 +5,85 @@ import (
 	"time"
 )
 
+func GetStatsByDay(userID UserID, period string, date time.Time, tzOffsetMins int) ([]RangeStats, error) {
+	if period == "day" {
+		return nil, fmt.Errorf("breakdown not supported for period: day")
+	}
+
+	var start, end time.Time
+	loc := date.Location()
+	y, m, d := date.Date()
+	localStart := time.Date(y, m, d, 0, 0, 0, 0, loc)
+
+	switch period {
+	case "week":
+		weekday := int(localStart.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		start = localStart.AddDate(0, 0, -weekday+1).UTC()
+		end = start.AddDate(0, 0, 7)
+	case "month":
+		start = time.Date(y, m, 1, 0, 0, 0, 0, loc).UTC()
+		end = start.AddDate(0, 1, 0)
+	default:
+		return nil, fmt.Errorf("invalid period: %s", period)
+	}
+
+	// Shift logged_at (UTC) into the client's local timezone before extracting
+	// the date, so entries near midnight are attributed to the correct local day.
+	// tzOffsetMins is the raw JS getTimezoneOffset() value: negative for UTC+X zones.
+	// We negate it to get the actual UTC offset to add.
+	shiftMins := -tzOffsetMins
+	shiftExpr := fmt.Sprintf("%+d minutes", shiftMins)
+
+	query := `
+		SELECT
+			date(datetime(logged_at, ?)) AS day,
+			SUM(COALESCE(calories, 0)),
+			SUM(COALESCE(protein, 0)),
+			SUM(COALESCE(carbs, 0)),
+			SUM(COALESCE(fat, 0))
+		FROM food_log_entries
+		WHERE user_id = ? AND logged_at >= ? AND logged_at < ?
+		  AND deleted_at IS NULL
+		GROUP BY day
+		ORDER BY day
+	`
+
+	rows, err := db.Query(query, shiftExpr, userID, start, end)
+	if err != nil {
+		return nil, fmt.Errorf("querying stats by day: %w", err)
+	}
+	defer rows.Close()
+
+	// Build a map of date string → RangeStats from DB results
+	byDate := make(map[string]RangeStats)
+	for rows.Next() {
+		var s RangeStats
+		if err := rows.Scan(&s.Date, &s.Calories, &s.Protein, &s.Carbs, &s.Fat); err != nil {
+			return nil, fmt.Errorf("scanning stats row: %w", err)
+		}
+		byDate[s.Date] = s
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating stats rows: %w", err)
+	}
+
+	// Build complete slice, zero-filling missing days
+	var result []RangeStats
+	for cur := start.In(loc); cur.Before(end.In(loc)); cur = cur.AddDate(0, 0, 1) {
+		dateStr := cur.Format("2006-01-02")
+		if s, ok := byDate[dateStr]; ok {
+			result = append(result, s)
+		} else {
+			result = append(result, RangeStats{Date: dateStr})
+		}
+	}
+
+	return result, nil
+}
+
 type RangeStats struct {
 	Date     string  `json:"date"` // YYYY-MM-DD
 	Calories float64 `json:"calories"`
