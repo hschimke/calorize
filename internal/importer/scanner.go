@@ -25,13 +25,28 @@ func ScanAndImport(importDir, importedDir string, done <-chan struct{}) error {
 		return fmt.Errorf("reading import dir: %w", err)
 	}
 
+	var jsonFiles []os.DirEntry
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
-			continue
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
+			jsonFiles = append(jsonFiles, entry)
 		}
+	}
+	slog.Info("import scan found files", "dir", importDir, "json_count", len(jsonFiles))
 
+	for i, entry := range jsonFiles {
 		filePath := filepath.Join(importDir, entry.Name())
-		slog.Info("starting import of file", "file", filePath)
+
+		fi, statErr := entry.Info()
+		if statErr == nil {
+			slog.Info("starting import of file",
+				"file", entry.Name(),
+				"file_num", i+1,
+				"total_files", len(jsonFiles),
+				"size_mb", fmt.Sprintf("%.2f", float64(fi.Size())/1e6),
+			)
+		} else {
+			slog.Info("starting import of file", "file", entry.Name(), "file_num", i+1, "total_files", len(jsonFiles))
+		}
 
 		if err := parseFDCFile(filePath, done); err != nil {
 			slog.Error("failed to parse FDC file", "file", filePath, "error", err)

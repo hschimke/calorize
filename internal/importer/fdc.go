@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"time"
 
 	"azule.info/calorize/internal/db"
 )
@@ -36,6 +37,14 @@ func parseFDCFile(filePath string, done <-chan struct{}) error {
 	}
 	defer file.Close()
 
+	fi, err := file.Stat()
+	if err != nil {
+		slog.Warn("could not stat import file", "file", filePath, "error", err)
+	} else {
+		slog.Info("opening FDC file", "file", filePath, "size_mb", fmt.Sprintf("%.2f", float64(fi.Size())/1e6))
+	}
+	startTime := time.Now()
+
 	decoder := json.NewDecoder(file)
 
 	// We don't know the exact top-level key yet (might be "BrandedFoods" or "FoundationFoods")
@@ -62,11 +71,11 @@ func parseFDCFile(filePath string, done <-chan struct{}) error {
 		}
 	}
 
-	count := 0
+	var count, errCount, skippedCount int
 	for decoder.More() {
 		select {
 		case <-done:
-			slog.Info("shutdown requested, aborting FDC parse")
+			slog.Info("shutdown requested, aborting FDC parse", "processed_so_far", count)
 			return fmt.Errorf("aborted mid-parse")
 		default:
 		}
@@ -74,26 +83,57 @@ func parseFDCFile(filePath string, done <-chan struct{}) error {
 		var fdcFood FdcFood
 		err := decoder.Decode(&fdcFood)
 		if err != nil {
-			return fmt.Errorf("error decoding object at idx %d: %w", count, err)
-		}
-
-		err = upsertFood(fdcFood)
-		if err != nil {
-			slog.Error("error upserting food", "fdcId", fdcFood.FdcID, "error", err)
+			errCount++
+			slog.Error("error decoding FDC record", "index", count+errCount+skippedCount, "error", err)
+			// Non-fatal: skip malformed record and continue
 			continue
 		}
 
-		count++
-		if count%1000 == 0 {
-			slog.Info("processed FDC records", "count", count)
+		result, err := upsertFood(fdcFood)
+		if err != nil {
+			errCount++
+			slog.Error("error upserting food", "fdcId", fdcFood.FdcID, "description", fdcFood.Description, "error", err)
+			continue
+		}
+
+		switch result {
+		case upsertSkipped:
+			skippedCount++
+		case upsertCreated, upsertUpdated:
+			count++
+		}
+
+		total := count + errCount + skippedCount
+		if total%1000 == 0 {
+			slog.Info("FDC import progress",
+				"processed", total,
+				"inserted_or_updated", count,
+				"skipped_unchanged", skippedCount,
+				"errors", errCount,
+				"elapsed", time.Since(startTime).Round(time.Second).String(),
+			)
 		}
 	}
 
-	slog.Info("finished parsing FDC file", "total_records", count)
+	slog.Info("finished parsing FDC file",
+		"file", filePath,
+		"inserted_or_updated", count,
+		"skipped_unchanged", skippedCount,
+		"errors", errCount,
+		"elapsed", time.Since(startTime).Round(time.Second).String(),
+	)
 	return nil
 }
 
-func upsertFood(fdcFood FdcFood) error {
+type upsertResult int
+
+const (
+	upsertCreated upsertResult = iota
+	upsertUpdated
+	upsertSkipped
+)
+
+func upsertFood(fdcFood FdcFood) (upsertResult, error) {
 	extID := fmt.Sprintf("fdc_%d", fdcFood.FdcID)
 
 	// Map nutrients
@@ -154,35 +194,66 @@ func upsertFood(fdcFood FdcFood) error {
 	}
 
 	// Resolve Fat (priority: lipid > nlea)
+	var fatSource string
 	if fatLipid > 0 {
 		fat = fatLipid
-	} else {
+		fatSource = "lipid"
+	} else if fatNlea > 0 {
 		fat = fatNlea
+		fatSource = "nlea"
+	} else {
+		fatSource = "none"
 	}
 
 	// Resolve Carbs (priority: difference > summation > calculation from components)
+	var carbSource string
 	if carbDiff > 0 {
 		carbs = carbDiff
+		carbSource = "by_difference"
 	} else if carbSum > 0 {
 		carbs = carbSum
+		carbSource = "by_summation"
 	} else {
-		// Fallback to components
 		carbs = carbSugars + carbStarch + carbFiber
+		carbSource = "components"
 	}
 
 	// Resolve Energy (priority: kcal > specific > general > kJ > macro estimation)
+	var calSource string
 	if calKcal > 0 {
 		calories = calKcal
+		calSource = "kcal"
 	} else if calAtwaterSpecific > 0 {
 		calories = calAtwaterSpecific
+		calSource = "atwater_specific"
 	} else if calAtwaterGeneral > 0 {
 		calories = calAtwaterGeneral
+		calSource = "atwater_general"
 	} else if calKj > 0 {
 		calories = calKj / 4.184
+		calSource = "kj_converted"
 	} else {
 		// Fallback: estimation from macros
 		// This helps with Foundation Foods that might only provide raw components.
 		calories = (protein * 4) + (carbs * 4) + (fat * 9)
+		calSource = "macro_estimate"
+	}
+
+	// Warn on unusual resolution paths or suspicious values
+	if calSource != "kcal" {
+		slog.Warn("non-standard calorie source", "fdcId", fdcFood.FdcID, "description", fdcFood.Description, "cal_source", calSource, "calories", calories)
+	}
+	if carbSource == "components" {
+		slog.Warn("carb fallback to components", "fdcId", fdcFood.FdcID, "description", fdcFood.Description, "sugars", carbSugars, "starch", carbStarch, "fiber", carbFiber, "total", carbs)
+	}
+	if fatSource == "nlea" {
+		slog.Debug("fat resolved via NLEA", "fdcId", fdcFood.FdcID, "description", fdcFood.Description)
+	}
+	if fatSource == "none" {
+		slog.Warn("no fat data found", "fdcId", fdcFood.FdcID, "description", fdcFood.Description)
+	}
+	if calories == 0 {
+		slog.Warn("zero calories after resolution", "fdcId", fdcFood.FdcID, "description", fdcFood.Description, "cal_source", calSource, "protein", protein, "carbs", carbs, "fat", fat)
 	}
 
 	foodData := db.Food{
@@ -202,25 +273,30 @@ func upsertFood(fdcFood FdcFood) error {
 
 	existingFood, err := db.GetFoodByExternalID(extID)
 	if err != nil {
-		return fmt.Errorf("checking existing food: %w", err)
+		return upsertSkipped, fmt.Errorf("checking existing food: %w", err)
 	}
 
 	if existingFood != nil {
-		// We could compare properties here, but for simplicity, we'll
-		// update if anything fundamental has changed, or just unconditionally update.
-		// Actually, to prevent huge db bloat on every startup run, let's only do it if the macros changed.
+		// Only update if macros or name changed to avoid db bloat on every startup run.
 		if existingFood.Calories != calories || existingFood.Protein != protein || existingFood.Carbs != carbs || existingFood.Fat != fat || existingFood.Name != fdcFood.Description {
+			slog.Debug("updating changed food", "fdcId", fdcFood.FdcID, "description", fdcFood.Description,
+				"old_cal", existingFood.Calories, "new_cal", calories,
+				"old_protein", existingFood.Protein, "new_protein", protein,
+				"old_carbs", existingFood.Carbs, "new_carbs", carbs,
+				"old_fat", existingFood.Fat, "new_fat", fat,
+			)
 			_, err = db.UpdateFood(existingFood.ID, foodData)
 			if err != nil {
-				return fmt.Errorf("updating food: %w", err)
+				return upsertSkipped, fmt.Errorf("updating food: %w", err)
 			}
+			return upsertUpdated, nil
 		}
-	} else {
-		_, err = db.CreateFood(foodData)
-		if err != nil {
-			return fmt.Errorf("creating food: %w", err)
-		}
+		return upsertSkipped, nil
 	}
 
-	return nil
+	_, err = db.CreateFood(foodData)
+	if err != nil {
+		return upsertSkipped, fmt.Errorf("creating food: %w", err)
+	}
+	return upsertCreated, nil
 }
