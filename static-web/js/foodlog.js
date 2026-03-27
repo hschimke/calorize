@@ -6,6 +6,7 @@ import { FoodSearch } from './food-search.js';
 let currentDate = getLocalDateString();
 let selectedFood = null;
 let foodSearch = null;
+const noteInput = document.getElementById('note-input');
 
 async function init() {
     // Setup date picker
@@ -53,6 +54,7 @@ function toggleMode(e) {
         groupCalories.style.display = 'none';
         caloriesInput.required = false;
         caloriesInput.value = '';
+        noteInput.value = '';
     } else {
         groupFood.style.display = 'none';
         groupCalories.style.display = 'block';
@@ -82,7 +84,7 @@ async function loadLogs() {
                     const unit = log.food.measurement_unit || 'serving';
                     div.appendChild(document.createTextNode(` — ${Math.round(log.amount * 10) / 10} ${unit}`));
                 } else {
-                    nameSpan.textContent = 'Quick Add';
+                    nameSpan.textContent = log.note ? `[qc] ${log.note}` : 'Quick Add';
                     div.appendChild(nameSpan);
                 }
 
@@ -154,6 +156,7 @@ async function addLog(e) {
         const amt = parseFloat(form.amount.value);
         logData.calories = cals * amt;
         logData.amount = 1; // Calories already pre-multiplied
+        logData.note = noteInput.value.trim() || null;
     }
 
     try {
@@ -165,6 +168,7 @@ async function addLog(e) {
             foodSearch.clear();
         } else {
             form.calories.value = '';
+            noteInput.value = '';
         }
         form.amount.value = '1';
 
