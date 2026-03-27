@@ -437,6 +437,7 @@ func getLogsHandler(w http.ResponseWriter, r *http.Request) {
 type createLogEntryRequest struct {
 	FoodID   *db.FoodID `json:"food_id"`
 	Calories *float64   `json:"calories"`
+	Note     *string    `json:"note"`
 	Amount   float64    `json:"amount"`
 	MealTag  string     `json:"meal_tag"`
 	LoggedAt time.Time  `json:"logged_at"`
@@ -459,6 +460,23 @@ func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Normalize note: trim whitespace, treat empty as nil; notes only apply to quick entries
+	if req.Note != nil {
+		trimmed := strings.TrimSpace(*req.Note)
+		if trimmed == "" {
+			req.Note = nil
+		} else {
+			req.Note = &trimmed
+		}
+	}
+	if req.FoodID != nil {
+		req.Note = nil
+	}
+	if req.Note != nil && len([]rune(*req.Note)) > 100 {
+		http.Error(w, "Note must be 100 characters or fewer", http.StatusBadRequest)
+		return
+	}
+
 	if req.LoggedAt.IsZero() {
 		req.LoggedAt = time.Now().UTC()
 	} else {
@@ -469,6 +487,7 @@ func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		UserID:   userID,
 		FoodID:   req.FoodID,
 		Calories: req.Calories,
+		Note:     req.Note,
 		Amount:   req.Amount,
 		MealTag:  req.MealTag,
 		LoggedAt: req.LoggedAt,

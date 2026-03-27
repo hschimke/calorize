@@ -13,8 +13,8 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 	end := start.Add(24 * time.Hour)
 
 	query := `
-		SELECT id, user_id, food_id, calories, protein, carbs, fat, amount, meal_tag, logged_at, created_at, deleted_at 
-		FROM food_log_entries 
+		SELECT id, user_id, food_id, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at, deleted_at
+		FROM food_log_entries
 		WHERE user_id = ? AND logged_at >= ? AND logged_at < ? AND deleted_at IS NULL
 	`
 	rows, err := db.Query(query, userID, start, end)
@@ -27,7 +27,7 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 	for rows.Next() {
 		var entry FoodLogEntry
 		var foodID uuid.NullUUID
-		if err := rows.Scan(&entry.ID, &entry.UserID, &foodID, &entry.Calories, &entry.Protein, &entry.Carbs, &entry.Fat, &entry.Amount, &entry.MealTag, &entry.LoggedAt, &entry.CreatedAt, &entry.DeletedAt); err != nil {
+		if err := rows.Scan(&entry.ID, &entry.UserID, &foodID, &entry.Calories, &entry.Protein, &entry.Carbs, &entry.Fat, &entry.Amount, &entry.MealTag, &entry.Note, &entry.LoggedAt, &entry.CreatedAt, &entry.DeletedAt); err != nil {
 			return nil, fmt.Errorf("scanning food log entry: %w", err)
 		}
 		if foodID.Valid {
@@ -69,8 +69,8 @@ func CreateFoodLogEntry(entry FoodLogEntry) (*FoodLogEntry, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec("INSERT INTO food_log_entries (id, user_id, food_id, calories, protein, carbs, fat, amount, meal_tag, logged_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		newID, entry.UserID, entry.FoodID, entry.Calories, entry.Protein, entry.Carbs, entry.Fat, entry.Amount, entry.MealTag, entry.LoggedAt, entry.CreatedAt)
+	_, err = db.Exec("INSERT INTO food_log_entries (id, user_id, food_id, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		newID, entry.UserID, entry.FoodID, entry.Calories, entry.Protein, entry.Carbs, entry.Fat, entry.Amount, entry.MealTag, entry.Note, entry.LoggedAt, entry.CreatedAt)
 	if err != nil {
 		return nil, err
 	}

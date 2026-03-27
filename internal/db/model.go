@@ -142,6 +142,7 @@ type FoodLogEntry struct {
 	Fat       *float64       `json:"fat"`
 	Amount    float64        `json:"amount"`
 	MealTag   string         `json:"meal_tag"`
+	Note      *string        `json:"note"`
 	LoggedAt  time.Time      `json:"logged_at"`
 	CreatedAt time.Time      `json:"created_at"`
 	DeletedAt *time.Time     `json:"deleted_at"`
