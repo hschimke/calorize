@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 )
 
+var ErrCredentialNotFound = errors.New("credential not found")
+
 // Bare user functions
 func GetUser(userName string) (*User, error) {
 	query := `SELECT id, name, email, disabled_at, created_at FROM users WHERE name = ?`
@@ -151,9 +153,16 @@ func AddUserCredential(user User, auth UserCredential) error {
 
 func RemoveUserCredential(user User, auth UserCredential) error {
 	query := `DELETE FROM user_credentials WHERE id = ? AND user_id = ?`
-	_, err := db.Exec(query, auth.ID, user.ID)
+	result, err := db.Exec(query, auth.ID, user.ID)
 	if err != nil {
 		return fmt.Errorf("removing user credential: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("removing user credential: %w", err)
+	}
+	if rows == 0 {
+		return ErrCredentialNotFound
 	}
 	return nil
 }
@@ -206,9 +215,16 @@ func GetUserCredentials(user User) ([]UserCredential, error) {
 
 func RenameCredential(userID UserID, credID UserCredentialID, name string) error {
 	query := `UPDATE user_credentials SET name = ? WHERE id = ? AND user_id = ?`
-	_, err := db.Exec(query, name, credID, userID)
+	result, err := db.Exec(query, name, credID, userID)
 	if err != nil {
 		return fmt.Errorf("renaming credential: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("renaming credential: %w", err)
+	}
+	if rows == 0 {
+		return ErrCredentialNotFound
 	}
 	return nil
 }
