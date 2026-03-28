@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -91,6 +92,10 @@ func deletePasskeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.RemoveUserCredential(*user, db.UserCredential{ID: db.UserCredentialID(credIDBytes)}); err != nil {
+		if errors.Is(err, db.ErrCredentialNotFound) {
+			http.Error(w, "Passkey not found", http.StatusNotFound)
+			return
+		}
 		slog.Error("failed to remove credential", "error", err)
 		http.Error(w, "Failed to delete passkey", http.StatusInternalServerError)
 		return
@@ -120,6 +125,10 @@ func renamePasskeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.RenameCredential(userID, db.UserCredentialID(credIDBytes), body.Name); err != nil {
+		if errors.Is(err, db.ErrCredentialNotFound) {
+			http.Error(w, "Passkey not found", http.StatusNotFound)
+			return
+		}
 		slog.Error("failed to rename credential", "error", err)
 		http.Error(w, "Failed to rename passkey", http.StatusInternalServerError)
 		return
@@ -184,6 +193,7 @@ func addPasskeyFinishHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	now := time.Now().UTC()
 	if err := db.AddUserCredential(*user, db.UserCredential{
 		ID:              db.UserCredentialID(credential.ID),
 		Name:            "New Passkey",
@@ -193,8 +203,8 @@ func addPasskeyFinishHandler(w http.ResponseWriter, r *http.Request) {
 		SignCount:       credential.Authenticator.SignCount,
 		BackupEligible:  credential.Flags.BackupEligible,
 		BackupState:     credential.Flags.BackupState,
-		CreatedAt:       time.Now().UTC(),
-		LastUsedAt:      time.Now().UTC(),
+		CreatedAt:       now,
+		LastUsedAt:      now,
 	}); err != nil {
 		slog.Error("failed to save new passkey", "error", err)
 		http.Error(w, "Failed to save passkey", http.StatusInternalServerError)
