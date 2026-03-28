@@ -114,7 +114,7 @@ export function showInput(message, defaultValue = '') {
         const input = document.createElement('input');
         input.type = 'text';
         input.value = defaultValue;
-        input.style.cssText = 'display: block; margin-bottom: var(--space-5);';
+        input.style.cssText = 'display: block; width: 100%; box-sizing: border-box; margin-bottom: var(--space-5);';
 
         const actions = document.createElement('div');
         actions.style.cssText = 'display: flex; gap: var(--space-3); justify-content: flex-end;';
@@ -144,5 +144,9 @@ export function showInput(message, defaultValue = '') {
 
         input.focus();
         input.select();
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) { overlay.remove(); resolve(null); }
+        });
     });
 }
