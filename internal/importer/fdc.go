@@ -2,6 +2,7 @@ package importer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -83,10 +84,15 @@ func parseFDCFile(filePath string, done <-chan struct{}) error {
 		var fdcFood FdcFood
 		err := decoder.Decode(&fdcFood)
 		if err != nil {
-			errCount++
-			slog.Error("error decoding FDC record", "index", count+errCount+skippedCount, "error", err)
-			// Non-fatal: skip malformed record and continue
-			continue
+			var typeErr *json.UnmarshalTypeError
+			if errors.As(err, &typeErr) {
+				// Field type mismatch: decoder consumed the full token cleanly, safe to skip
+				errCount++
+				slog.Warn("skipping FDC record with type mismatch", "index", count+errCount+skippedCount, "field", typeErr.Field, "error", err)
+				continue
+			}
+			// Syntax error or I/O error: stream position is undefined, cannot recover
+			return fmt.Errorf("unrecoverable decode error at index %d: %w", count+errCount+skippedCount, err)
 		}
 
 		result, err := upsertFood(fdcFood)
