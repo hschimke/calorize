@@ -239,9 +239,11 @@ func upsertFood(fdcFood FdcFood) (upsertResult, error) {
 		calSource = "macro_estimate"
 	}
 
-	// Warn on unusual resolution paths or suspicious values
-	if calSource != "kcal" {
-		slog.Warn("non-standard calorie source", "fdcId", fdcFood.FdcID, "description", fdcFood.Description, "cal_source", calSource, "calories", calories)
+	// Log unusual resolution paths
+	if calSource == "kj_converted" || calSource == "macro_estimate" {
+		slog.Warn("unusual calorie source", "fdcId", fdcFood.FdcID, "description", fdcFood.Description, "cal_source", calSource, "calories", calories)
+	} else if calSource != "kcal" {
+		slog.Debug("non-kcal calorie source", "fdcId", fdcFood.FdcID, "description", fdcFood.Description, "cal_source", calSource, "calories", calories)
 	}
 	if carbSource == "components" {
 		slog.Warn("carb fallback to components", "fdcId", fdcFood.FdcID, "description", fdcFood.Description, "sugars", carbSugars, "starch", carbStarch, "fiber", carbFiber, "total", carbs)
