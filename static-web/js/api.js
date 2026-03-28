@@ -17,6 +17,7 @@ export class API {
         const url = `${this.baseUrl}${endpoint}`;
         const options = {
             method,
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
             },
