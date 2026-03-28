@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { showToast, showConfirm } from './ui.js';
+import { showToast, showConfirm, showInput } from './ui.js';
 
 async function loadPasskeys() {
     const list = document.getElementById('passkey-list');
@@ -72,10 +72,10 @@ async function deletePasskey(id) {
 }
 
 async function renamePasskey(id, currentName) {
-    const name = prompt('New name for this passkey:', currentName);
-    if (!name || name.trim() === '') return;
+    const name = await showInput('New name for this passkey:', currentName);
+    if (!name) return;
     try {
-        await api.renamePasskey(id, name.trim());
+        await api.renamePasskey(id, name);
         showToast('Passkey renamed');
         loadPasskeys();
     } catch (e) {
