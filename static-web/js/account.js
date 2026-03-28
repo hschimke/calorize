@@ -31,7 +31,6 @@ async function loadPasskeys() {
         info.appendChild(nameEl);
 
         const detailEl = document.createElement('small');
-        detailEl.className = 'color-text-muted';
         const createdDate = new Date(pk.created_at).toLocaleDateString();
         const lastUsedDate = new Date(pk.last_used_at).toLocaleDateString();
         detailEl.textContent = ` · Added ${createdDate} · Last used ${lastUsedDate}`;
