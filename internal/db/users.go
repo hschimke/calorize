@@ -204,6 +204,15 @@ func GetUserCredentials(user User) ([]UserCredential, error) {
 	return credentials, nil
 }
 
+func RenameCredential(userID UserID, credID UserCredentialID, name string) error {
+	query := `UPDATE user_credentials SET name = ? WHERE id = ? AND user_id = ?`
+	_, err := db.Exec(query, name, credID, userID)
+	if err != nil {
+		return fmt.Errorf("renaming credential: %w", err)
+	}
+	return nil
+}
+
 func SetCredentialLastUsed(user User, auth UserCredential) error {
 	query := `UPDATE user_credentials SET last_used_at = ? WHERE id = ? AND user_id = ?`
 	_, err := db.Exec(query, time.Now().UTC(), auth.ID, user.ID)

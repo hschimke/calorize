@@ -82,8 +82,8 @@ func RegisterAuthPaths(mux *http.ServeMux) {
 	})
 }
 
-// Session storage helper
-func saveSession(w http.ResponseWriter, data *webauthn.SessionData) error {
+// Session storage helpers (exported so internal/api can reuse them)
+func SaveSession(w http.ResponseWriter, data *webauthn.SessionData) error {
 	marshaled, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshaling session data: %w", err)
@@ -100,7 +100,7 @@ func saveSession(w http.ResponseWriter, data *webauthn.SessionData) error {
 	return nil
 }
 
-func loadSession(r *http.Request) (*webauthn.SessionData, error) {
+func LoadSession(r *http.Request) (*webauthn.SessionData, error) {
 	c, err := r.Cookie(SessionCookieName)
 	if err != nil {
 		return nil, err
@@ -118,7 +118,7 @@ func loadSession(r *http.Request) (*webauthn.SessionData, error) {
 	return &data, nil
 }
 
-func clearSession(w http.ResponseWriter) {
+func ClearSession(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    "",
@@ -178,7 +178,7 @@ func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := saveSession(w, sessionData); err != nil {
+	if err := SaveSession(w, sessionData); err != nil {
 		http.Error(w, "failed to save session", http.StatusInternalServerError)
 		db.DeleteTemporaryUser(*user)
 		return
@@ -189,7 +189,7 @@ func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
-	sessionData, err := loadSession(r)
+	sessionData, err := LoadSession(r)
 	if err != nil {
 		http.Error(w, "session missing", http.StatusBadRequest)
 		return
@@ -260,12 +260,13 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	})
-	clearSession(w)
+	ClearSession(w)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Registration Success",
 		"token":   t,
+		"user_id": uuid.UUID(user.ID).String(),
 	})
 }
 
@@ -291,7 +292,7 @@ func loginBeginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := saveSession(w, sessionData); err != nil {
+	if err := SaveSession(w, sessionData); err != nil {
 		http.Error(w, "failed to save session", http.StatusInternalServerError)
 		return
 	}
@@ -301,7 +302,7 @@ func loginBeginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func loginFinishHandler(w http.ResponseWriter, r *http.Request) {
-	sessionData, err := loadSession(r)
+	sessionData, err := LoadSession(r)
 	if err != nil {
 		http.Error(w, "session missing", http.StatusBadRequest)
 		return
@@ -359,11 +360,12 @@ func loginFinishHandler(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	})
-	clearSession(w)
+	ClearSession(w)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Login Success",
 		"token":   t,
+		"user_id": uuid.UUID(user.ID).String(),
 	})
 }

@@ -30,6 +30,7 @@ func RegisterApiPaths(mux *http.ServeMux) {
 	RegisterLogsPaths(mux)
 	RegisterFoodsPaths(mux)
 	RegisterStatsPaths(mux)
+	RegisterAccountPaths(mux)
 }
 
 // ### Foods

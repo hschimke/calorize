@@ -208,6 +208,48 @@ export class API {
         return await this.request(`/logs/${id}`, 'DELETE');
     }
 
+    // --- Account / Passkeys ---
+
+    async getPasskeys() {
+        return await this.request('/account/passkeys');
+    }
+
+    async addPasskey() {
+        // 1. Begin registration
+        const options = await this.request('/account/passkeys/begin', 'POST');
+
+        options.publicKey.challenge = this.base64URLToBuffer(options.publicKey.challenge);
+        options.publicKey.user.id = this.base64URLToBuffer(options.publicKey.user.id);
+        if (options.publicKey.excludeCredentials) {
+            for (let cred of options.publicKey.excludeCredentials) {
+                cred.id = this.base64URLToBuffer(cred.id);
+            }
+        }
+
+        // 2. Create credential via browser
+        const credential = await navigator.credentials.create({ publicKey: options.publicKey });
+
+        // 3. Finish registration
+        const credentialForServer = {
+            id: credential.id,
+            rawId: this.bufferToBase64URL(credential.rawId),
+            response: {
+                attestationObject: this.bufferToBase64URL(credential.response.attestationObject),
+                clientDataJSON: this.bufferToBase64URL(credential.response.clientDataJSON),
+            },
+            type: credential.type,
+        };
+        return await this.request('/account/passkeys/finish', 'POST', credentialForServer);
+    }
+
+    async deletePasskey(id) {
+        return await this.request(`/account/passkeys/${encodeURIComponent(id)}`, 'DELETE');
+    }
+
+    async renamePasskey(id, name) {
+        return await this.request(`/account/passkeys/${encodeURIComponent(id)}`, 'PATCH', { name });
+    }
+
     // --- Stats ---
 
     async getStats(period, date) {
