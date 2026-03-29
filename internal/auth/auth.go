@@ -1,10 +1,16 @@
 package auth
 
 import (
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"os"
 	"strings"
 	"time"
@@ -21,9 +27,35 @@ const UserIDContextKey = contextKey("user_id")
 const SessionCookieName = "reg_session"
 const AppSessionCookieName = "session_id"
 
+// pendingUser holds the pre-generated user data that flows from registerBeginHandler
+// to registerFinishHandler via cookie, without writing anything to the DB yet.
+type pendingUser struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+// pendingRegistrationSession is stored in the reg_session cookie during the WebAuthn
+// registration ceremony. It carries both the WebAuthn challenge data and the pending
+// user identity so that registerFinishHandler can write the user row only after the
+// ceremony succeeds. The cookie is HMAC-signed to prevent client-side tampering.
+type pendingRegistrationSession struct {
+	WebAuthnSession webauthn.SessionData `json:"webauthn_session"`
+	PendingUser     pendingUser          `json:"pending_user"`
+}
+
 var (
-	WebAuthn *webauthn.WebAuthn
+	WebAuthn      *webauthn.WebAuthn
+	cookieSignKey []byte
 )
+
+func init() {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		panic(fmt.Errorf("failed to generate cookie signing key: %w", err))
+	}
+	cookieSignKey = key
+}
 
 func RegisterAuthPaths(mux *http.ServeMux) {
 	var err error
@@ -130,6 +162,68 @@ func ClearSession(w http.ResponseWriter) {
 	})
 }
 
+func cookieMAC(payload string) string {
+	mac := hmac.New(sha256.New, cookieSignKey)
+	mac.Write([]byte(payload))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func savePendingRegistration(w http.ResponseWriter, pending pendingUser, sessionData *webauthn.SessionData) error {
+	wrapper := pendingRegistrationSession{
+		WebAuthnSession: *sessionData,
+		PendingUser:     pending,
+	}
+	marshaled, err := json.Marshal(wrapper)
+	if err != nil {
+		return fmt.Errorf("marshaling pending registration: %w", err)
+	}
+	encoded := base64.StdEncoding.EncodeToString(marshaled)
+	// Append HMAC so the server can detect tampering.
+	// Standard base64 never contains '.', so '.' is a safe separator.
+	cookieValue := encoded + "." + cookieMAC(encoded)
+	http.SetCookie(w, &http.Cookie{
+		Name:     SessionCookieName,
+		Value:    cookieValue,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+	return nil
+}
+
+var (
+	errNoCookie      = errors.New("registration cookie not present")
+	errCookieTampered = errors.New("registration cookie signature invalid")
+)
+
+func loadPendingRegistration(r *http.Request) (*pendingRegistrationSession, error) {
+	c, err := r.Cookie(SessionCookieName)
+	if err != nil {
+		return nil, errNoCookie
+	}
+
+	// Split payload from MAC and verify before trusting any content.
+	idx := strings.LastIndex(c.Value, ".")
+	if idx < 0 {
+		return nil, errCookieTampered
+	}
+	encoded, sig := c.Value[:idx], c.Value[idx+1:]
+	if !hmac.Equal([]byte(sig), []byte(cookieMAC(encoded))) {
+		return nil, errCookieTampered
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("decoding registration cookie: %w", err)
+	}
+	var wrapper pendingRegistrationSession
+	if err := json.Unmarshal(decoded, &wrapper); err != nil {
+		return nil, fmt.Errorf("parsing registration cookie: %w", err)
+	}
+	return &wrapper, nil
+}
+
 // Handlers
 
 func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
@@ -146,31 +240,42 @@ func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "username required", http.StatusBadRequest)
 		return
 	}
+	if _, err := mail.ParseAddress(user_email); user_email != "" && err != nil {
+		http.Error(w, "invalid email address", http.StatusBadRequest)
+		return
+	}
 
-	// Check if user exists or create a temporary user representation
-	user, err := db.GetUser(username)
+	// Check if user already exists (with credentials — fully registered)
+	existing, err := db.GetUser(username)
 	if err != nil {
 		http.Error(w, "database error", http.StatusInternalServerError)
 		return
 	}
-	if user != nil {
+	if existing != nil {
 		http.Error(w, "user already exists", http.StatusBadRequest)
 		return
 	}
 
-	// Create the user immediately
-	newUser := db.User{
-		Name:      username,
-		Email:     user_email,
-		CreatedAt: time.Now().UTC(),
-	}
-	user, err = db.CreateUser(newUser)
+	// Generate a UUID for the pending user. The user row is NOT written to the DB
+	// here — only written in registerFinishHandler once credentials are ready.
+	newID, err := uuid.NewV7()
 	if err != nil {
-		http.Error(w, "failed to create user", http.StatusInternalServerError)
+		http.Error(w, "failed to generate user id", http.StatusInternalServerError)
 		return
 	}
+	pending := pendingUser{
+		ID:    newID.String(),
+		Name:  username,
+		Email: user_email,
+	}
 
-	wUser := WebAuthnUser{User: user}
+	// Build an in-memory user for the WebAuthn ceremony (no DB record yet).
+	memUser := &db.User{
+		ID:    db.UserID(newID),
+		Name:  username,
+		Email: user_email,
+	}
+	wUser := WebAuthnUser{User: memUser}
 
 	options, sessionData, err := WebAuthn.BeginRegistration(&wUser)
 	if err != nil {
@@ -178,9 +283,8 @@ func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := SaveSession(w, sessionData); err != nil {
+	if err := savePendingRegistration(w, pending, sessionData); err != nil {
 		http.Error(w, "failed to save session", http.StatusInternalServerError)
-		db.DeleteTemporaryUser(*user)
 		return
 	}
 
@@ -189,31 +293,45 @@ func registerBeginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
-	sessionData, err := LoadSession(r)
+	pending, err := loadPendingRegistration(r)
 	if err != nil {
-		http.Error(w, "session missing", http.StatusBadRequest)
+		if errors.Is(err, errCookieTampered) {
+			http.Error(w, "invalid session", http.StatusBadRequest)
+		} else {
+			http.Error(w, "session missing", http.StatusBadRequest)
+		}
 		return
 	}
 
-	// Retrieve user by ID stored in the WebAuthn session data
-	uid, err := uuid.FromBytes(sessionData.UserID)
+	// Reconstruct the in-memory user from the pending registration session.
+	uid, err := uuid.Parse(pending.PendingUser.ID)
 	if err != nil {
 		http.Error(w, "invalid user id in session", http.StatusBadRequest)
 		return
 	}
-
-	user, err := db.GetUserByID(db.UserID(uid))
-	if err != nil || user == nil {
-		http.Error(w, "user not found", http.StatusBadRequest)
-		return
+	memUser := &db.User{
+		ID:    db.UserID(uid),
+		Name:  pending.PendingUser.Name,
+		Email: pending.PendingUser.Email,
 	}
+	wUser := WebAuthnUser{User: memUser}
 
-	wUser := WebAuthnUser{User: user}
-
+	sessionData := &pending.WebAuthnSession
 	credential, err := WebAuthn.FinishRegistration(&wUser, *sessionData, r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("finish registration failed: %v", err), http.StatusInternalServerError)
-		db.DeleteTemporaryUser(*user)
+		return
+	}
+
+	// WebAuthn ceremony succeeded — now persist the user for the first time.
+	user, err := db.CreateUser(db.User{
+		ID:        db.UserID(uid),
+		Name:      pending.PendingUser.Name,
+		Email:     pending.PendingUser.Email,
+		CreatedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		http.Error(w, "failed to create user", http.StatusInternalServerError)
 		return
 	}
 
@@ -237,6 +355,8 @@ func registerFinishHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Auto-login: Create session.
+	// NOTE: failures from here on do NOT roll back the user or credential — the user
+	// is fully registered at this point and can log in via the login flow.
 	session, err := db.CreateSession(user.ID)
 	if err != nil {
 		http.Error(w, "failed to create session", http.StatusInternalServerError)
