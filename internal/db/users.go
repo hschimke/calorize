@@ -14,11 +14,11 @@ var ErrCredentialNotFound = errors.New("credential not found")
 
 // Bare user functions
 func GetUser(userName string) (*User, error) {
-	query := `SELECT id, name, email, disabled_at, created_at FROM users WHERE name = ?`
+	query := `SELECT id, name, email, disabled_at, calorie_goal, created_at FROM users WHERE name = ?`
 	row := db.QueryRow(query, userName)
 
 	var user User
-	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CreatedAt)
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CalorieGoal, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil // Return nil if user not found, typical pattern or could return error
@@ -29,11 +29,11 @@ func GetUser(userName string) (*User, error) {
 }
 
 func GetUserByEmail(email string) (*User, error) {
-	query := `SELECT id, name, email, disabled_at, created_at FROM users WHERE email = ?`
+	query := `SELECT id, name, email, disabled_at, calorie_goal, created_at FROM users WHERE email = ?`
 	row := db.QueryRow(query, email)
 
 	var user User
-	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CreatedAt)
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CalorieGoal, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil // Return nil if user not found, typical pattern or could return error
@@ -44,11 +44,11 @@ func GetUserByEmail(email string) (*User, error) {
 }
 
 func GetUserByID(id UserID) (*User, error) {
-	query := `SELECT id, name, email, disabled_at, created_at FROM users WHERE id = ?`
+	query := `SELECT id, name, email, disabled_at, calorie_goal, created_at FROM users WHERE id = ?`
 	row := db.QueryRow(query, id)
 
 	var user User
-	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CreatedAt)
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CalorieGoal, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -80,8 +80,8 @@ func CreateUser(user User) (*User, error) {
 }
 
 func UpdateUser(user User) (*User, error) {
-	query := `UPDATE users SET name = ?, email = ?, disabled_at = ? WHERE id = ?`
-	_, err := db.Exec(query, user.Name, user.Email, user.DisabledAt, user.ID)
+	query := `UPDATE users SET name = ?, email = ?, disabled_at = ?, calorie_goal = ? WHERE id = ?`
+	_, err := db.Exec(query, user.Name, user.Email, user.DisabledAt, user.CalorieGoal, user.ID)
 	if err != nil {
 		return nil, fmt.Errorf("updating user: %w", err)
 	}
