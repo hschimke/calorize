@@ -1,12 +1,13 @@
 import { api } from './api.js';
 import { getLocalDateString } from './utils.js';
 import { drawMacroBar, drawMealBars, drawDayBars, drawWeekBars } from './charts.js';
+import { renderCalorieGoalBar } from './ui.js';
 
-// Module-scope state for resize redraws
 let lastPeriod = 'day';
 let lastDate = null;
 let lastStats = null;
-let lastExtra = null; // logs (day) or breakdown array (week/month)
+let lastExtra = null;
+let profile = null;
 
 async function init() {
     const buttons = document.querySelectorAll('.period-btn');
@@ -24,6 +25,7 @@ async function init() {
         resizeTimer = setTimeout(redraw, 100);
     });
 
+    profile = await api.getProfile().catch(() => null);
     loadStats('day');
 }
 
@@ -93,6 +95,19 @@ function updateDisplay(stats) {
     document.getElementById('stat-protein').textContent = Math.round(stats.protein || 0);
     document.getElementById('stat-carbs').textContent = Math.round(stats.carbs || 0);
     document.getElementById('stat-fat').textContent = Math.round(stats.fat || 0);
+
+    const dailyGoal = profile?.calorie_goal ?? null;
+    let scaledGoal = null;
+    if (dailyGoal != null) {
+        if (lastPeriod === 'week') scaledGoal = dailyGoal * 7;
+        else if (lastPeriod === 'month') scaledGoal = Math.round(dailyGoal * 30.4);
+        else scaledGoal = dailyGoal;
+    }
+
+    const calCard = document.getElementById('stat-calories').parentElement;
+    calCard.querySelector('.goal-bar-wrap')?.remove();
+    const bar = renderCalorieGoalBar(Math.round(stats.calories || 0), scaledGoal);
+    if (bar) calCard.appendChild(bar);
 }
 
 window.addEventListener('load', init);
