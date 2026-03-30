@@ -10,6 +10,46 @@ import (
 	"github.com/google/uuid"
 )
 
+// GetUserFoods returns only foods created by the given user (no public/FDC foods).
+func GetUserFoods(userID UserID) ([]Food, error) {
+	query := `
+		SELECT
+			id, creator_id, family_id, version, is_current, name,
+			calories, protein, carbs, fat, type,
+			measurement_unit, measurement_amount, servings, public, external_id,
+			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+		FROM foods
+		WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
+	`
+	rows, err := db.Query(query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("listing user foods: %w", err)
+	}
+	defer rows.Close()
+
+	var foods []Food
+	for rows.Next() {
+		var f Food
+		err := rows.Scan(
+			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
+			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
+			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scanning food: %w", err)
+		}
+		foods = append(foods, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating user foods: %w", err)
+	}
+	if foods == nil {
+		foods = []Food{}
+	}
+	return foods, nil
+}
+
 func GetFoods(userID UserID) ([]Food, error) {
 	query := `
 		SELECT

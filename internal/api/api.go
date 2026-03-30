@@ -85,6 +85,8 @@ func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
 		foods, dbErr = db.GetRecentFoods(userID, 50)
 	} else if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
 		foods, dbErr = db.SearchFoods(userID, q, 20)
+	} else if r.URL.Query().Has("mine") {
+		foods, dbErr = db.GetUserFoods(userID)
 	} else {
 		foods, dbErr = db.GetFoods(userID)
 	}

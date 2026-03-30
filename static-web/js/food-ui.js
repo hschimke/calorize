@@ -9,12 +9,12 @@ let selectedIngredientFood = null;
 
 async function loadFoods() {
     try {
-        const foods = await api.getFoods();
+        const foods = await api.getFoods({ mine: true });
         const foodsList = document.getElementById('foods-list');
         foodsList.textContent = '';
 
         if (foods && foods.length > 0) {
-            foods.filter(f => f.creator_id !== "00000000-0000-0000-0000-000000000000").forEach(food => {
+            foods.forEach(food => {
                 const li = document.createElement('li');
 
                 const foodInfo = document.createElement('div');
