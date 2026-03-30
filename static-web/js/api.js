@@ -251,6 +251,16 @@ export class API {
         return await this.request(`/account/passkeys/${encodeURIComponent(id)}`, 'PATCH', { name });
     }
 
+    // --- Profile ---
+
+    async getProfile() {
+        return await this.request('/account/profile');
+    }
+
+    async updateProfile(data) {
+        return await this.request('/account/profile', 'PUT', data);
+    }
+
     // --- Stats ---
 
     async getStats(period, date) {
