@@ -5,9 +5,9 @@ import { renderCalorieGoalBar } from './ui.js';
 async function updateDashboard() {
     try {
         const today = getLocalDateString();
-        const [stats, profile, logs] = await Promise.all([
+        const profile = await api.getProfile().catch(() => null);
+        const [stats, logs] = await Promise.all([
             api.getStats('day', today),
-            api.getProfile(),
             api.getLogs(today),
         ]);
 

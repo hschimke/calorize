@@ -52,6 +52,10 @@ func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+	if body.CalorieGoal != nil && *body.CalorieGoal <= 0 {
+		http.Error(w, "calorie_goal must be a positive integer", http.StatusBadRequest)
+		return
+	}
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
 		http.Error(w, "User not found", http.StatusInternalServerError)
