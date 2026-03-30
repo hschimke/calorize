@@ -90,14 +90,29 @@ export class FoodSearch {
         li.className = 'food-search-item';
         li.dataset.foodId = food.id;
 
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'food-search-item-info';
+
         const nameSpan = document.createElement('span');
+        nameSpan.className = 'food-search-item-name';
         nameSpan.textContent = food.name;
+        infoDiv.appendChild(nameSpan);
+
+        if (food.brand_owner || food.category) {
+            const metaSpan = document.createElement('span');
+            metaSpan.className = 'food-search-item-meta';
+            const parts = [];
+            if (food.brand_owner) parts.push(food.brand_owner);
+            if (food.category) parts.push(food.category);
+            metaSpan.textContent = parts.join(' • ');
+            infoDiv.appendChild(metaSpan);
+        }
 
         const calSpan = document.createElement('span');
         calSpan.className = 'food-search-item-calories';
         calSpan.textContent = Math.round(food.calories) + ' kcal';
 
-        li.appendChild(nameSpan);
+        li.appendChild(infoDiv);
         li.appendChild(calSpan);
 
         li.addEventListener('click', () => this._selectFood(food));

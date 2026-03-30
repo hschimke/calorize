@@ -436,12 +436,13 @@ func getLogsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type createLogEntryRequest struct {
-	FoodID   *db.FoodID `json:"food_id"`
-	Calories *float64   `json:"calories"`
-	Note     *string    `json:"note"`
-	Amount   float64    `json:"amount"`
-	MealTag  string     `json:"meal_tag"`
-	LoggedAt time.Time  `json:"logged_at"`
+	FoodID      *db.FoodID `json:"food_id"`
+	PortionName *string    `json:"portion_name"`
+	Calories    *float64   `json:"calories"`
+	Note        *string    `json:"note"`
+	Amount      float64    `json:"amount"`
+	MealTag     string     `json:"meal_tag"`
+	LoggedAt    time.Time  `json:"logged_at"`
 }
 
 func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
@@ -485,13 +486,14 @@ func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entry, err := db.CreateFoodLogEntry(db.FoodLogEntry{
-		UserID:   userID,
-		FoodID:   req.FoodID,
-		Calories: req.Calories,
-		Note:     req.Note,
-		Amount:   req.Amount,
-		MealTag:  req.MealTag,
-		LoggedAt: req.LoggedAt,
+		UserID:      userID,
+		FoodID:      req.FoodID,
+		PortionName: req.PortionName,
+		Calories:    req.Calories,
+		Note:        req.Note,
+		Amount:      req.Amount,
+		MealTag:     req.MealTag,
+		LoggedAt:    req.LoggedAt,
 	})
 	if err != nil {
 		http.Error(w, "Failed to create log entry", http.StatusInternalServerError)

@@ -14,9 +14,18 @@ import (
 
 // FdcFood is a simplified struct for parsing the huge JSON
 type FdcFood struct {
-	FdcID         int           `json:"fdcId"`
-	Description   string        `json:"description"`
-	FoodNutrients []FdcNutrient `json:"foodNutrients"`
+	FdcID                   int           `json:"fdcId"`
+	FoodCode                int           `json:"foodCode"` // For Survey foods
+	Description             string        `json:"description"`
+	BrandOwner              string        `json:"brandOwner"`
+	GtinUpc                 string        `json:"gtinUpc"`
+	Ingredients             string        `json:"ingredients"`
+	BrandedFoodCategory     string        `json:"brandedFoodCategory"`
+	ServingSize             float64       `json:"servingSize"`
+	ServingSizeUnit         string        `json:"servingSizeUnit"`
+	HouseholdServingFullText string       `json:"householdServingFullText"`
+	FoodNutrients           []FdcNutrient `json:"foodNutrients"`
+	FoodPortions            []FdcPortion  `json:"foodPortions"`
 }
 
 type FdcNutrient struct {
@@ -29,6 +38,17 @@ type FdcNutrientInfo struct {
 	Number   string `json:"number"`
 	Name     string `json:"name"`
 	UnitName string `json:"unitName"`
+}
+
+type FdcMeasureUnit struct {
+	Name string `json:"name"`
+}
+
+type FdcPortion struct {
+	Amount      float64        `json:"amount"`
+	Modifier    string         `json:"modifier"`
+	MeasureUnit FdcMeasureUnit `json:"measureUnit"`
+	GramWeight  float64        `json:"gramWeight"`
 }
 
 func parseFDCFile(filePath string, done <-chan struct{}) error {
@@ -48,9 +68,16 @@ func parseFDCFile(filePath string, done <-chan struct{}) error {
 
 	decoder := json.NewDecoder(file)
 
-	// We don't know the exact top-level key yet (might be "BrandedFoods" or "FoundationFoods")
+	// We don't know the exact top-level key yet (might be "BrandedFoods", "FoundationFoods", "SurveyFoods", or "SRLegacyFoods")
 	// so we manually seek until we find the start of the array.
 	var arrayName string
+	targetKeys := map[string]bool{
+		"BrandedFoods":    true,
+		"FoundationFoods": true,
+		"SurveyFoods":     true,
+		"SRLegacyFoods":   true,
+	}
+
 	for {
 		t, err := decoder.Token()
 		if err == io.EOF {
@@ -60,7 +87,7 @@ func parseFDCFile(filePath string, done <-chan struct{}) error {
 			return fmt.Errorf("decoder token error: %w", err)
 		}
 
-		if str, ok := t.(string); ok && (str == "BrandedFoods" || str == "FoundationFoods") {
+		if str, ok := t.(string); ok && targetKeys[str] {
 			arrayName = str
 			slog.Info("found target array key", "key", arrayName)
 			continue
@@ -141,6 +168,9 @@ const (
 
 func upsertFood(fdcFood FdcFood) (upsertResult, error) {
 	extID := fmt.Sprintf("fdc_%d", fdcFood.FdcID)
+	if fdcFood.FdcID == 0 && fdcFood.FoodCode != 0 {
+		extID = fmt.Sprintf("fdc_survey_%d", fdcFood.FoodCode)
+	}
 
 	// Map nutrients
 	var calories, protein, carbs, fat float64
@@ -245,6 +275,62 @@ func upsertFood(fdcFood FdcFood) (upsertResult, error) {
 		calSource = "macro_estimate"
 	}
 
+	// Metadata
+	var brandPtr, barcodePtr, ingredientsPtr, categoryPtr *string
+	if fdcFood.BrandOwner != "" {
+		brandPtr = &fdcFood.BrandOwner
+	}
+	if fdcFood.GtinUpc != "" {
+		barcodePtr = &fdcFood.GtinUpc
+	}
+	if fdcFood.Ingredients != "" {
+		ingredientsPtr = &fdcFood.Ingredients
+	}
+	if fdcFood.BrandedFoodCategory != "" {
+		categoryPtr = &fdcFood.BrandedFoodCategory
+	}
+
+	// Portions
+	var portions []db.FoodPortion
+	if fdcFood.ServingSize > 0 {
+		unit := fdcFood.ServingSizeUnit
+		portionName := "1 serving"
+		if fdcFood.HouseholdServingFullText != "" {
+			portionName = fdcFood.HouseholdServingFullText
+		}
+		portions = append(portions, db.FoodPortion{
+			Name:       portionName,
+			Amount:     1,
+			Unit:       &unit,
+			GramWeight: fdcFood.ServingSize,
+		})
+	}
+	for _, p := range fdcFood.FoodPortions {
+		name := p.Modifier
+		if name == "" && p.MeasureUnit.Name != "" {
+			name = fmt.Sprintf("%g %s", p.Amount, p.MeasureUnit.Name)
+		}
+		if name == "" {
+			name = fmt.Sprintf("%g serving", p.Amount)
+		}
+		portions = append(portions, db.FoodPortion{
+			Name:       name,
+			Amount:     p.Amount,
+			Unit:       nil,
+			GramWeight: p.GramWeight,
+		})
+	}
+	// Deduplicate by name (first occurrence wins) to avoid PK violation on insert
+	seen := make(map[string]bool)
+	deduped := portions[:0]
+	for _, p := range portions {
+		if !seen[p.Name] {
+			seen[p.Name] = true
+			deduped = append(deduped, p)
+		}
+	}
+	portions = deduped
+
 	// Log unusual resolution paths
 	if calSource == "kj_converted" || calSource == "macro_estimate" {
 		slog.Warn("unusual calorie source", "fdcId", fdcFood.FdcID, "description", fdcFood.Description, "cal_source", calSource, "calories", calories)
@@ -276,7 +362,12 @@ func upsertFood(fdcFood FdcFood) (upsertResult, error) {
 		Servings:          1,
 		Public:            true,
 		ExternalID:        &extID,
+		BrandOwner:        brandPtr,
+		Barcode:           barcodePtr,
+		IngredientsText:   ingredientsPtr,
+		Category:          categoryPtr,
 		Nutrients:         microNutrients,
+		Portions:          portions,
 	}
 
 	existingFood, err := db.GetFoodByExternalID(extID)
@@ -285,14 +376,20 @@ func upsertFood(fdcFood FdcFood) (upsertResult, error) {
 	}
 
 	if existingFood != nil {
-		// Only update if macros or name changed to avoid db bloat on every startup run.
-		if existingFood.Calories != calories || existingFood.Protein != protein || existingFood.Carbs != carbs || existingFood.Fat != fat || existingFood.Name != fdcFood.Description {
-			slog.Debug("updating changed food", "fdcId", fdcFood.FdcID, "description", fdcFood.Description,
-				"old_cal", existingFood.Calories, "new_cal", calories,
-				"old_protein", existingFood.Protein, "new_protein", protein,
-				"old_carbs", existingFood.Carbs, "new_carbs", carbs,
-				"old_fat", existingFood.Fat, "new_fat", fat,
-			)
+		// Detect changes (Macros, Name, or Metadata)
+		changed := existingFood.Calories != calories ||
+			existingFood.Protein != protein ||
+			existingFood.Carbs != carbs ||
+			existingFood.Fat != fat ||
+			existingFood.Name != fdcFood.Description ||
+			stringPtrChanged(existingFood.BrandOwner, brandPtr) ||
+			stringPtrChanged(existingFood.Barcode, barcodePtr) ||
+			stringPtrChanged(existingFood.IngredientsText, ingredientsPtr) ||
+			stringPtrChanged(existingFood.Category, categoryPtr) ||
+			len(existingFood.Portions) != len(portions)
+
+		if changed {
+			slog.Debug("updating changed food", "fdcId", fdcFood.FdcID, "description", fdcFood.Description)
 			_, err = db.UpdateFood(existingFood.ID, foodData)
 			if err != nil {
 				return upsertSkipped, fmt.Errorf("updating food: %w", err)
@@ -307,4 +404,14 @@ func upsertFood(fdcFood FdcFood) (upsertResult, error) {
 		return upsertSkipped, fmt.Errorf("creating food: %w", err)
 	}
 	return upsertCreated, nil
+}
+
+func stringPtrChanged(a, b *string) bool {
+	if a == nil && b == nil {
+		return false
+	}
+	if a == nil || b == nil {
+		return true
+	}
+	return *a != *b
 }

@@ -22,10 +22,37 @@ async function init() {
     foodSearch = new FoodSearch(
         document.getElementById('food-search-container'),
         {
-            onSelect: (food) => {
+            onSelect: async (food) => {
                 selectedFood = food;
                 const unitLabel = document.getElementById('amount-unit-label');
+                const portionGroup = document.getElementById('group-portion');
+                const portionSelect = document.getElementById('portion-select');
+
+                while (portionSelect.firstChild) portionSelect.removeChild(portionSelect.firstChild);
+                portionGroup.style.display = 'none';
+
                 if (unitLabel) unitLabel.textContent = food.measurement_unit ? `(${food.measurement_unit})` : '';
+
+                // Search results don't include portions — fetch full food detail
+                const fullFood = await api.getFood(food.id);
+                selectedFood = fullFood;
+
+                if (fullFood.portions && fullFood.portions.length > 0) {
+                    portionGroup.style.display = 'block';
+
+                    // Default option (usually 100g base)
+                    const defOption = document.createElement('option');
+                    defOption.value = '';
+                    defOption.textContent = `${fullFood.measurement_amount} ${fullFood.measurement_unit} (base)`;
+                    portionSelect.appendChild(defOption);
+
+                    fullFood.portions.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.name;
+                        opt.textContent = p.name;
+                        portionSelect.appendChild(opt);
+                    });
+                }
             }
         }
     );
@@ -165,6 +192,10 @@ async function addLog(e) {
             return;
         }
         logData.food_id = selectedFood.id;
+        const portionSelect = document.getElementById('portion-select');
+        if (portionSelect && portionSelect.value) {
+            logData.portion_name = portionSelect.value;
+        }
     } else {
         const cals = parseFloat(form.calories.value);
         const amt = parseFloat(form.amount.value);

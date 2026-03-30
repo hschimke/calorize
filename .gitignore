@@ -47,3 +47,8 @@ api-server
 imports/
 
 *.zip
+*.json
+* copy
+*.pdf
+log
+log.err

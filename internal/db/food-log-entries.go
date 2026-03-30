@@ -13,7 +13,7 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 	end := start.Add(24 * time.Hour)
 
 	query := `
-		SELECT id, user_id, food_id, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at, deleted_at
+		SELECT id, user_id, food_id, portion_name, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at, deleted_at
 		FROM food_log_entries
 		WHERE user_id = ? AND logged_at >= ? AND logged_at < ? AND deleted_at IS NULL
 	`
@@ -27,7 +27,7 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 	for rows.Next() {
 		var entry FoodLogEntry
 		var foodID uuid.NullUUID
-		if err := rows.Scan(&entry.ID, &entry.UserID, &foodID, &entry.Calories, &entry.Protein, &entry.Carbs, &entry.Fat, &entry.Amount, &entry.MealTag, &entry.Note, &entry.LoggedAt, &entry.CreatedAt, &entry.DeletedAt); err != nil {
+		if err := rows.Scan(&entry.ID, &entry.UserID, &foodID, &entry.PortionName, &entry.Calories, &entry.Protein, &entry.Carbs, &entry.Fat, &entry.Amount, &entry.MealTag, &entry.Note, &entry.LoggedAt, &entry.CreatedAt, &entry.DeletedAt); err != nil {
 			return nil, fmt.Errorf("scanning food log entry: %w", err)
 		}
 		if foodID.Valid {
@@ -69,8 +69,8 @@ func CreateFoodLogEntry(entry FoodLogEntry) (*FoodLogEntry, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec("INSERT INTO food_log_entries (id, user_id, food_id, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		newID, entry.UserID, entry.FoodID, entry.Calories, entry.Protein, entry.Carbs, entry.Fat, entry.Amount, entry.MealTag, entry.Note, entry.LoggedAt, entry.CreatedAt)
+	_, err = db.Exec("INSERT INTO food_log_entries (id, user_id, food_id, portion_name, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		newID, entry.UserID, entry.FoodID, entry.PortionName, entry.Calories, entry.Protein, entry.Carbs, entry.Fat, entry.Amount, entry.MealTag, entry.Note, entry.LoggedAt, entry.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -88,11 +88,45 @@ func populateMacros(entry *FoodLogEntry) error {
 		if food == nil {
 			return fmt.Errorf("food not found: %v", *entry.FoodID)
 		}
-		measurement := food.MeasurementAmount
-		if measurement == 0 {
-			measurement = 1
+
+		var ratio float64
+		if entry.PortionName != nil {
+			// Find portion gram weight
+			var gramWeight float64
+			found := false
+			for _, p := range food.Portions {
+				if p.Name == *entry.PortionName {
+					gramWeight = p.GramWeight
+					found = true
+					break
+				}
+			}
+			if found {
+				// Nutrients in DB are per food.MeasurementAmount (usually 100 for FDC)
+				// So if 1 portion = 28g, and we log 1 portion, and base is 100g:
+				// (1 * 28) / 100 = 0.28 multiplier for the per-100 values.
+				base := food.MeasurementAmount
+				if base == 0 {
+					base = 1
+				}
+				ratio = (entry.Amount * gramWeight) / base
+			} else {
+				// Fallback
+				slog.Warn("portion not found, falling back to default measurement", "portion", *entry.PortionName, "food_id", food.ID)
+				measurement := food.MeasurementAmount
+				if measurement == 0 {
+					measurement = 1
+				}
+				ratio = entry.Amount / measurement
+			}
+		} else {
+			// Default logic
+			measurement := food.MeasurementAmount
+			if measurement == 0 {
+				measurement = 1
+			}
+			ratio = entry.Amount / measurement
 		}
-		ratio := entry.Amount / measurement
 
 		cal := ratio * food.Calories
 		prot := ratio * food.Protein

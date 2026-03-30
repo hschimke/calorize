@@ -15,14 +15,16 @@ func GetFoods(userID UserID) ([]Food, error) {
 		SELECT
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
-			measurement_unit, measurement_amount, servings, public, external_id, created_at, deleted_at
+			measurement_unit, measurement_amount, servings, public, external_id,
+			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 		FROM foods
 		WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
 		UNION
 		SELECT
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
-			measurement_unit, measurement_amount, servings, public, external_id, created_at, deleted_at
+			measurement_unit, measurement_amount, servings, public, external_id,
+			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 		FROM foods
 		WHERE public = true AND is_current = true AND deleted_at IS NULL
 	`
@@ -38,7 +40,8 @@ func GetFoods(userID UserID) ([]Food, error) {
 		err := rows.Scan(
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
-			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID, &f.CreatedAt, &f.DeletedAt,
+			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning food: %w", err)
@@ -56,7 +59,8 @@ func GetFood(id FoodID) (*Food, error) {
 		SELECT
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
-			measurement_unit, measurement_amount, servings, public, external_id, created_at, deleted_at
+			measurement_unit, measurement_amount, servings, public, external_id,
+			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 		FROM foods
 		WHERE id = ? AND deleted_at IS NULL
 	`
@@ -66,7 +70,8 @@ func GetFood(id FoodID) (*Food, error) {
 	err := row.Scan(
 		&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 		&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
-		&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID, &f.CreatedAt, &f.DeletedAt,
+		&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
+		&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -96,6 +101,13 @@ func GetFood(id FoodID) (*Food, error) {
 	}
 	if err := nRows.Err(); err != nil {
 		return nil, fmt.Errorf("iterating nutrients: %w", err)
+	}
+
+	// Fetch portions
+	var portionErr error
+	f.Portions, portionErr = fetchPortionsForFood(f.ID)
+	if portionErr != nil {
+		return nil, portionErr
 	}
 
 	// Fetch ingredients
@@ -138,7 +150,8 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 		SELECT
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
-			measurement_unit, measurement_amount, servings, public, external_id, created_at, deleted_at
+			measurement_unit, measurement_amount, servings, public, external_id,
+			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 		FROM foods
 		WHERE family_id = ? AND deleted_at IS NULL
 		ORDER BY version DESC
@@ -155,7 +168,8 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 		err := rows.Scan(
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
-			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID, &f.CreatedAt, &f.DeletedAt,
+			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning food version: %w", err)
@@ -173,13 +187,15 @@ func insertFoodData(tx *sql.Tx, food *Food) error {
 		INSERT INTO foods (
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
-			measurement_unit, measurement_amount, servings, public, external_id, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			measurement_unit, measurement_amount, servings, public, external_id,
+			brand_owner, barcode, ingredients_text, category, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := tx.Exec(query,
 		food.ID, food.CreatorID, food.FamilyID, food.Version, food.IsCurrent, food.Name,
 		food.Calories, food.Protein, food.Carbs, food.Fat, food.Type,
-		food.MeasurementUnit, food.MeasurementAmount, food.Servings, food.Public, food.ExternalID, food.CreatedAt,
+		food.MeasurementUnit, food.MeasurementAmount, food.Servings, food.Public, food.ExternalID,
+		food.BrandOwner, food.Barcode, food.IngredientsText, food.Category, food.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("inserting food: %w", err)
@@ -195,6 +211,19 @@ func insertFoodData(tx *sql.Tx, food *Food) error {
 	for _, n := range food.Nutrients {
 		if _, err := stmt.Exec(food.ID, n.Name, n.Amount, n.Unit); err != nil {
 			return fmt.Errorf("inserting nutrient: %w", err)
+		}
+	}
+
+	// Insert portions
+	pstmt, err := tx.Prepare("INSERT INTO food_portions (food_id, name, amount, unit, gram_weight) VALUES (?, ?, ?, ?, ?)")
+	if err != nil {
+		return fmt.Errorf("preparing portions stmt: %w", err)
+	}
+	defer pstmt.Close()
+
+	for _, p := range food.Portions {
+		if _, err := pstmt.Exec(food.ID, p.Name, p.Amount, p.Unit, p.GramWeight); err != nil {
+			return fmt.Errorf("inserting portion: %w", err)
 		}
 	}
 
@@ -320,7 +349,8 @@ func GetRecentFoods(userID UserID, limit int) ([]Food, error) {
 	query := `
 		SELECT f.id, f.creator_id, f.family_id, f.version, f.is_current, f.name,
 		       f.calories, f.protein, f.carbs, f.fat, f.type,
-		       f.measurement_unit, f.measurement_amount, f.servings, f.public, f.created_at, f.deleted_at
+		       f.measurement_unit, f.measurement_amount, f.servings, f.public, f.external_id,
+		       f.brand_owner, f.barcode, f.ingredients_text, f.category, f.created_at, f.deleted_at
 		FROM foods f
 		INNER JOIN (
 			SELECT food_id, MAX(logged_at) AS last_used
@@ -345,7 +375,8 @@ func GetRecentFoods(userID UserID, limit int) ([]Food, error) {
 		err := rows.Scan(
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
-			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.CreatedAt, &f.DeletedAt,
+			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning recent food: %w", err)
@@ -368,11 +399,13 @@ func SearchFoods(userID UserID, q string, limit int) ([]Food, error) {
 	query := `
 		SELECT id, creator_id, family_id, version, is_current, name,
 		       calories, protein, carbs, fat, type,
-		       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+		       measurement_unit, measurement_amount, servings, public, external_id,
+		       brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 		FROM (
 			SELECT id, creator_id, family_id, version, is_current, name,
 			       calories, protein, carbs, fat, type,
-			       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+			       measurement_unit, measurement_amount, servings, public, external_id,
+			       brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 			FROM foods
 			WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
 			  AND name LIKE ? ESCAPE ?
@@ -381,11 +414,13 @@ func SearchFoods(userID UserID, q string, limit int) ([]Food, error) {
 		UNION
 		SELECT id, creator_id, family_id, version, is_current, name,
 		       calories, protein, carbs, fat, type,
-		       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+		       measurement_unit, measurement_amount, servings, public, external_id,
+		       brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 		FROM (
 			SELECT id, creator_id, family_id, version, is_current, name,
 			       calories, protein, carbs, fat, type,
-			       measurement_unit, measurement_amount, servings, public, created_at, deleted_at
+			       measurement_unit, measurement_amount, servings, public, external_id,
+			       brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 			FROM foods
 			WHERE public = true AND is_current = true AND deleted_at IS NULL
 			  AND name LIKE ? ESCAPE ?
@@ -409,7 +444,8 @@ func SearchFoods(userID UserID, q string, limit int) ([]Food, error) {
 		err := rows.Scan(
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
-			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.CreatedAt, &f.DeletedAt,
+			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning food search result: %w", err)
@@ -443,12 +479,33 @@ func DeleteFood(id FoodID) error {
 	return nil
 }
 
+func fetchPortionsForFood(foodID FoodID) ([]FoodPortion, error) {
+	rows, err := db.Query(
+		`SELECT food_id, name, amount, unit, gram_weight FROM food_portions WHERE food_id = ?`,
+		foodID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("getting food portions: %w", err)
+	}
+	defer rows.Close()
+	var portions []FoodPortion
+	for rows.Next() {
+		var p FoodPortion
+		if err := rows.Scan(&p.FoodID, &p.Name, &p.Amount, &p.Unit, &p.GramWeight); err != nil {
+			return nil, fmt.Errorf("scanning portion: %w", err)
+		}
+		portions = append(portions, p)
+	}
+	return portions, rows.Err()
+}
+
 func GetFoodByExternalID(extID string) (*Food, error) {
 	query := `
 		SELECT
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
-			measurement_unit, measurement_amount, servings, public, external_id, created_at, deleted_at
+			measurement_unit, measurement_amount, servings, public, external_id,
+			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 		FROM foods
 		WHERE external_id = ? AND is_current = true AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
@@ -459,13 +516,18 @@ func GetFoodByExternalID(extID string) (*Food, error) {
 	err := row.Scan(
 		&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 		&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
-		&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID, &f.CreatedAt, &f.DeletedAt,
+		&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
+		&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil // Or specific error
 		}
 		return nil, fmt.Errorf("getting food by external id: %w", err)
+	}
+	f.Portions, err = fetchPortionsForFood(f.ID)
+	if err != nil {
+		return nil, err
 	}
 	return &f, nil
 }

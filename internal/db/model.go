@@ -90,10 +90,30 @@ type Food struct {
 	Servings          float64        `json:"servings"`
 	Public            bool           `json:"public"`
 	ExternalID        *string        `json:"external_id"`
+	BrandOwner        *string        `json:"brand_owner,omitempty"`
+	Barcode           *string        `json:"barcode,omitempty"`
+	IngredientsText   *string        `json:"ingredients_text,omitempty"`
+	Category          *string        `json:"category,omitempty"`
 	Ingredients       []RecipeItems  `json:"ingredients,omitempty"`
 	Nutrients         []FoodNutrient `json:"nutrients,omitempty"`
+	Portions          []FoodPortion  `json:"portions,omitempty"`
 	CreatedAt         time.Time      `json:"created_at"`
 	DeletedAt         *time.Time     `json:"deleted_at"`
+}
+
+// FoodPortions
+//
+//	food_id
+//	name (e.g. '1 slice')
+//	amount (e.g. 1)
+//	unit (e.g. 'slice')
+//	gram_weight (e.g. 28.0)
+type FoodPortion struct {
+	FoodID     FoodID  `json:"food_id"`
+	Name       string  `json:"name"`
+	Amount     float64 `json:"amount"`
+	Unit       *string `json:"unit,omitempty"`
+	GramWeight float64 `json:"gram_weight"`
 }
 
 // FoodNutrients (Micro-nutrients)
@@ -133,11 +153,12 @@ type RecipeItems struct {
 //	deleted_at
 type FoodLogEntryID uuid.UUID
 type FoodLogEntry struct {
-	ID        FoodLogEntryID `json:"id"`
-	UserID    UserID         `json:"user_id"`
-	FoodID    *FoodID        `json:"food_id"`
-	Food      *Food          `json:"food,omitempty"`
-	Calories  *float64       `json:"calories"` // Nullable, used when FoodID is nil
+	ID          FoodLogEntryID `json:"id"`
+	UserID      UserID         `json:"user_id"`
+	FoodID      *FoodID        `json:"food_id"`
+	Food        *Food          `json:"food,omitempty"`
+	PortionName *string        `json:"portion_name,omitempty"`
+	Calories    *float64       `json:"calories"` // Nullable, used when FoodID is nil
 	Protein   *float64       `json:"protein"`
 	Carbs     *float64       `json:"carbs"`
 	Fat       *float64       `json:"fat"`
