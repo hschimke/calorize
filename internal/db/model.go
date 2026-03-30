@@ -17,11 +17,12 @@ import (
 //	created_at
 type UserID uuid.UUID
 type User struct {
-	ID         UserID     `json:"id"`
-	Name       string     `json:"name"`
-	Email      string     `json:"email"`
-	DisabledAt *time.Time `json:"disabled_at"`
-	CreatedAt  time.Time  `json:"created_at"`
+	ID          UserID     `json:"id"`
+	Name        string     `json:"name"`
+	Email       string     `json:"email"`
+	DisabledAt  *time.Time `json:"disabled_at"`
+	CalorieGoal *int       `json:"calorie_goal"`
+	CreatedAt   time.Time  `json:"created_at"`
 }
 
 // UserCredentials (WebAuthn)
