@@ -112,8 +112,16 @@ async function loadLogs() {
                 if (log.food) {
                     nameSpan.textContent = log.food.name;
                     div.appendChild(nameSpan);
-                    const unit = log.food.measurement_unit || 'serving';
-                    div.appendChild(document.createTextNode(` — ${Math.round(log.amount * 10) / 10} ${unit}`));
+                    let amountLabel;
+                    if (log.portion_name) {
+                        amountLabel = log.amount === 1
+                            ? log.portion_name
+                            : `${Math.round(log.amount * 10) / 10} × ${log.portion_name}`;
+                    } else {
+                        const unit = log.food.measurement_unit || 'serving';
+                        amountLabel = `${Math.round(log.amount * 10) / 10} ${unit}`;
+                    }
+                    div.appendChild(document.createTextNode(` — ${amountLabel}`));
                 } else {
                     nameSpan.textContent = log.note ? `[qc] ${log.note}` : 'Quick Add';
                     div.appendChild(nameSpan);
