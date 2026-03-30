@@ -24,6 +24,7 @@ RUN find /srv/static -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' 
         gzip -f -k -9 "$file"; \
         brotli -f -k -Z "$file"; \
         zstd -f -k -19 -q "$file"; \
+        touch -r "$file" "$file.gz" "$file.br" "$file.zst"; \
     done \
     ' sh {} +
 
