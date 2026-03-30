@@ -23,6 +23,21 @@
                 <li id="passkey-loading">Loading&hellip;</li>
             </ul>
         </div>
+
+        <div class="panel">
+            <h2>Goals</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="calorie-goal-input">Daily Calorie Goal</label>
+                    <div class="goal-input-row">
+                        <input type="number" id="calorie-goal-input" min="0" step="1" placeholder="e.g. 2000">
+                        <span>kcal</span>
+                        <button id="btn-save-goal" class="btn btn-primary">Save Goal</button>
+                    </div>
+                    <p id="goal-derived" class="goal-derived-label"></p>
+                </div>
+            </div>
+        </div>
     </div>
 </body>
 

@@ -92,7 +92,53 @@ async function addPasskey() {
     }
 }
 
+function updateDerived(daily) {
+    const el = document.getElementById('goal-derived');
+    if (!daily || daily <= 0) {
+        el.textContent = '';
+        return;
+    }
+    const weekly = (daily * 7).toLocaleString();
+    const monthly = Math.round(daily * 30.4).toLocaleString();
+    el.textContent = `Weekly: ${weekly} kcal · Monthly: ~${monthly} kcal`;
+}
+
+async function loadProfile() {
+    try {
+        const profile = await api.getProfile();
+        if (profile && profile.calorie_goal != null) {
+            document.getElementById('calorie-goal-input').value = profile.calorie_goal;
+            updateDerived(profile.calorie_goal);
+        }
+    } catch (e) {
+        showToast('Failed to load profile', 'error');
+    }
+}
+
+async function saveGoal() {
+    const input = document.getElementById('calorie-goal-input');
+    const raw = input.value.trim();
+    const goal = raw === '' ? null : parseInt(raw, 10);
+    if (raw !== '' && (isNaN(goal) || goal <= 0)) {
+        showToast('Please enter a valid calorie goal', 'error');
+        return;
+    }
+    try {
+        await api.updateProfile({ calorie_goal: goal });
+        showToast('Goal saved');
+        updateDerived(goal);
+    } catch (e) {
+        showToast(e.message || 'Failed to save goal', 'error');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadPasskeys();
+    loadProfile();
     document.getElementById('btn-add-passkey').addEventListener('click', addPasskey);
+    document.getElementById('calorie-goal-input').addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        updateDerived(isNaN(val) ? null : val);
+    });
+    document.getElementById('btn-save-goal').addEventListener('click', saveGoal);
 });
