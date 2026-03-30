@@ -150,3 +150,41 @@ export function showInput(message, defaultValue = '') {
         });
     });
 }
+
+// ============================================================
+// Calorie Goal Bar
+// ============================================================
+
+/**
+ * Renders a calorie progress bar toward a goal.
+ * @param {number} consumed - Calories consumed.
+ * @param {number|null} goal - Daily calorie goal. Returns null if not set.
+ * @returns {HTMLElement|null}
+ */
+export function renderCalorieGoalBar(consumed, goal) {
+    if (goal == null) return null;
+
+    const pct = Math.min(100, Math.round((consumed / goal) * 100));
+    const over = consumed > goal;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'goal-bar-wrap';
+
+    const bar = document.createElement('div');
+    bar.className = 'goal-bar';
+
+    const fill = document.createElement('div');
+    fill.className = 'goal-bar-fill' + (over ? ' over' : '');
+    fill.style.width = `${pct}%`;
+    bar.appendChild(fill);
+
+    const label = document.createElement('div');
+    label.className = 'goal-bar-label' + (over ? ' over' : '');
+    label.textContent = over
+        ? `${Math.round(consumed - goal)} over goal`
+        : `${Math.round(goal - consumed)} remaining`;
+
+    wrap.appendChild(bar);
+    wrap.appendChild(label);
+    return wrap;
+}
