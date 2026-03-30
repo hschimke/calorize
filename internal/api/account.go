@@ -20,7 +20,56 @@ type passkeyView struct {
 	LastUsedAt time.Time `json:"last_used_at"`
 }
 
+type profileView struct {
+	CalorieGoal *int `json:"calorie_goal"`
+}
+
+func getProfileHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, err := db.GetUserByID(userID)
+	if err != nil || user == nil {
+		http.Error(w, "User not found", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(profileView{CalorieGoal: user.CalorieGoal})
+}
+
+func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var body struct {
+		CalorieGoal *int `json:"calorie_goal"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	user, err := db.GetUserByID(userID)
+	if err != nil || user == nil {
+		http.Error(w, "User not found", http.StatusInternalServerError)
+		return
+	}
+	user.CalorieGoal = body.CalorieGoal
+	if _, err := db.UpdateUser(*user); err != nil {
+		slog.Error("failed to update profile", "error", err)
+		http.Error(w, "Failed to update profile", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(profileView{CalorieGoal: user.CalorieGoal})
+}
+
 func RegisterAccountPaths(mux *http.ServeMux) {
+	mux.HandleFunc("GET /account/profile", getProfileHandler)
+	mux.HandleFunc("PUT /account/profile", updateProfileHandler)
 	mux.HandleFunc("GET /account/passkeys", listPasskeysHandler)
 	mux.HandleFunc("DELETE /account/passkeys/{id}", deletePasskeyHandler)
 	mux.HandleFunc("PATCH /account/passkeys/{id}", renamePasskeyHandler)
