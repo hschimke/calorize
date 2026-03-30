@@ -308,6 +308,60 @@ select:focus {
 }
 
 /* ============================================================
+   Goal Bar
+   ============================================================ */
+.goal-bar-wrap {
+  margin-top: var(--space-2);
+}
+
+.goal-bar {
+  height: 6px;
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--space-1);
+}
+
+.goal-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+.goal-bar-fill.over {
+  background: var(--color-danger);
+}
+
+.goal-bar-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.goal-bar-label.over {
+  color: var(--color-danger);
+}
+
+/* ============================================================
+   Goal Form (account page)
+   ============================================================ */
+.goal-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.goal-input-row input[type="number"] {
+  width: 120px;
+}
+
+.goal-derived-label {
+  margin: var(--space-2) 0 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
    Period Selector
    ============================================================ */
 .period-selector {
