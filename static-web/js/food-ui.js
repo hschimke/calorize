@@ -6,6 +6,8 @@ let recipeIngredients = []; // Array of {id, name, amount, unit, calories, prote
 let editingFoodId = null; // null = create mode, string = edit mode
 let ingredientSearch = null;
 let selectedIngredientFood = null;
+let ingredientPortions = [];
+let ingredientSelectSeq = 0;
 
 async function loadFoods() {
     try {
@@ -157,8 +159,7 @@ async function startEdit(foodId) {
     toggleFoodType();
 
     if (food.type === 'recipe') {
-        ingredientSearch.clear();
-        selectedIngredientFood = null;
+        resetIngredientPicker();
 
         // Populate servings
         document.getElementById('recipe-servings').value = food.servings || 1;
@@ -230,8 +231,7 @@ function cancelEdit() {
     updateIngredientList();
     document.getElementById('type-food').checked = true;
     toggleFoodType();
-    ingredientSearch.clear();
-    selectedIngredientFood = null;
+    resetIngredientPicker();
 }
 
 // --- Toggle Logic ---
@@ -258,13 +258,18 @@ function updateIngredientList() {
     list.textContent = '';
     recipeIngredients.forEach((ing, index) => {
         const div = document.createElement('div');
-        div.className = 'nutrient-row';
+        div.className = 'nutrient-row nutrient-row--ingredient';
 
         const nameSpan = document.createElement('span');
         nameSpan.textContent = ing.name;
 
         const amountSpan = document.createElement('span');
         amountSpan.textContent = `${ing.amount} ${ing.unit}`;
+
+        const factor = ing.amount / (ing.measurement_amount || 100);
+        const macroSpan = document.createElement('span');
+        macroSpan.className = 'ingredient-macro-label';
+        macroSpan.textContent = `${Math.round(ing.calories * factor)} kcal · P:${Math.round(ing.protein * factor)} C:${Math.round(ing.carbs * factor)} F:${Math.round(ing.fat * factor)}`;
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -274,6 +279,7 @@ function updateIngredientList() {
 
         div.appendChild(nameSpan);
         div.appendChild(amountSpan);
+        div.appendChild(macroSpan);
         div.appendChild(removeBtn);
         list.appendChild(div);
     });
@@ -319,6 +325,18 @@ function removeIngredient(index) {
     updateIngredientList();
 }
 
+function resetIngredientPicker() {
+    ingredientSelectSeq++; // invalidate any in-flight api.getFood requests
+    ingredientPortions = [];
+    selectedIngredientFood = null;
+    ingredientSearch.clear();
+    const portionSelect = document.getElementById('ingredient-portion-select');
+    while (portionSelect.firstChild) portionSelect.removeChild(portionSelect.firstChild);
+    portionSelect.style.display = 'none';
+    document.getElementById('ingredient-amount-unit').textContent = '';
+    document.getElementById('ingredient-amount').value = '';
+}
+
 function addIngredient() {
     const amountInput = document.getElementById('ingredient-amount');
     const amount = parseFloat(amountInput.value);
@@ -331,7 +349,7 @@ function addIngredient() {
         id: food.id,
         name: food.name,
         amount: amount,
-        unit: food.measurement_unit,
+        unit: food.measurement_unit || '',
         calories: food.calories,
         protein: food.protein,
         carbs: food.carbs,
@@ -339,9 +357,7 @@ function addIngredient() {
         measurement_amount: food.measurement_amount || 100,
     });
     updateIngredientList();
-    ingredientSearch.clear();
-    selectedIngredientFood = null;
-    amountInput.value = '';
+    resetIngredientPicker();
 }
 
 // --- Submit (Create or Update) ---
@@ -430,8 +446,7 @@ async function handleSubmit(e) {
         updateIngredientList();
         document.getElementById('type-food').checked = true;
         toggleFoodType();
-        ingredientSearch.clear();
-        selectedIngredientFood = null;
+        resetIngredientPicker();
 
         loadFoods();
     } catch (e) {
@@ -450,8 +465,64 @@ window.addEventListener('load', () => {
     document.getElementById('recipe-servings').addEventListener('input', updateRecipeTotals);
     document.getElementById('add-ingredient-btn').addEventListener('click', addIngredient);
     document.getElementById('cancel-edit-btn').addEventListener('click', cancelEdit);
+    const ingredientPortionSelect = document.getElementById('ingredient-portion-select');
+    const ingredientUnitLabel = document.getElementById('ingredient-amount-unit');
+
+    ingredientPortionSelect.addEventListener('change', () => {
+        const portion = ingredientPortions.find(p => p.name === ingredientPortionSelect.value);
+        if (portion) {
+            document.getElementById('ingredient-amount').value = portion.gram_weight;
+            ingredientUnitLabel.textContent = '(g)';
+        } else if (selectedIngredientFood) {
+            document.getElementById('ingredient-amount').value = '';
+            ingredientUnitLabel.textContent = selectedIngredientFood.measurement_unit ? `(${selectedIngredientFood.measurement_unit})` : '';
+        }
+    });
+
     ingredientSearch = new FoodSearch(
         document.getElementById('ingredient-search-container'),
-        { onSelect: (food) => { selectedIngredientFood = food; } }
+        {
+            onSelect: async (food) => {
+                const seq = ++ingredientSelectSeq;
+                ingredientPortions = [];
+                while (ingredientPortionSelect.firstChild) ingredientPortionSelect.removeChild(ingredientPortionSelect.firstChild);
+                ingredientPortionSelect.style.display = 'none';
+                ingredientUnitLabel.textContent = '';
+
+                if (!food) { selectedIngredientFood = null; return; }
+
+                selectedIngredientFood = food;
+                ingredientUnitLabel.textContent = food.measurement_unit ? `(${food.measurement_unit})` : '';
+
+                try {
+                    const fullFood = await api.getFood(food.id);
+                    if (seq !== ingredientSelectSeq) return; // superseded by a later selection
+                    selectedIngredientFood = fullFood;
+                    ingredientUnitLabel.textContent = fullFood.measurement_unit ? `(${fullFood.measurement_unit})` : '';
+
+                    if (fullFood.portions && fullFood.portions.length > 0) {
+                        ingredientPortions = fullFood.portions;
+                        ingredientPortionSelect.style.display = '';
+
+                        const defOption = document.createElement('option');
+                        defOption.value = '';
+                        defOption.textContent = `${fullFood.measurement_amount} ${fullFood.measurement_unit} (base)`;
+                        ingredientPortionSelect.appendChild(defOption);
+
+                        fullFood.portions.forEach(p => {
+                            const opt = document.createElement('option');
+                            opt.value = p.name;
+                            opt.textContent = p.name;
+                            ingredientPortionSelect.appendChild(opt);
+                        });
+                    }
+                } catch (err) {
+                    if (seq !== ingredientSelectSeq) return;
+                    selectedIngredientFood = null;
+                    ingredientUnitLabel.textContent = '';
+                    showToast("Could not load food details.", 'error');
+                }
+            }
+        }
     );
 });

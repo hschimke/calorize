@@ -520,6 +520,11 @@ select:focus {
   width: 100%;
 }
 
+.ingredient-macro-label {
+  color: var(--color-text-muted);
+  font-size: 0.85em;
+}
+
 /* ============================================================
    Food Info / Food Actions
    ============================================================ */
@@ -730,6 +735,10 @@ select:focus {
 
   .nutrient-row {
     grid-template-columns: 1fr 1fr auto;
+  }
+
+  .nutrient-row.nutrient-row--ingredient {
+    grid-template-columns: 2fr 1fr 1fr auto;
   }
 
   /* --- Buttons: Full Width --- */
