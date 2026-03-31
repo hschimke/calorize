@@ -14,6 +14,9 @@ func main() {
 
 	afcdDir := os.Getenv("AFCD_DIR")
 	if afcdDir == "" {
+		afcdDir = os.Getenv("AFCO_DIR") // Handle user typo
+	}
+	if afcdDir == "" {
 		afcdDir = "./aus"
 	}
 

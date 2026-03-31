@@ -52,3 +52,7 @@ imports/
 *.pdf
 log
 log.err
+*.xls
+*.xlsx
+*.txt
+*.zst

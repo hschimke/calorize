@@ -33,27 +33,36 @@ func cellStr(row []string, idx int) string {
 	return strings.TrimSpace(row[idx])
 }
 
-// parseGroupInfo reads the first sheet of the Food Group Info xlsx and returns
+// normalizeHeader collapses all whitespace (including newlines) into single spaces and trims.
+func normalizeHeader(h string) string {
+	return strings.Join(strings.Fields(h), " ")
+}
+
+// parseGroupInfo reads the "Food group information" sheet and returns
 // a map of food group ID → food group name.
 // Scans for a header row containing "Food group ID" to handle leading informational rows.
 func parseGroupInfo(f *excelize.File) (map[string]string, error) {
-	sheetList := f.GetSheetList()
-	if len(sheetList) == 0 {
-		return make(map[string]string), nil
-	}
-	rows, err := f.GetRows(sheetList[0])
+	rows, err := f.GetRows("Food group information")
 	if err != nil {
-		return nil, fmt.Errorf("reading food group sheet: %w", err)
+		// Fallback to first sheet if named sheet not found
+		sheetList := f.GetSheetList()
+		if len(sheetList) == 0 {
+			return make(map[string]string), nil
+		}
+		rows, err = f.GetRows(sheetList[0])
+		if err != nil {
+			return nil, fmt.Errorf("reading food group sheet: %w", err)
+		}
 	}
 	result := make(map[string]string)
 	idCol, nameCol := -1, -1
 	dataStart := -1
 	for i, row := range rows {
 		for j, cell := range row {
-			switch strings.TrimSpace(cell) {
-			case "Food group ID":
+			norm := normalizeHeader(cell)
+			if norm == "Food group ID" {
 				idCol = j
-			case "Food group name":
+			} else if norm == "Food group name" {
 				nameCol = j
 			}
 		}
@@ -109,17 +118,38 @@ func parseNutrientProfiles(f *excelize.File) (map[string]afcdNutrientRow, error)
 		return make(map[string]afcdNutrientRow), nil
 	}
 
-	headers := rows[0]
-	colIdx := make(map[string]int, len(headers))
-	for i, h := range headers {
-		colIdx[strings.TrimSpace(h)] = i
+	headerRow := -1
+	colIdx := make(map[string]int)
+	for i, row := range rows {
+		for _, cell := range row {
+			if normalizeHeader(cell) == "Public Food Key" {
+				headerRow = i
+				break
+			}
+		}
+		if headerRow >= 0 {
+			for j, cell := range rows[headerRow] {
+				colIdx[normalizeHeader(cell)] = j
+			}
+			break
+		}
+	}
+
+	if headerRow < 0 {
+		return nil, fmt.Errorf("could not find header row in nutrient profiles")
 	}
 
 	parseF := func(row []string, name string) float64 {
-		s := cellStr(row, colIdx[name])
+		idx, ok := colIdx[name]
+		if !ok {
+			return 0
+		}
+		s := cellStr(row, idx)
 		if s == "" {
 			return 0
 		}
+		// Remove commas for numbers like "1,236"
+		s = strings.ReplaceAll(s, ",", "")
 		v, err := strconv.ParseFloat(s, 64)
 		if err != nil {
 			slog.Debug("skipping non-numeric macro cell", "column", name, "value", s)
@@ -128,8 +158,9 @@ func parseNutrientProfiles(f *excelize.File) (map[string]afcdNutrientRow, error)
 		return v
 	}
 
-	result := make(map[string]afcdNutrientRow, len(rows)-1)
-	for _, row := range rows[1:] {
+	headers := rows[headerRow]
+	result := make(map[string]afcdNutrientRow, len(rows)-headerRow-1)
+	for _, row := range rows[headerRow+1:] {
 		key := cellStr(row, colIdx["Public Food Key"])
 		if key == "" {
 			continue
@@ -141,15 +172,16 @@ func parseNutrientProfiles(f *excelize.File) (map[string]afcdNutrientRow, error)
 			Fat:        parseF(row, "Fat, total (g)"),
 			Carbs:      parseF(row, "Available carbohydrates without sugar alcohols (g)"),
 		}
-		for i, h := range headers {
-			h = strings.TrimSpace(h)
+		for j, hRaw := range headers {
+			h := normalizeHeader(hRaw)
 			if macroColumns[h] {
 				continue
 			}
-			s := cellStr(row, i)
+			s := cellStr(row, j)
 			if s == "" {
 				continue
 			}
+			s = strings.ReplaceAll(s, ",", "")
 			v, err := strconv.ParseFloat(s, 64)
 			if err != nil {
 				slog.Debug("skipping non-numeric nutrient cell", "header", h, "value", s)
@@ -274,21 +306,44 @@ func ImportAFCD(afcdDir string) (ImportCounts, error) {
 	if len(sheetList) == 0 {
 		return counts, fmt.Errorf("food details file has no sheets")
 	}
-	rows, err := fdFile.GetRows(sheetList[0])
+	// Try "Food details" sheet first, then fallback to first sheet
+	sheetName := "Food details"
+	rows, err := fdFile.GetRows(sheetName)
 	if err != nil {
-		return counts, fmt.Errorf("reading food details sheet: %w", err)
+		sheetName = sheetList[0]
+		rows, err = fdFile.GetRows(sheetName)
+		if err != nil {
+			return counts, fmt.Errorf("reading food details sheet: %w", err)
+		}
 	}
+
 	if len(rows) < 2 {
 		return counts, nil
 	}
 
-	colIdx := make(map[string]int, len(rows[0]))
-	for i, h := range rows[0] {
-		colIdx[strings.TrimSpace(h)] = i
+	headerRow := -1
+	colIdx := make(map[string]int)
+	for i, row := range rows {
+		for _, cell := range row {
+			if normalizeHeader(cell) == "Public Food Key" {
+				headerRow = i
+				break
+			}
+		}
+		if headerRow >= 0 {
+			for j, cell := range rows[headerRow] {
+				colIdx[normalizeHeader(cell)] = j
+			}
+			break
+		}
+	}
+
+	if headerRow < 0 {
+		return counts, fmt.Errorf("could not find header row in food details")
 	}
 
 	total := 0
-	for _, row := range rows[1:] {
+	for _, row := range rows[headerRow+1:] {
 		key := cellStr(row, colIdx["Public Food Key"])
 		if key == "" {
 			continue
