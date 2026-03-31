@@ -3,6 +3,7 @@ package importer
 import (
 	"fmt"
 	"math"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -206,5 +207,97 @@ func TestUpsertAFCDFood(t *testing.T) {
 	versionsAfterUpdate, _ := db.GetFoodVersions(updated.ID)
 	if len(versionsAfterUpdate) != 2 {
 		t.Errorf("versions after update = %d, want 2", len(versionsAfterUpdate))
+	}
+}
+
+func TestImportAFCD(t *testing.T) {
+	dir := t.TempDir()
+
+	// Unique food key per run for test isolation
+	testKey := fmt.Sprintf("F_IMP_%d", time.Now().UnixNano())
+	expectedExtID := "afcd_" + testKey
+
+	// --- Food group information ---
+	fg := excelize.NewFile()
+	defer fg.Close()
+	fg.SetCellValue("Sheet1", "A1", "Food group ID")
+	fg.SetCellValue("Sheet1", "B1", "Food group name")
+	fg.SetCellValue("Sheet1", "A2", "7")
+	fg.SetCellValue("Sheet1", "B2", "Vegetable products and dishes")
+	if err := fg.SaveAs(filepath.Join(dir, "AFCD Release 3 - Food group information.xlsx")); err != nil {
+		t.Fatal(err)
+	}
+
+	// --- Nutrient profiles ---
+	np := excelize.NewFile()
+	defer np.Close()
+	npSheet := "All solids & liquids per 100 g"
+	np.NewSheet(npSheet)
+	np.DeleteSheet("Sheet1")
+	npHeaders := []string{
+		"Public Food Key", "Classification", "Derivation", "Food Name",
+		"Energy with dietary fibre, equated (kJ)", "Protein (g)",
+		"Fat, total (g)", "Available carbohydrates without sugar alcohols (g)",
+		"Calcium (mg)",
+	}
+	for i, h := range npHeaders {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		np.SetCellValue(npSheet, cell, h)
+	}
+	npVals := []interface{}{testKey, "7", "Analysed", "Import Test Food", 169.0, 0.9, 0.2, 7.3, 33.0}
+	for i, v := range npVals {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 2)
+		np.SetCellValue(npSheet, cell, v)
+	}
+	if err := np.SaveAs(filepath.Join(dir, "AFCD Release 3 - Nutrient profiles.xlsx")); err != nil {
+		t.Fatal(err)
+	}
+
+	// --- Food details ---
+	fd := excelize.NewFile()
+	defer fd.Close()
+	fd.SetCellValue("Sheet1", "A1", "Public Food Key")
+	fd.SetCellValue("Sheet1", "B1", "Classification")
+	fd.SetCellValue("Sheet1", "C1", "Food Name")
+	fd.SetCellValue("Sheet1", "D1", "Food Description")
+	fd.SetCellValue("Sheet1", "A2", testKey)
+	fd.SetCellValue("Sheet1", "B2", "7")
+	fd.SetCellValue("Sheet1", "C2", "Import Test Food")
+	fd.SetCellValue("Sheet1", "D2", "A food for testing the importer")
+	if err := fd.SaveAs(filepath.Join(dir, "AFCD Release 3 - Food Details.xlsx")); err != nil {
+		t.Fatal(err)
+	}
+
+	counts, err := ImportAFCD(dir)
+	if err != nil {
+		t.Fatalf("ImportAFCD: %v", err)
+	}
+	if counts.Inserted != 1 {
+		t.Errorf("Inserted = %d, want 1", counts.Inserted)
+	}
+	if counts.Errors != 0 {
+		t.Errorf("Errors = %d, want 0", counts.Errors)
+	}
+
+	food, err := db.GetFoodByExternalID(expectedExtID)
+	if err != nil || food == nil {
+		t.Fatalf("food %q not found after import: %v", expectedExtID, err)
+	}
+	full, _ := db.GetFood(food.ID)
+	if full.Category == nil || *full.Category != "Vegetable products and dishes" {
+		t.Errorf("Category = %v, want 'Vegetable products and dishes'", full.Category)
+	}
+	if len(full.Nutrients) != 1 {
+		t.Errorf("len(Nutrients) = %d, want 1 (Calcium)", len(full.Nutrients))
+	}
+
+	// Re-run same files → all skipped
+	counts2, err := ImportAFCD(dir)
+	if err != nil {
+		t.Fatalf("ImportAFCD second run: %v", err)
+	}
+	if counts2.Inserted != 0 || counts2.Skipped != 1 {
+		t.Errorf("second run: Inserted=%d Skipped=%d, want Inserted=0 Skipped=1",
+			counts2.Inserted, counts2.Skipped)
 	}
 }

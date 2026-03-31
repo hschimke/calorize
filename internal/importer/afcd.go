@@ -2,9 +2,12 @@ package importer
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xuri/excelize/v2"
 
@@ -200,4 +203,144 @@ func upsertAFCDFood(extID string, food db.Food, category, description string, nu
 		return upsertSkipped, fmt.Errorf("creating food: %w", err)
 	}
 	return upsertCreated, nil
+}
+
+// ImportCounts holds tallies from an AFCD import run.
+type ImportCounts struct {
+	Inserted int
+	Updated  int
+	Skipped  int
+	Errors   int
+}
+
+// ImportAFCD reads AFCD Release 3 xlsx files from afcdDir and upserts all foods.
+// Expected files (exact names):
+//
+//	"AFCD Release 3 - Food group information.xlsx"
+//	"AFCD Release 3 - Nutrient profiles.xlsx"
+//	"AFCD Release 3 - Food Details.xlsx"
+func ImportAFCD(afcdDir string) (ImportCounts, error) {
+	var counts ImportCounts
+	start := time.Now()
+
+	// 1. Food group info → classification code to category name
+	fgFile, err := excelize.OpenFile(filepath.Join(afcdDir, "AFCD Release 3 - Food group information.xlsx"))
+	if err != nil {
+		return counts, fmt.Errorf("opening food group info: %w", err)
+	}
+	defer fgFile.Close()
+	groups, err := parseGroupInfo(fgFile)
+	if err != nil {
+		return counts, fmt.Errorf("parsing food group info: %w", err)
+	}
+	slog.Info("AFCD food groups loaded", "count", len(groups))
+
+	// 2. Nutrient profiles → key to nutrient row
+	npFile, err := excelize.OpenFile(filepath.Join(afcdDir, "AFCD Release 3 - Nutrient profiles.xlsx"))
+	if err != nil {
+		return counts, fmt.Errorf("opening nutrient profiles: %w", err)
+	}
+	defer npFile.Close()
+	profiles, err := parseNutrientProfiles(npFile)
+	if err != nil {
+		return counts, fmt.Errorf("parsing nutrient profiles: %w", err)
+	}
+	slog.Info("AFCD nutrient profiles loaded", "count", len(profiles))
+
+	// 3. Food details → iterate and upsert
+	fdFile, err := excelize.OpenFile(filepath.Join(afcdDir, "AFCD Release 3 - Food Details.xlsx"))
+	if err != nil {
+		return counts, fmt.Errorf("opening food details: %w", err)
+	}
+	defer fdFile.Close()
+
+	sheetList := fdFile.GetSheetList()
+	if len(sheetList) == 0 {
+		return counts, fmt.Errorf("food details file has no sheets")
+	}
+	rows, err := fdFile.GetRows(sheetList[0])
+	if err != nil {
+		return counts, fmt.Errorf("reading food details sheet: %w", err)
+	}
+	if len(rows) < 2 {
+		return counts, nil
+	}
+
+	colIdx := make(map[string]int, len(rows[0]))
+	for i, h := range rows[0] {
+		colIdx[strings.TrimSpace(h)] = i
+	}
+
+	total := 0
+	for _, row := range rows[1:] {
+		key := cellStr(row, colIdx["Public Food Key"])
+		if key == "" {
+			continue
+		}
+
+		nr, ok := profiles[key]
+		if !ok {
+			slog.Warn("AFCD food has no nutrient profile, skipping", "key", key)
+			counts.Errors++
+			continue
+		}
+
+		name := cellStr(row, colIdx["Food Name"])
+		description := cellStr(row, colIdx["Food Description"])
+		classCode := cellStr(row, colIdx["Classification"])
+		category := groups[classCode]
+
+		if nr.EnergyKcal == 0 {
+			slog.Warn("AFCD food has zero calories", "key", key, "name", name)
+		}
+
+		food := db.Food{
+			Name:              name,
+			Calories:          nr.EnergyKcal,
+			Protein:           nr.Protein,
+			Fat:               nr.Fat,
+			Carbs:             nr.Carbs,
+			Type:              "food",
+			MeasurementUnit:   "g",
+			MeasurementAmount: 100,
+			Servings:          1,
+			Public:            true,
+		}
+
+		result, err := upsertAFCDFood("afcd_"+key, food, category, description, nr.Micros)
+		if err != nil {
+			slog.Error("AFCD upsert error", "key", key, "name", name, "error", err)
+			counts.Errors++
+			continue
+		}
+		switch result {
+		case upsertCreated:
+			counts.Inserted++
+		case upsertUpdated:
+			counts.Updated++
+		case upsertSkipped:
+			counts.Skipped++
+		}
+
+		total++
+		if total%100 == 0 {
+			slog.Info("AFCD import progress",
+				"processed", total,
+				"inserted", counts.Inserted,
+				"updated", counts.Updated,
+				"skipped", counts.Skipped,
+				"errors", counts.Errors,
+				"elapsed", time.Since(start).Round(time.Second).String(),
+			)
+		}
+	}
+
+	slog.Info("AFCD import complete",
+		"inserted", counts.Inserted,
+		"updated", counts.Updated,
+		"skipped", counts.Skipped,
+		"errors", counts.Errors,
+		"elapsed", time.Since(start).Round(time.Second).String(),
+	)
+	return counts, nil
 }
