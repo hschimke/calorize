@@ -56,3 +56,4 @@ log.err
 *.xlsx
 *.txt
 *.zst
+*.tar
