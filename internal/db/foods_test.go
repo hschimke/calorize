@@ -345,6 +345,7 @@ func TestSearchFoods(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to mark food public: %v", err)
 	}
+	t.Cleanup(func() { _ = DeleteFood(publicFood.ID) })
 	results, err = SearchFoods(user.ID, "PublicBan", 50)
 	if err != nil {
 		t.Fatalf("SearchFoods (public food) failed: %v", err)
