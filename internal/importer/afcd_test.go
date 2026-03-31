@@ -220,10 +220,11 @@ func TestImportAFCD(t *testing.T) {
 	// --- Food group information ---
 	fg := excelize.NewFile()
 	defer fg.Close()
-	fg.SetCellValue("Sheet1", "A1", "Food group ID")
-	fg.SetCellValue("Sheet1", "B1", "Food group name")
-	fg.SetCellValue("Sheet1", "A2", "7")
-	fg.SetCellValue("Sheet1", "B2", "Vegetable products and dishes")
+	fg.SetCellValue("Sheet1", "A1", "General information about food groups")
+	fg.SetCellValue("Sheet1", "A2", "Food group ID")
+	fg.SetCellValue("Sheet1", "B2", "Food group name")
+	fg.SetCellValue("Sheet1", "A3", "7")
+	fg.SetCellValue("Sheet1", "B3", "Vegetable products and dishes")
 	if err := fg.SaveAs(filepath.Join(dir, "AFCD Release 3 - Food group information.xlsx")); err != nil {
 		t.Fatal(err)
 	}

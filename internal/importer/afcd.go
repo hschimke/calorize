@@ -120,7 +120,11 @@ func parseNutrientProfiles(f *excelize.File) (map[string]afcdNutrientRow, error)
 		if s == "" {
 			return 0
 		}
-		v, _ := strconv.ParseFloat(s, 64)
+		v, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			slog.Debug("skipping non-numeric macro cell", "column", name, "value", s)
+			return 0
+		}
 		return v
 	}
 
@@ -147,7 +151,11 @@ func parseNutrientProfiles(f *excelize.File) (map[string]afcdNutrientRow, error)
 				continue
 			}
 			v, err := strconv.ParseFloat(s, 64)
-			if err != nil || v == 0 {
+			if err != nil {
+				slog.Debug("skipping non-numeric nutrient cell", "header", h, "value", s)
+				continue
+			}
+			if v == 0 {
 				continue
 			}
 			nr.Micros = append(nr.Micros, db.FoodNutrient{
@@ -183,13 +191,21 @@ func upsertAFCDFood(extID string, food db.Food, category, description string, nu
 	}
 
 	if existing != nil {
+		existingFull, err := db.GetFood(existing.ID)
+		if err != nil {
+			return upsertSkipped, fmt.Errorf("fetching full existing food: %w", err)
+		}
+		if existingFull == nil {
+			existingFull = existing
+		}
 		changed := existing.Name != food.Name ||
 			existing.Calories != food.Calories ||
 			existing.Protein != food.Protein ||
 			existing.Fat != food.Fat ||
 			existing.Carbs != food.Carbs ||
 			stringPtrChanged(existing.Category, catPtr) ||
-			stringPtrChanged(existing.IngredientsText, descPtr)
+			stringPtrChanged(existing.IngredientsText, descPtr) ||
+			len(existingFull.Nutrients) != len(nutrients)
 		if !changed {
 			return upsertSkipped, nil
 		}
@@ -278,6 +294,8 @@ func ImportAFCD(afcdDir string) (ImportCounts, error) {
 			continue
 		}
 
+		total++
+
 		nr, ok := profiles[key]
 		if !ok {
 			slog.Warn("AFCD food has no nutrient profile, skipping", "key", key)
@@ -322,7 +340,6 @@ func ImportAFCD(afcdDir string) (ImportCounts, error) {
 			counts.Skipped++
 		}
 
-		total++
 		if total%100 == 0 {
 			slog.Info("AFCD import progress",
 				"processed", total,
