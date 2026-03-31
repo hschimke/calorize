@@ -50,7 +50,26 @@ func GetUserFoods(userID UserID) ([]Food, error) {
 	return foods, nil
 }
 
-func GetFoods(userID UserID) ([]Food, error) {
+// buildSourceFilter returns an additional AND clause and args to filter the public-foods
+// branch of a query. disabledSources must already be validated against GetAvailableSources —
+// the values are used as LIKE pattern prefixes and are never interpolated into SQL, but
+// callers are responsible for ensuring they are known source keys (e.g. "afcd", "fdc", "off").
+func buildSourceFilter(disabledSources []string, hidePublicUserFoods bool) (string, []any) {
+	var sb strings.Builder
+	var args []any
+	if hidePublicUserFoods {
+		sb.WriteString(" AND creator_id IS NULL")
+	}
+	for _, source := range disabledSources {
+		sb.WriteString(" AND external_id NOT LIKE ? ESCAPE ?")
+		args = append(args, source+"_%", `\`)
+	}
+	return sb.String(), args
+}
+
+func GetFoods(userID UserID, disabledSources []string, hidePublicUserFoods bool) ([]Food, error) {
+	sourceClause, sourceArgs := buildSourceFilter(disabledSources, hidePublicUserFoods)
+
 	query := `
 		SELECT
 			id, creator_id, family_id, version, is_current, name,
@@ -66,15 +85,16 @@ func GetFoods(userID UserID) ([]Food, error) {
 			measurement_unit, measurement_amount, servings, public, external_id,
 			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 		FROM foods
-		WHERE public = true AND is_current = true AND deleted_at IS NULL
-	`
-	rows, err := db.Query(query, userID)
+		WHERE public = true AND is_current = true AND deleted_at IS NULL` + sourceClause
+
+	args := append([]any{userID}, sourceArgs...)
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("listing foods: %w", err)
 	}
 	defer rows.Close()
 
-	var foods []Food
+	foods := []Food{}
 	for rows.Next() {
 		var f Food
 		err := rows.Scan(
@@ -92,6 +112,41 @@ func GetFoods(userID UserID) ([]Food, error) {
 		return nil, fmt.Errorf("iterating foods: %w", err)
 	}
 	return foods, nil
+}
+
+// knownSources is the fixed set of import source prefixes the application recognises.
+var knownSources = []string{"afcd", "fdc", "off"}
+
+// GetAvailableSources returns the subset of knownSources that have at least one active
+// food in the database. Each source is checked with an explicit range bound
+// (external_id >= 'src_' AND external_id < 'src'+1) so SQLite can always use a
+// SEARCH on idx_foods_external_id rather than a full table scan. (LIKE-based patterns
+// do not trigger the index on this database.)
+func GetAvailableSources() ([]string, error) {
+	sources := []string{}
+	for _, source := range knownSources {
+		lo := source + "_"
+		// Upper bound: increment the last byte of the source name to form a tight range,
+		// e.g. "afcd" → "afce", "fdc" → "fdd", "off" → "ofg".
+		hi := source[:len(source)-1] + string(source[len(source)-1]+1)
+
+		var exists bool
+		err := db.QueryRow(
+			`SELECT EXISTS(
+				SELECT 1 FROM foods
+				WHERE external_id >= ? AND external_id < ?
+				  AND is_current = 1 AND deleted_at IS NULL
+				LIMIT 1
+			)`, lo, hi,
+		).Scan(&exists)
+		if err != nil {
+			return nil, fmt.Errorf("checking source %s: %w", source, err)
+		}
+		if exists {
+			sources = append(sources, source)
+		}
+	}
+	return sources, nil
 }
 
 func GetFood(id FoodID) (*Food, error) {
@@ -432,10 +487,18 @@ func GetRecentFoods(userID UserID, limit int) ([]Food, error) {
 	return foods, nil
 }
 
-func SearchFoods(userID UserID, q string, limit int) ([]Food, error) {
+func SearchFoods(userID UserID, q string, limit int, disabledSources []string, hidePublicUserFoods bool) ([]Food, error) {
 	if limit <= 0 {
 		limit = 20
 	}
+	escaped := strings.ReplaceAll(q, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `%`, `\%`)
+	escaped = strings.ReplaceAll(escaped, `_`, `\_`)
+	pattern := escaped + "%"
+	const escChar = `\`
+
+	sourceClause, sourceArgs := buildSourceFilter(disabledSources, hidePublicUserFoods)
+
 	query := `
 		SELECT id, creator_id, family_id, version, is_current, name,
 		       calories, protein, carbs, fat, type,
@@ -463,16 +526,17 @@ func SearchFoods(userID UserID, q string, limit int) ([]Food, error) {
 			       brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 			FROM foods
 			WHERE public = true AND is_current = true AND deleted_at IS NULL
-			  AND name LIKE ? ESCAPE ?
+			  AND name LIKE ? ESCAPE ?` + sourceClause + `
 			LIMIT ?
 		)
 	`
-	escaped := strings.ReplaceAll(q, `\`, `\\`)
-	escaped = strings.ReplaceAll(escaped, `%`, `\%`)
-	escaped = strings.ReplaceAll(escaped, `_`, `\_`)
-	pattern := escaped + "%"
-	const escChar = `\`
-	rows, err := db.Query(query, userID, pattern, escChar, limit, pattern, escChar, limit)
+
+	// Build args: user branch args, then public branch args (pattern, escChar, sourceArgs..., limit)
+	args := []any{userID, pattern, escChar, limit, pattern, escChar}
+	args = append(args, sourceArgs...)
+	args = append(args, limit)
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("searching foods: %w", err)
 	}

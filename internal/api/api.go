@@ -77,18 +77,34 @@ func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, err := db.GetUserByID(userID)
+	if err != nil || user == nil {
+		http.Error(w, "User not found", http.StatusInternalServerError)
+		return
+	}
+	disabledSources, err := db.GetDisabledSources(userID)
+	if err != nil {
+		slog.Error("failed to get disabled sources", "error", err)
+		http.Error(w, "Failed to get foods", http.StatusInternalServerError)
+		return
+	}
+
 	var (
 		foods []db.Food
 		dbErr error
 	)
 	if r.URL.Query().Has("recent") {
+		// Source filters intentionally not applied: recent foods are from the user's own
+		// log history; hiding a food the user already logged would be disorienting.
 		foods, dbErr = db.GetRecentFoods(userID, 50)
 	} else if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
-		foods, dbErr = db.SearchFoods(userID, q, 20)
+		foods, dbErr = db.SearchFoods(userID, q, 20, disabledSources, user.HidePublicUserFoods)
 	} else if r.URL.Query().Has("mine") {
+		// Source filters intentionally not applied: "mine" returns only user-created foods,
+		// which are never tagged with an import source.
 		foods, dbErr = db.GetUserFoods(userID)
 	} else {
-		foods, dbErr = db.GetFoods(userID)
+		foods, dbErr = db.GetFoods(userID, disabledSources, user.HidePublicUserFoods)
 	}
 	if dbErr != nil {
 		slog.Error("failed to get foods", "error", dbErr)

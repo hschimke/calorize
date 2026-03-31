@@ -6,12 +6,15 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"azule.info/calorize/internal/auth"
 	"azule.info/calorize/internal/db"
 	"github.com/google/uuid"
 )
+
+var clownModeEnabled = os.Getenv("ENABLE_CLOWN_MODE") == "true"
 
 type passkeyView struct {
 	ID         string    `json:"id"`
@@ -71,9 +74,101 @@ func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(profileView{CalorieGoal: user.CalorieGoal})
 }
 
+type preferencesView struct {
+	ClownMode           bool     `json:"clown_mode"`
+	ClownModeAvailable  bool     `json:"clown_mode_available"`
+	HidePublicUserFoods bool     `json:"hide_public_user_foods"`
+	DisabledSources     []string `json:"disabled_sources"`
+	AvailableSources    []string `json:"available_sources"`
+}
+
+func getPreferencesHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, err := db.GetUserByID(userID)
+	if err != nil || user == nil {
+		http.Error(w, "User not found", http.StatusInternalServerError)
+		return
+	}
+	disabledSources, err := db.GetDisabledSources(userID)
+	if err != nil {
+		slog.Error("failed to get disabled sources", "error", err)
+		http.Error(w, "Failed to get preferences", http.StatusInternalServerError)
+		return
+	}
+	availableSources, err := db.GetAvailableSources()
+	if err != nil {
+		slog.Error("failed to get available sources", "error", err)
+		http.Error(w, "Failed to get preferences", http.StatusInternalServerError)
+		return
+	}
+	view := preferencesView{
+		ClownMode:           clownModeEnabled && user.ClownMode,
+		ClownModeAvailable:  clownModeEnabled,
+		HidePublicUserFoods: user.HidePublicUserFoods,
+		DisabledSources:     disabledSources,
+		AvailableSources:    availableSources,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(view)
+}
+
+func updatePreferencesHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var body struct {
+		ClownMode           bool     `json:"clown_mode"`
+		HidePublicUserFoods bool     `json:"hide_public_user_foods"`
+		DisabledSources     []string `json:"disabled_sources"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	availableSources, err := db.GetAvailableSources()
+	if err != nil {
+		slog.Error("failed to get available sources", "error", err)
+		http.Error(w, "Failed to update preferences", http.StatusInternalServerError)
+		return
+	}
+	availableSet := make(map[string]bool, len(availableSources))
+	for _, s := range availableSources {
+		availableSet[s] = true
+	}
+	for _, s := range body.DisabledSources {
+		if !availableSet[s] {
+			http.Error(w, "Unknown source: "+s, http.StatusBadRequest)
+			return
+		}
+	}
+	user, err := db.GetUserByID(userID)
+	if err != nil || user == nil {
+		http.Error(w, "User not found", http.StatusInternalServerError)
+		return
+	}
+	if clownModeEnabled {
+		user.ClownMode = body.ClownMode
+	}
+	user.HidePublicUserFoods = body.HidePublicUserFoods
+	if err := db.UpdateUserPreferences(*user, body.DisabledSources); err != nil {
+		slog.Error("failed to update preferences", "error", err)
+		http.Error(w, "Failed to update preferences", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func RegisterAccountPaths(mux *http.ServeMux) {
 	mux.HandleFunc("GET /account/profile", getProfileHandler)
 	mux.HandleFunc("PUT /account/profile", updateProfileHandler)
+	mux.HandleFunc("GET /account/preferences", getPreferencesHandler)
+	mux.HandleFunc("PUT /account/preferences", updatePreferencesHandler)
 	mux.HandleFunc("GET /account/passkeys", listPasskeysHandler)
 	mux.HandleFunc("DELETE /account/passkeys/{id}", deletePasskeyHandler)
 	mux.HandleFunc("PATCH /account/passkeys/{id}", renamePasskeyHandler)

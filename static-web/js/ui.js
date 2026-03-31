@@ -159,13 +159,28 @@ export function showInput(message, defaultValue = '') {
  * Renders a calorie progress bar toward a goal.
  * @param {number} consumed - Calories consumed.
  * @param {number|null} goal - Daily calorie goal. Returns null if not set.
+ * @param {boolean} [clownMode] - When true and over goal, show clown emoji row instead.
  * @returns {HTMLElement|null}
  */
-export function renderCalorieGoalBar(consumed, goal) {
+export function renderCalorieGoalBar(consumed, goal, clownMode = false) {
     if (goal == null) return null;
 
-    const pct = Math.min(100, Math.round((consumed / goal) * 100));
     const over = consumed > goal;
+
+    if (clownMode && over) {
+        const wrap = document.createElement('div');
+        wrap.className = 'goal-bar-wrap clown-bar';
+        const count = Math.min(10, Math.ceil((consumed / goal) * 5));
+        for (let i = 0; i < count; i++) {
+            const emoji = document.createElement('span');
+            emoji.className = 'clown-emoji';
+            emoji.textContent = '\uD83E\uDD21';
+            wrap.appendChild(emoji);
+        }
+        return wrap;
+    }
+
+    const pct = Math.min(100, Math.round((consumed / goal) * 100));
 
     const wrap = document.createElement('div');
     wrap.className = 'goal-bar-wrap';

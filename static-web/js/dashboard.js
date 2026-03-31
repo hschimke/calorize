@@ -5,8 +5,9 @@ import { renderCalorieGoalBar } from './ui.js';
 async function updateDashboard() {
     try {
         const today = getLocalDateString();
-        const profile = await api.getProfile().catch(() => null);
-        const [stats, logs] = await Promise.all([
+        const [profile, userPrefs, stats, logs] = await Promise.all([
+            api.getProfile().catch(() => null),
+            api.getPreferences().catch(() => null),
             api.getStats('day', today),
             api.getLogs(today),
         ]);
@@ -19,7 +20,7 @@ async function updateDashboard() {
 
         const calCard = document.getElementById('dashboard-calories').parentElement;
         calCard.querySelector('.goal-bar-wrap')?.remove();
-        const bar = renderCalorieGoalBar(calories, profile?.calorie_goal ?? null);
+        const bar = renderCalorieGoalBar(calories, profile?.calorie_goal ?? null, userPrefs?.clown_mode ?? false);
         if (bar) calCard.appendChild(bar);
 
         const logsList = document.getElementById('dashboard-logs-list');

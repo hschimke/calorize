@@ -9,13 +9,17 @@ async function loadPasskeys() {
     try {
         passkeys = await api.getPasskeys();
     } catch (e) {
-        list.innerHTML = '<li>Failed to load passkeys.</li>';
+        const li = document.createElement('li');
+        li.textContent = 'Failed to load passkeys.';
+        list.appendChild(li);
         showToast('Failed to load passkeys', 'error');
         return;
     }
 
     if (!passkeys || passkeys.length === 0) {
-        list.innerHTML = '<li>No passkeys found.</li>';
+        const li = document.createElement('li');
+        li.textContent = 'No passkeys found.';
+        list.appendChild(li);
         return;
     }
 
@@ -103,6 +107,80 @@ function updateDerived(daily) {
     el.textContent = `Weekly: ${weekly} kcal · Monthly: ~${monthly} kcal`;
 }
 
+const SOURCE_NAMES = {
+    afcd: 'AFCD (Australian Food Composition)',
+    fdc: 'FDC (USDA Food Data Central)',
+    off: 'Open Food Facts',
+};
+
+function renderSourceToggles(available, disabled) {
+    const container = document.getElementById('source-toggles');
+    container.textContent = '';
+
+    if (available.length === 0) {
+        const msg = document.createElement('p');
+        msg.className = 'form-hint';
+        msg.textContent = 'No imported food sources found.';
+        container.appendChild(msg);
+        return;
+    }
+
+    const disabledSet = new Set(disabled);
+    for (const source of available) {
+        const row = document.createElement('label');
+        row.className = 'checkbox-label';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.dataset.source = source;
+        checkbox.checked = !disabledSet.has(source);
+
+        const text = document.createTextNode(SOURCE_NAMES[source] || source);
+
+        row.appendChild(checkbox);
+        row.appendChild(text);
+        container.appendChild(row);
+    }
+}
+
+async function loadPreferences() {
+    try {
+        const prefs = await api.getPreferences();
+        renderSourceToggles(prefs.available_sources || [], prefs.disabled_sources || []);
+
+        document.getElementById('hide-public-user-foods-toggle').checked = !!prefs.hide_public_user_foods;
+
+        const clownSection = document.getElementById('clown-mode-section');
+        if (prefs.clown_mode_available) {
+            clownSection.hidden = false;
+            document.getElementById('clown-mode-toggle').checked = !!prefs.clown_mode;
+        }
+    } catch (e) {
+        showToast('Failed to load preferences', 'error');
+    }
+}
+
+async function savePreferences() {
+    const sourceCheckboxes = document.querySelectorAll('#source-toggles input[type="checkbox"]');
+    const disabledSources = [];
+    for (const cb of sourceCheckboxes) {
+        if (!cb.checked) {
+            disabledSources.push(cb.dataset.source);
+        }
+    }
+
+    const hidePublicUserFoods = document.getElementById('hide-public-user-foods-toggle').checked;
+    const clownModeToggle = document.getElementById('clown-mode-toggle');
+    const clownMode = clownModeToggle ? clownModeToggle.checked : false;
+
+    try {
+        await api.updatePreferences({ clown_mode: clownMode, hide_public_user_foods: hidePublicUserFoods, disabled_sources: disabledSources });
+        showToast('Preferences saved');
+    } catch (e) {
+        showToast(e.message || 'Failed to save preferences', 'error');
+    }
+}
+
 async function loadProfile() {
     try {
         const profile = await api.getProfile();
@@ -135,10 +213,12 @@ async function saveGoal() {
 document.addEventListener('DOMContentLoaded', () => {
     loadPasskeys();
     loadProfile();
+    loadPreferences();
     document.getElementById('btn-add-passkey').addEventListener('click', addPasskey);
     document.getElementById('calorie-goal-input').addEventListener('input', (e) => {
         const val = parseInt(e.target.value, 10);
         updateDerived(isNaN(val) ? null : val);
     });
     document.getElementById('btn-save-goal').addEventListener('click', saveGoal);
+    document.getElementById('btn-save-preferences').addEventListener('click', savePreferences);
 });
