@@ -7,6 +7,7 @@ let currentDate = getLocalDateString();
 let selectedFood = null;
 let foodSearch = null;
 let goalProfile = null;
+let userPrefs = null;
 const noteInput = document.getElementById('note-input');
 
 async function init() {
@@ -57,8 +58,11 @@ async function init() {
         }
     );
 
-    // Fetch calorie goal profile
-    goalProfile = await api.getProfile().catch(() => null);
+    // Fetch calorie goal profile and preferences
+    [goalProfile, userPrefs] = await Promise.all([
+        api.getProfile().catch(() => null),
+        api.getPreferences().catch(() => null),
+    ]);
 
     // Initial load of logs
     loadLogs();
@@ -160,7 +164,7 @@ async function loadLogs() {
 
         const calCard = document.getElementById('foodlog-cal-card');
         calCard.querySelector('.goal-bar-wrap')?.remove();
-        const bar = renderCalorieGoalBar(totalCals, goalProfile?.calorie_goal ?? null);
+        const bar = renderCalorieGoalBar(totalCals, goalProfile?.calorie_goal ?? null, userPrefs?.clown_mode ?? false);
         if (bar) calCard.appendChild(bar);
     } catch (e) {
         console.error("Failed to load logs:", e);

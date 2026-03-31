@@ -8,6 +8,7 @@ let lastDate = null;
 let lastStats = null;
 let lastExtra = null;
 let profile = null;
+let userPrefs = null;
 
 async function init() {
     const buttons = document.querySelectorAll('.period-btn');
@@ -25,7 +26,10 @@ async function init() {
         resizeTimer = setTimeout(redraw, 100);
     });
 
-    profile = await api.getProfile().catch(() => null);
+    [profile, userPrefs] = await Promise.all([
+        api.getProfile().catch(() => null),
+        api.getPreferences().catch(() => null),
+    ]);
     loadStats('day');
 }
 
@@ -106,7 +110,7 @@ function updateDisplay(stats) {
 
     const calCard = document.getElementById('stat-calories').parentElement;
     calCard.querySelector('.goal-bar-wrap')?.remove();
-    const bar = renderCalorieGoalBar(Math.round(stats.calories || 0), scaledGoal);
+    const bar = renderCalorieGoalBar(Math.round(stats.calories || 0), scaledGoal, userPrefs?.clown_mode ?? false);
     if (bar) calCard.appendChild(bar);
 }
 

@@ -16,6 +16,7 @@ services:
       - WEBAUTHN_RP_DISPLAY_NAME=${WEBAUTHN_RP_DISPLAY_NAME:-Calorize}
       - IMPORT_DIR=/data/import
       - IMPORTED_DIR=/data/imported
+      - ENABLE_CLOWN_MODE=${ENABLE_CLOWN_MODE:-false}
     networks:
       - app-network
     expose:

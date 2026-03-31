@@ -130,7 +130,7 @@ func TestRecipeLifecycle(t *testing.T) {
 	}
 
 	// 3. List Recipes (GetFoods should return recipes now)
-	list, err := GetFoods(user.ID)
+	list, err := GetFoods(user.ID, nil, false)
 	if err != nil {
 		t.Fatalf("GetFoods failed: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestRecipeLifecycle(t *testing.T) {
 	}
 
 	// Verify GetFoods only shows current
-	listV2, err := GetFoods(user.ID)
+	listV2, err := GetFoods(user.ID, nil, false)
 	if err != nil {
 		t.Fatalf("GetFoods (v2) failed: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestRecipeLifecycle(t *testing.T) {
 	}
 
 	// Verify deletion
-	listAfterDelete, err := GetFoods(user.ID)
+	listAfterDelete, err := GetFoods(user.ID, nil, false)
 	if err != nil {
 		t.Fatalf("GetFoods (after delete) failed: %v", err)
 	}

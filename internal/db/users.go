@@ -12,50 +12,46 @@ import (
 
 var ErrCredentialNotFound = errors.New("credential not found")
 
-// Bare user functions
-func GetUser(userName string) (*User, error) {
-	query := `SELECT id, name, email, disabled_at, calorie_goal, created_at FROM users WHERE name = ?`
-	row := db.QueryRow(query, userName)
+const userSelectCols = `id, name, email, disabled_at, calorie_goal, clown_mode, hide_public_user_foods, created_at`
 
+func scanUser(row interface{ Scan(...any) error }) (*User, error) {
 	var user User
-	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CalorieGoal, &user.CreatedAt)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil // Return nil if user not found, typical pattern or could return error
-		}
-		return nil, fmt.Errorf("getting user: %w", err)
-	}
-	return &user, nil
-}
-
-func GetUserByEmail(email string) (*User, error) {
-	query := `SELECT id, name, email, disabled_at, calorie_goal, created_at FROM users WHERE email = ?`
-	row := db.QueryRow(query, email)
-
-	var user User
-	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CalorieGoal, &user.CreatedAt)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil // Return nil if user not found, typical pattern or could return error
-		}
-		return nil, fmt.Errorf("getting user: %w", err)
-	}
-	return &user, nil
-}
-
-func GetUserByID(id UserID) (*User, error) {
-	query := `SELECT id, name, email, disabled_at, calorie_goal, created_at FROM users WHERE id = ?`
-	row := db.QueryRow(query, id)
-
-	var user User
-	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CalorieGoal, &user.CreatedAt)
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CalorieGoal, &user.ClownMode, &user.HidePublicUserFoods, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("getting user by id: %w", err)
+		return nil, err
 	}
 	return &user, nil
+}
+
+// Bare user functions
+func GetUser(userName string) (*User, error) {
+	row := db.QueryRow(`SELECT `+userSelectCols+` FROM users WHERE name = ?`, userName)
+	user, err := scanUser(row)
+	if err != nil {
+		return nil, fmt.Errorf("getting user: %w", err)
+	}
+	return user, nil
+}
+
+func GetUserByEmail(email string) (*User, error) {
+	row := db.QueryRow(`SELECT `+userSelectCols+` FROM users WHERE email = ?`, email)
+	user, err := scanUser(row)
+	if err != nil {
+		return nil, fmt.Errorf("getting user: %w", err)
+	}
+	return user, nil
+}
+
+func GetUserByID(id UserID) (*User, error) {
+	row := db.QueryRow(`SELECT `+userSelectCols+` FROM users WHERE id = ?`, id)
+	user, err := scanUser(row)
+	if err != nil {
+		return nil, fmt.Errorf("getting user by id: %w", err)
+	}
+	return user, nil
 }
 
 func CreateUser(user User) (*User, error) {
@@ -80,12 +76,83 @@ func CreateUser(user User) (*User, error) {
 }
 
 func UpdateUser(user User) (*User, error) {
-	query := `UPDATE users SET name = ?, email = ?, disabled_at = ?, calorie_goal = ? WHERE id = ?`
-	_, err := db.Exec(query, user.Name, user.Email, user.DisabledAt, user.CalorieGoal, user.ID)
+	query := `UPDATE users SET name = ?, email = ?, disabled_at = ?, calorie_goal = ?, clown_mode = ?, hide_public_user_foods = ? WHERE id = ?`
+	_, err := db.Exec(query, user.Name, user.Email, user.DisabledAt, user.CalorieGoal, user.ClownMode, user.HidePublicUserFoods, user.ID)
 	if err != nil {
 		return nil, fmt.Errorf("updating user: %w", err)
 	}
 	return &user, nil
+}
+
+func GetDisabledSources(userID UserID) ([]string, error) {
+	rows, err := db.Query(`SELECT source FROM user_disabled_sources WHERE user_id = ?`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("getting disabled sources: %w", err)
+	}
+	defer rows.Close()
+	var sources []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return nil, fmt.Errorf("scanning disabled source: %w", err)
+		}
+		sources = append(sources, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating disabled sources: %w", err)
+	}
+	if sources == nil {
+		sources = []string{}
+	}
+	return sources, nil
+}
+
+func SetDisabledSources(userID UserID, disabled []string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("starting transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM user_disabled_sources WHERE user_id = ?`, userID); err != nil {
+		return fmt.Errorf("clearing disabled sources: %w", err)
+	}
+	for _, source := range disabled {
+		if _, err := tx.Exec(`INSERT INTO user_disabled_sources (user_id, source) VALUES (?, ?)`, userID, source); err != nil {
+			return fmt.Errorf("inserting disabled source: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// UpdateUserPreferences atomically saves the user's preference columns and their
+// disabled-source list in a single transaction, so they can never be partially applied.
+func UpdateUserPreferences(user User, disabledSources []string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("starting transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(
+		`UPDATE users SET clown_mode = ?, hide_public_user_foods = ? WHERE id = ?`,
+		user.ClownMode, user.HidePublicUserFoods, user.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("updating user preferences: %w", err)
+	}
+
+	if _, err = tx.Exec(`DELETE FROM user_disabled_sources WHERE user_id = ?`, user.ID); err != nil {
+		return fmt.Errorf("clearing disabled sources: %w", err)
+	}
+	for _, source := range disabledSources {
+		if _, err = tx.Exec(`INSERT INTO user_disabled_sources (user_id, source) VALUES (?, ?)`, user.ID, source); err != nil {
+			return fmt.Errorf("inserting disabled source: %w", err)
+		}
+	}
+
+	return tx.Commit()
 }
 
 func DisableUser(user User) error {

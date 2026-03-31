@@ -261,6 +261,14 @@ export class API {
         return await this.request('/account/profile', 'PUT', data);
     }
 
+    async getPreferences() {
+        return await this.request('/account/preferences');
+    }
+
+    async updatePreferences(data) {
+        return await this.request('/account/preferences', 'PUT', data);
+    }
+
     // --- Stats ---
 
     async getStats(period, date) {

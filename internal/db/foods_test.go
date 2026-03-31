@@ -69,7 +69,7 @@ func TestFoodLifecycle(t *testing.T) {
 
 	// 3. List Foods
 	// Should create another food to test listing multiple? Or just one is fine.
-	list, err := GetFoods(user.ID)
+	list, err := GetFoods(user.ID, nil, false)
 	if err != nil {
 		t.Fatalf("GetFoods failed: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestFoodLifecycle(t *testing.T) {
 	}
 
 	// Verify GetFoods only shows current
-	listV2, err := GetFoods(user.ID)
+	listV2, err := GetFoods(user.ID, nil, false)
 	if err != nil {
 		t.Fatalf("GetFoods (v2) failed: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestFoodLifecycle(t *testing.T) {
 		t.Fatalf("DeleteFood failed: %v", err)
 	}
 
-	listAfterDelete, err := GetFoods(user.ID)
+	listAfterDelete, err := GetFoods(user.ID, nil, false)
 	if err != nil {
 		t.Fatalf("GetFoods (after delete) failed: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestSearchFoods(t *testing.T) {
 	user := createTestUser(t)
 
 	// No results: should return empty slice without error
-	results, err := SearchFoods(user.ID, "zzznomatch", 50)
+	results, err := SearchFoods(user.ID, "zzznomatch", 50, nil, false)
 	if err != nil {
 		t.Fatalf("SearchFoods (no results) failed: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestSearchFoods(t *testing.T) {
 	createTestIngredient(t, user, "Apple")
 
 	// Prefix match: "Ban" should return "Banana"
-	results, err = SearchFoods(user.ID, "Ban", 50)
+	results, err = SearchFoods(user.ID, "Ban", 50, nil, false)
 	if err != nil {
 		t.Fatalf("SearchFoods (prefix) failed: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestSearchFoods(t *testing.T) {
 	}
 
 	// Case-insensitive: "ban" should match "Banana"
-	results, err = SearchFoods(user.ID, "ban", 50)
+	results, err = SearchFoods(user.ID, "ban", 50, nil, false)
 	if err != nil {
 		t.Fatalf("SearchFoods (case-insensitive) failed: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestSearchFoods(t *testing.T) {
 	}
 
 	// "B" prefix should match both "Banana" and "Blueberry"
-	results, err = SearchFoods(user.ID, "B", 50)
+	results, err = SearchFoods(user.ID, "B", 50, nil, false)
 	if err != nil {
 		t.Fatalf("SearchFoods ('B' prefix) failed: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestSearchFoods(t *testing.T) {
 	}
 
 	// Limit is respected
-	limited, err := SearchFoods(user.ID, "B", 1)
+	limited, err := SearchFoods(user.ID, "B", 1, nil, false)
 	if err != nil {
 		t.Fatalf("SearchFoods (limit) failed: %v", err)
 	}
@@ -320,7 +320,7 @@ func TestSearchFoods(t *testing.T) {
 
 	// LIKE special chars are treated as literals, not wildcards
 	// "Ban%" should match nothing (no food named "Ban%...")
-	results, err = SearchFoods(user.ID, "Ban%", 50)
+	results, err = SearchFoods(user.ID, "Ban%", 50, nil, false)
 	if err != nil {
 		t.Fatalf("SearchFoods (LIKE special char) failed: %v", err)
 	}
@@ -329,7 +329,7 @@ func TestSearchFoods(t *testing.T) {
 	}
 
 	// "_" as a literal: "Banan_" should not match "Banana" (underscore is literal, not wildcard)
-	results, err = SearchFoods(user.ID, "Banan_", 50)
+	results, err = SearchFoods(user.ID, "Banan_", 50, nil, false)
 	if err != nil {
 		t.Fatalf("SearchFoods (underscore literal) failed: %v", err)
 	}
@@ -346,7 +346,7 @@ func TestSearchFoods(t *testing.T) {
 		t.Fatalf("Failed to mark food public: %v", err)
 	}
 	t.Cleanup(func() { _ = DeleteFood(publicFood.ID) })
-	results, err = SearchFoods(user.ID, "PublicBan", 50)
+	results, err = SearchFoods(user.ID, "PublicBan", 50, nil, false)
 	if err != nil {
 		t.Fatalf("SearchFoods (public food) failed: %v", err)
 	}
