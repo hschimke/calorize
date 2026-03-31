@@ -13,6 +13,7 @@ COPY . .
 # Build the binary
 # Disabling CGO for a static binary suitable for Alpine
 RUN CGO_ENABLED=0 GOOS=linux go build -o api-server ./cmd/api-server/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o afcd-importer ./cmd/afcd-importer/
 
 # Stage 2: Create the final minimal image
 FROM alpine:latest
@@ -32,6 +33,10 @@ COPY --from=builder /app/api-server .
 
 # Change ownership of the binary
 RUN chown appuser:appgroup ./api-server
+
+# Copy the afcd-importer binary from the builder stage
+COPY --from=builder /app/afcd-importer .
+RUN chown appuser:appgroup ./afcd-importer
 
 # Create the import directory and set permissions
 RUN mkdir -p /data/import && chown appuser:appgroup /data/import
