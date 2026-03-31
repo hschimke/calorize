@@ -9,7 +9,13 @@ import (
 	"time"
 )
 
-// ScanAndImport loops through the given importDir, parses FDC files, and moves them to importedDir
+type importFile struct {
+	entry  os.DirEntry
+	format string // "fdc" or "off"
+}
+
+// ScanAndImport loops through the given importDir, parses FDC (.json) and OFF (.jsonl) files,
+// and moves processed files to importedDir.
 func ScanAndImport(importDir, importedDir string, done <-chan struct{}) error {
 	if _, err := os.Stat(importDir); os.IsNotExist(err) {
 		slog.Warn("import directory does not exist, skipping scan", "dir", importDir)
@@ -25,31 +31,54 @@ func ScanAndImport(importDir, importedDir string, done <-chan struct{}) error {
 		return fmt.Errorf("reading import dir: %w", err)
 	}
 
-	var jsonFiles []os.DirEntry
+	var files []importFile
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
-			jsonFiles = append(jsonFiles, entry)
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasSuffix(name, ".json") {
+			files = append(files, importFile{entry, "fdc"})
+		} else if strings.HasSuffix(name, ".jsonl") {
+			files = append(files, importFile{entry, "off"})
 		}
 	}
-	slog.Info("import scan found files", "dir", importDir, "json_count", len(jsonFiles))
 
-	for i, entry := range jsonFiles {
+	jsonCount, jsonlCount := 0, 0
+	for _, f := range files {
+		if f.format == "fdc" {
+			jsonCount++
+		} else {
+			jsonlCount++
+		}
+	}
+	slog.Info("import scan found files", "dir", importDir, "json_count", jsonCount, "jsonl_count", jsonlCount)
+
+	for i, f := range files {
+		entry := f.entry
 		filePath := filepath.Join(importDir, entry.Name())
 
 		fi, statErr := entry.Info()
 		if statErr == nil {
 			slog.Info("starting import of file",
 				"file", entry.Name(),
+				"format", f.format,
 				"file_num", i+1,
-				"total_files", len(jsonFiles),
+				"total_files", len(files),
 				"size_mb", fmt.Sprintf("%.2f", float64(fi.Size())/1e6),
 			)
 		} else {
-			slog.Info("starting import of file", "file", entry.Name(), "file_num", i+1, "total_files", len(jsonFiles))
+			slog.Info("starting import of file", "file", entry.Name(), "format", f.format, "file_num", i+1, "total_files", len(files))
 		}
 
-		if err := parseFDCFile(filePath, done); err != nil {
-			slog.Error("failed to parse FDC file", "file", filePath, "error", err)
+		var parseErr error
+		if f.format == "off" {
+			parseErr = parseOFFFile(filePath, done)
+		} else {
+			parseErr = parseFDCFile(filePath, done)
+		}
+		if parseErr != nil {
+			slog.Error("failed to parse import file", "file", filePath, "format", f.format, "error", parseErr)
 			continue
 		}
 
@@ -58,10 +87,9 @@ func ScanAndImport(importDir, importedDir string, done <-chan struct{}) error {
 		baseName := strings.TrimSuffix(entry.Name(), baseExt)
 		timestamp := time.Now().Format("20060102_150405")
 		newName := fmt.Sprintf("%s_%s%s", baseName, timestamp, baseExt)
-		
+
 		destPath := filepath.Join(importedDir, newName)
 		if err := os.Rename(filePath, destPath); err != nil {
-			// If cross-device link error, os.Rename fails. But here we assume same FS.
 			slog.Error("failed to move imported file", "from", filePath, "to", destPath, "error", err)
 		} else {
 			slog.Info("successfully imported and moved file", "file", destPath)
@@ -70,5 +98,3 @@ func ScanAndImport(importDir, importedDir string, done <-chan struct{}) error {
 
 	return nil
 }
-
-

@@ -370,26 +370,30 @@ func upsertFood(fdcFood FdcFood) (upsertResult, error) {
 		Portions:          portions,
 	}
 
+	return upsertFoodData(extID, foodData)
+}
+
+// upsertFoodData performs the DB upsert for a fully-mapped db.Food.
+// It is shared between the FDC and OFF importers.
+func upsertFoodData(extID string, foodData db.Food) (upsertResult, error) {
 	existingFood, err := db.GetFoodByExternalID(extID)
 	if err != nil {
 		return upsertSkipped, fmt.Errorf("checking existing food: %w", err)
 	}
 
 	if existingFood != nil {
-		// Detect changes (Macros, Name, or Metadata)
-		changed := existingFood.Calories != calories ||
-			existingFood.Protein != protein ||
-			existingFood.Carbs != carbs ||
-			existingFood.Fat != fat ||
-			existingFood.Name != fdcFood.Description ||
-			stringPtrChanged(existingFood.BrandOwner, brandPtr) ||
-			stringPtrChanged(existingFood.Barcode, barcodePtr) ||
-			stringPtrChanged(existingFood.IngredientsText, ingredientsPtr) ||
-			stringPtrChanged(existingFood.Category, categoryPtr) ||
-			len(existingFood.Portions) != len(portions)
+		changed := existingFood.Calories != foodData.Calories ||
+			existingFood.Protein != foodData.Protein ||
+			existingFood.Carbs != foodData.Carbs ||
+			existingFood.Fat != foodData.Fat ||
+			existingFood.Name != foodData.Name ||
+			stringPtrChanged(existingFood.BrandOwner, foodData.BrandOwner) ||
+			stringPtrChanged(existingFood.Barcode, foodData.Barcode) ||
+			stringPtrChanged(existingFood.IngredientsText, foodData.IngredientsText) ||
+			stringPtrChanged(existingFood.Category, foodData.Category) ||
+			len(existingFood.Portions) != len(foodData.Portions)
 
 		if changed {
-			slog.Debug("updating changed food", "fdcId", fdcFood.FdcID, "description", fdcFood.Description)
 			_, err = db.UpdateFood(existingFood.ID, foodData)
 			if err != nil {
 				return upsertSkipped, fmt.Errorf("updating food: %w", err)
