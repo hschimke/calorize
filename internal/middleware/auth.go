@@ -20,8 +20,8 @@ func RequireAuth(next http.Handler) http.Handler {
 		// 1. Check Bearer Token
 		authHeader := r.Header.Get("Authorization")
 		if authHeader != "" {
-			if strings.HasPrefix(authHeader, "Bearer ") {
-				tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			if after, ok := strings.CutPrefix(authHeader, "Bearer "); ok {
+				tokenStr := after
 				var uid db.UserID
 				uid, err = token.Validate(tokenStr)
 				if err == nil {

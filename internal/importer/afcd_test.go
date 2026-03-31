@@ -83,7 +83,7 @@ func TestParseNutrientProfiles(t *testing.T) {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheet, cell, h)
 	}
-	values := []interface{}{
+	values := []any{
 		"F000001", "7", "Analysed", "Carrot, raw",
 		169.0, // kJ → rounded kcal
 		152.0, // kJ without fibre (macro column, excluded from micros)
@@ -245,7 +245,7 @@ func TestImportAFCD(t *testing.T) {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		np.SetCellValue(npSheet, cell, h)
 	}
-	npVals := []interface{}{testKey, "7", "Analysed", "Import Test Food", 169.0, 0.9, 0.2, 7.3, 33.0}
+	npVals := []any{testKey, "7", "Analysed", "Import Test Food", 169.0, 0.9, 0.2, 7.3, 33.0}
 	for i, v := range npVals {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 2)
 		np.SetCellValue(npSheet, cell, v)

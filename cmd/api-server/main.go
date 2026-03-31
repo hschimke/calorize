@@ -125,9 +125,7 @@ func main() {
 	cleanupDone := make(chan struct{})
 	var wg sync.WaitGroup
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		slog.Info("session cleanup daemon starting")
 		for {
 			select {
@@ -141,7 +139,7 @@ func main() {
 				return
 			}
 		}
-	}()
+	})
 
 	importerTicker := time.NewTicker(24 * time.Hour)
 	importerDone := make(chan struct{})
@@ -153,11 +151,9 @@ func main() {
 	if importedDir == "" {
 		importedDir = "./imported"
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		slog.Info("importer scanner daemon starting")
-		
+
 		// Run initial scan
 		if err := importer.ScanAndImport(importDir, importedDir, importerDone); err != nil {
 			slog.Error("initial importer scan failed", "error", err)
@@ -175,7 +171,7 @@ func main() {
 				return
 			}
 		}
-	}()
+	})
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
