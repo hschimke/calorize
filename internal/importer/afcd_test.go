@@ -1,10 +1,14 @@
 package importer
 
 import (
+	"fmt"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/xuri/excelize/v2"
+
+	"azule.info/calorize/internal/db"
 )
 
 func TestParseUnitFromHeader(t *testing.T) {
@@ -127,5 +131,80 @@ func TestParseNutrientProfiles(t *testing.T) {
 	}
 	if !foundCalcium {
 		t.Error("expected Calcium (mg) micronutrient with amount=33 and unit=mg")
+	}
+}
+
+func TestUpsertAFCDFood(t *testing.T) {
+	// Unique ID per test run to avoid state from previous runs
+	extID := fmt.Sprintf("afcd_UPSERT_%d", time.Now().UnixNano())
+	food := db.Food{
+		Name:              "Carrot test, raw",
+		Calories:          40.4,
+		Protein:           0.9,
+		Carbs:             7.3,
+		Fat:               0.2,
+		Type:              "food",
+		MeasurementUnit:   "g",
+		MeasurementAmount: 100,
+		Servings:          1,
+		Public:            true,
+	}
+	nutrients := []db.FoodNutrient{
+		{Name: "Calcium (mg)", Amount: 33.0, Unit: "mg"},
+	}
+
+	// First call → created
+	result, err := upsertAFCDFood(extID, food, "Vegetables", "A test carrot", nutrients)
+	if err != nil {
+		t.Fatalf("upsertAFCDFood: %v", err)
+	}
+	if result != upsertCreated {
+		t.Errorf("first call: got %v, want upsertCreated", result)
+	}
+
+	got, err := db.GetFoodByExternalID(extID)
+	if err != nil || got == nil {
+		t.Fatalf("food not found after insert: %v", err)
+	}
+	full, err := db.GetFood(got.ID)
+	if err != nil {
+		t.Fatalf("GetFood: %v", err)
+	}
+	if full.Name != "Carrot test, raw" {
+		t.Errorf("Name = %q, want %q", full.Name, "Carrot test, raw")
+	}
+	if len(full.Nutrients) != 1 {
+		t.Errorf("len(Nutrients) = %d, want 1", len(full.Nutrients))
+	}
+	if full.Category == nil || *full.Category != "Vegetables" {
+		t.Errorf("Category = %v, want Vegetables", full.Category)
+	}
+
+	// Same data again → skipped, version count stays at 1
+	result2, err := upsertAFCDFood(extID, food, "Vegetables", "A test carrot", nutrients)
+	if err != nil {
+		t.Fatalf("second upsertAFCDFood: %v", err)
+	}
+	if result2 != upsertSkipped {
+		t.Errorf("second call: got %v, want upsertSkipped", result2)
+	}
+	versions, _ := db.GetFoodVersions(got.ID)
+	if len(versions) != 1 {
+		t.Errorf("versions = %d, want 1 (no change detected)", len(versions))
+	}
+
+	// Changed data → updated, version count becomes 2
+	food.Name = "Carrot test, cooked"
+	result3, err := upsertAFCDFood(extID, food, "Vegetables", "A test carrot", nutrients)
+	if err != nil {
+		t.Fatalf("third upsertAFCDFood: %v", err)
+	}
+	if result3 != upsertUpdated {
+		t.Errorf("third call (changed name): got %v, want upsertUpdated", result3)
+	}
+	updated, _ := db.GetFoodByExternalID(extID)
+	versionsAfterUpdate, _ := db.GetFoodVersions(updated.ID)
+	if len(versionsAfterUpdate) != 2 {
+		t.Errorf("versions after update = %d, want 2", len(versionsAfterUpdate))
 	}
 }

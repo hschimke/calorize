@@ -157,3 +157,47 @@ func parseNutrientProfiles(f *excelize.File) (map[string]afcdNutrientRow, error)
 	}
 	return result, nil
 }
+
+// upsertAFCDFood creates or updates the food identified by extID.
+// category → Category field, description → IngredientsText field.
+// nutrients are inserted fresh under the new version UUID; cascade delete handles cleanup.
+func upsertAFCDFood(extID string, food db.Food, category, description string, nutrients []db.FoodNutrient) (upsertResult, error) {
+	var catPtr, descPtr *string
+	if category != "" {
+		catPtr = &category
+	}
+	if description != "" {
+		descPtr = &description
+	}
+	food.ExternalID = &extID
+	food.Category = catPtr
+	food.IngredientsText = descPtr
+	food.Nutrients = nutrients
+
+	existing, err := db.GetFoodByExternalID(extID)
+	if err != nil {
+		return upsertSkipped, fmt.Errorf("checking existing food: %w", err)
+	}
+
+	if existing != nil {
+		changed := existing.Name != food.Name ||
+			existing.Calories != food.Calories ||
+			existing.Protein != food.Protein ||
+			existing.Fat != food.Fat ||
+			existing.Carbs != food.Carbs ||
+			stringPtrChanged(existing.Category, catPtr) ||
+			stringPtrChanged(existing.IngredientsText, descPtr)
+		if !changed {
+			return upsertSkipped, nil
+		}
+		if _, err := db.UpdateFood(existing.ID, food); err != nil {
+			return upsertSkipped, fmt.Errorf("updating food: %w", err)
+		}
+		return upsertUpdated, nil
+	}
+
+	if _, err := db.CreateFood(food); err != nil {
+		return upsertSkipped, fmt.Errorf("creating food: %w", err)
+	}
+	return upsertCreated, nil
+}
