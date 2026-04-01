@@ -192,6 +192,13 @@ func main() {
 	close(importerDone)
 	wg.Wait()
 
+	// Close the database connection pool last, after all goroutines have stopped.
+	if err := db.Close(); err != nil {
+		slog.Error("failed to close database", "error", err)
+	} else {
+		slog.Info("database closed")
+	}
+
 	slog.Info("server exited")
 }
 

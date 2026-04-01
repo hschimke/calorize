@@ -50,3 +50,12 @@ func init() {
 
 	slog.Info("database initialized")
 }
+
+// Close closes the underlying database connection pool.
+// It should be called once during application shutdown.
+func Close() error {
+	if db != nil {
+		return db.Close()
+	}
+	return nil
+}
