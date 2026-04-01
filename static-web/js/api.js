@@ -209,6 +209,15 @@ export class API {
         return await this.request(`/logs/${id}`, 'DELETE');
     }
 
+    async copyLogs(fromDate, toDate, mealTags) {
+        const tzOffset = new Date().getTimezoneOffset();
+        return await this.request(`/logs/copy?tz_offset=${tzOffset}`, 'POST', {
+            from_date: fromDate,
+            to_date: toDate,
+            meal_tags: mealTags,
+        });
+    }
+
     // --- Account / Passkeys ---
 
     async getPasskeys() {
