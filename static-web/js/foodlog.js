@@ -6,6 +6,8 @@ import { FoodSearch } from './food-search.js';
 let currentDate = getLocalDateString();
 let selectedFood = null;
 let previewGeneration = 0;
+let lastPreviewDate = null;
+let lastPreviewLogs = null;
 let foodSearch = null;
 let goalProfile = null;
 let userPrefs = null;
@@ -266,6 +268,11 @@ function initCopyDialog() {
         // Reset all meal checkboxes to checked
         document.querySelectorAll('input[name="copy_meal"]').forEach(cb => { cb.checked = true; });
 
+        // Reset cache
+        lastPreviewDate = null;
+        lastPreviewLogs = null;
+        document.getElementById('copy-preview').textContent = '';
+
         dialog.showModal();
         loadCopyPreview();
     });
@@ -312,10 +319,22 @@ async function loadCopyPreview() {
         preview.textContent = '';
         confirmBtn.disabled = true;
         confirmBtn.textContent = 'Copy 0 entries';
+        lastPreviewDate = null;
+        lastPreviewLogs = null;
         return;
     }
 
-    preview.textContent = 'Loading...';
+    // If date hasn't changed, we can use cached logs and just re-filter/render
+    if (fromDate === lastPreviewDate && lastPreviewLogs) {
+        renderCopyPreview(lastPreviewLogs, checkedTags);
+        return;
+    }
+
+    // New date: indicate loading without clearing previous content if possible
+    preview.classList.add('loading');
+    if (!preview.hasChildNodes()) {
+        preview.textContent = 'Loading...';
+    }
     confirmBtn.disabled = true;
 
     let logs;
@@ -323,16 +342,28 @@ async function loadCopyPreview() {
         logs = await api.getLogs(fromDate);
     } catch (e) {
         if (generation !== previewGeneration) return;
+        preview.classList.remove('loading');
         preview.textContent = 'Failed to load preview.';
         return;
     }
 
     if (generation !== previewGeneration) return;
 
-    const filtered = (logs || []).filter(log => checkedTags.has(log.meal_tag));
+    lastPreviewDate = fromDate;
+    lastPreviewLogs = logs || [];
+    
+    preview.classList.remove('loading');
+    renderCopyPreview(lastPreviewLogs, checkedTags);
+}
+
+function renderCopyPreview(logs, checkedTags) {
+    const preview = document.getElementById('copy-preview');
+    const confirmBtn = document.getElementById('copy-confirm-btn');
+    const filtered = logs.filter(log => checkedTags.has(log.meal_tag));
 
     if (filtered.length === 0) {
         preview.textContent = 'No entries for selected meals on this date.';
+        confirmBtn.disabled = true;
         confirmBtn.textContent = 'Copy 0 entries';
         return;
     }
