@@ -420,6 +420,7 @@ func getStatsBreakdownHandler(w http.ResponseWriter, r *http.Request) {
 func RegisterLogsPaths(mux *http.ServeMux) {
 	mux.HandleFunc("GET /logs", getLogsHandler)
 	mux.HandleFunc("POST /logs", createLogEntryHandler)
+	mux.HandleFunc("POST /logs/copy", copyLogEntriesHandler)
 	mux.HandleFunc("DELETE /logs/{id}", deleteLogEntryHandler)
 }
 
@@ -541,4 +542,69 @@ func deleteLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+type copyLogEntriesRequest struct {
+	FromDate string   `json:"from_date"`
+	ToDate   string   `json:"to_date"`
+	MealTags []string `json:"meal_tags"`
+}
+
+func copyLogEntriesHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req copyLogEntriesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.MealTags) == 0 {
+		http.Error(w, "meal_tags must not be empty", http.StatusBadRequest)
+		return
+	}
+
+	loc := getClientLocation(r)
+
+	fromDate, err := time.ParseInLocation("2006-01-02", req.FromDate, loc)
+	if err != nil {
+		http.Error(w, "Invalid from_date, expected YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+
+	toDate, err := time.ParseInLocation("2006-01-02", req.ToDate, loc)
+	if err != nil {
+		http.Error(w, "Invalid to_date, expected YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+
+	if req.FromDate == req.ToDate {
+		http.Error(w, "from_date and to_date must be different", http.StatusBadRequest)
+		return
+	}
+
+	// Use current time when copying to today; noon on the target date for historical days
+	now := time.Now()
+	var loggedAt time.Time
+	if req.ToDate == now.In(loc).Format("2006-01-02") {
+		loggedAt = now.UTC()
+	} else {
+		loggedAt = time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 12, 0, 0, 0, loc).UTC()
+	}
+
+	count, err := db.CopyFoodLogEntries(userID, fromDate, req.MealTags, loggedAt)
+	if err != nil {
+		slog.Error("failed to copy log entries", "error", err)
+		http.Error(w, "Failed to copy log entries", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]int{"count": count}); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
