@@ -5,6 +5,7 @@ import { FoodSearch } from './food-search.js';
 
 let currentDate = getLocalDateString();
 let selectedFood = null;
+let previewGeneration = 0;
 let foodSearch = null;
 let goalProfile = null;
 let userPrefs = null;
@@ -298,12 +299,20 @@ function initCopyDialog() {
 }
 
 async function loadCopyPreview() {
+    const generation = ++previewGeneration;
     const fromDate = document.getElementById('copy-from-date').value;
     const checkedTags = new Set(
         [...document.querySelectorAll('input[name="copy_meal"]:checked')].map(cb => cb.value)
     );
     const preview = document.getElementById('copy-preview');
     const confirmBtn = document.getElementById('copy-confirm-btn');
+
+    if (!fromDate) {
+        preview.textContent = '';
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Copy 0 entries';
+        return;
+    }
 
     preview.textContent = 'Loading...';
     confirmBtn.disabled = true;
@@ -312,9 +321,12 @@ async function loadCopyPreview() {
     try {
         logs = await api.getLogs(fromDate);
     } catch (e) {
+        if (generation !== previewGeneration) return;
         preview.textContent = 'Failed to load preview.';
         return;
     }
+
+    if (generation !== previewGeneration) return;
 
     const filtered = (logs || []).filter(log => checkedTags.has(log.meal_tag));
 
