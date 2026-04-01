@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	_ "github.com/glebarez/go-sqlite"
 	"github.com/pressly/goose/v3"
@@ -25,7 +26,16 @@ func init() {
 		dbPath = "./test.db"
 	}
 
-	dsn := fmt.Sprintf("%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)", dbPath)
+	dsn := fmt.Sprintf(
+		"%s?_pragma=foreign_keys(1)"+
+			"&_pragma=journal_mode(WAL)"+
+			"&_pragma=busy_timeout(5000)"+
+			"&_pragma=synchronous(NORMAL)"+  // safe with WAL, faster than FULL
+			"&_pragma=cache_size(-64000)"+   // 64 MB page cache
+			"&_pragma=temp_store(MEMORY)"+   // temp tables in RAM
+			"&_pragma=mmap_size(134217728)", // 128 MB memory-mapped I/O
+		dbPath,
+	)
 
 	slog.Info("opening database", "path", dsn)
 	db, err = sql.Open("sqlite", dsn)
@@ -37,6 +47,7 @@ func init() {
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(0)
+	db.SetConnMaxIdleTime(5 * time.Minute)
 
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		slog.Error("failed to set dialect", "error", err)
