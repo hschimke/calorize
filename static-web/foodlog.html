@@ -76,11 +76,36 @@
         </div>
 
         <div class="logs-list-section">
-            <h2>Logs</h2>
+            <div class="section-header">
+                <h2>Logs</h2>
+                <button type="button" id="copy-day-btn" class="btn btn-secondary btn-sm">Copy from...</button>
+            </div>
             <ul id="logs-list" class="item-list">
                 <!-- Logs will be populated here -->
             </ul>
         </div>
+
+        <dialog id="copy-day-dialog">
+            <h2>Copy from another day</h2>
+            <div class="form-group">
+                <label for="copy-from-date">Copy from date</label>
+                <input type="date" id="copy-from-date">
+            </div>
+            <div class="form-group">
+                <label>Meals to copy</label>
+                <div class="copy-meal-checks">
+                    <label><input type="checkbox" name="copy_meal" value="breakfast" checked> Breakfast</label>
+                    <label><input type="checkbox" name="copy_meal" value="lunch" checked> Lunch</label>
+                    <label><input type="checkbox" name="copy_meal" value="dinner" checked> Dinner</label>
+                    <label><input type="checkbox" name="copy_meal" value="snack" checked> Snack</label>
+                </div>
+            </div>
+            <div id="copy-preview"></div>
+            <div class="copy-dialog-actions">
+                <button type="button" id="copy-confirm-btn" class="btn btn-primary" disabled>Copy 0 entries</button>
+                <button type="button" id="copy-cancel-btn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </dialog>
     </div>
 </body>
 

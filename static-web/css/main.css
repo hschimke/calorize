@@ -933,3 +933,75 @@ select:focus {
   font-size: 0.875rem;
   margin: var(--space-1) 0 var(--space-3);
 }
+
+/* ============================================================
+   Section Header (heading + inline action button)
+   ============================================================ */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.section-header h2 {
+  margin: 0;
+}
+
+/* ============================================================
+   Copy Day Dialog
+   ============================================================ */
+dialog {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  max-width: 480px;
+  width: 100%;
+  background: var(--color-surface);
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+dialog h2 {
+  margin-top: 0;
+}
+
+.copy-meal-checks {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin: var(--space-3) 0;
+}
+
+.copy-meal-checks label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+
+#copy-preview {
+  margin: var(--space-4) 0;
+  min-height: 40px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+#copy-preview strong {
+  display: block;
+  color: var(--color-text);
+  margin-top: var(--space-2);
+}
+
+.copy-preview-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-1) 0 0 var(--space-3);
+}
+
+.copy-dialog-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
