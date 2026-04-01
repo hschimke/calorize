@@ -23,6 +23,10 @@ COPY_FOOD=$(curl -s -X POST "$BASE_URL/foods" \
   "measurement_amount": 100
 }')
 COPY_FOOD_ID=$(echo $COPY_FOOD | jq -r .id)
+if [ -z "$COPY_FOOD_ID" ] || [ "$COPY_FOOD_ID" == "null" ]; then
+    log_err "Failed to create Copy Test Food"
+    exit 1
+fi
 log_info "✅ Created Copy Test Food: $COPY_FOOD_ID"
 
 # Compute yesterday in YYYY-MM-DD (macOS + Linux compatible)
@@ -35,18 +39,30 @@ LOG_BFAST=$(curl -s -X POST "$BASE_URL/logs" \
   -H "Content-Type: application/json" \
   -d "{\"food_id\": \"$COPY_FOOD_ID\", \"amount\": 100, \"meal_tag\": \"breakfast\", \"logged_at\": \"$YESTERDAY_ISO\"}")
 LOG_BFAST_ID=$(echo $LOG_BFAST | jq -r .id)
+if [ -z "$LOG_BFAST_ID" ] || [ "$LOG_BFAST_ID" == "null" ]; then
+    log_err "Failed to log breakfast entry"
+    exit 1
+fi
 log_info "✅ Logged breakfast on $YESTERDAY: $LOG_BFAST_ID"
 
 LOG_LUNCH=$(curl -s -X POST "$BASE_URL/logs" \
   -H "Content-Type: application/json" \
   -d "{\"food_id\": \"$COPY_FOOD_ID\", \"amount\": 150, \"meal_tag\": \"lunch\", \"logged_at\": \"$YESTERDAY_ISO\"}")
 LOG_LUNCH_ID=$(echo $LOG_LUNCH | jq -r .id)
+if [ -z "$LOG_LUNCH_ID" ] || [ "$LOG_LUNCH_ID" == "null" ]; then
+    log_err "Failed to log lunch entry"
+    exit 1
+fi
 log_info "✅ Logged lunch on $YESTERDAY: $LOG_LUNCH_ID"
 
 LOG_DINNER=$(curl -s -X POST "$BASE_URL/logs" \
   -H "Content-Type: application/json" \
   -d "{\"food_id\": \"$COPY_FOOD_ID\", \"amount\": 200, \"meal_tag\": \"dinner\", \"logged_at\": \"$YESTERDAY_ISO\"}")
 LOG_DINNER_ID=$(echo $LOG_DINNER | jq -r .id)
+if [ -z "$LOG_DINNER_ID" ] || [ "$LOG_DINNER_ID" == "null" ]; then
+    log_err "Failed to log dinner entry"
+    exit 1
+fi
 log_info "✅ Logged dinner on $YESTERDAY: $LOG_DINNER_ID"
 
 # Copy only breakfast and lunch to today
@@ -75,6 +91,14 @@ else
     echo $TODAY_LOGS | jq .
     exit 1
 fi
+
+DINNER_COUNT=$(echo $TODAY_LOGS | jq '[.[] | select(.meal_tag == "dinner")] | length')
+if [ "$DINNER_COUNT" -ne 0 ]; then
+    log_err "Dinner should not have been copied, found $DINNER_COUNT entries"
+    echo $TODAY_LOGS | jq .
+    exit 1
+fi
+log_info "✅ Dinner correctly excluded ($DINNER_COUNT entries)"
 
 # Validation: same from_date and to_date should return 400
 echo "Testing from_date == to_date returns 400..."
