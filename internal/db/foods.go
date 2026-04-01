@@ -78,16 +78,17 @@ func GetFoods(userID UserID, disabledSources []string, hidePublicUserFoods bool)
 			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 		FROM foods
 		WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
-		UNION
+		UNION ALL
 		SELECT
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
 			measurement_unit, measurement_amount, servings, public, external_id,
 			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 		FROM foods
-		WHERE public = true AND is_current = true AND deleted_at IS NULL` + sourceClause
+		WHERE public = true AND is_current = true AND deleted_at IS NULL
+		  AND (creator_id != ? OR creator_id IS NULL)` + sourceClause
 
-	args := append([]any{userID}, sourceArgs...)
+	args := append([]any{userID, userID}, sourceArgs...)
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("listing foods: %w", err)
@@ -570,13 +571,14 @@ func GetRecentFoods(userID UserID, limit int) ([]Food, error) {
 		       f.brand_owner, f.barcode, f.ingredients_text, f.category, f.created_at, f.deleted_at
 		FROM foods f
 		INNER JOIN (
-			SELECT food_id, MAX(logged_at) AS last_used
-			FROM food_log_entries
-			WHERE user_id = ? AND food_id IS NOT NULL AND deleted_at IS NULL
-			GROUP BY food_id
+			SELECT f2.family_id, MAX(l.logged_at) AS last_used
+			FROM food_log_entries l
+			INNER JOIN foods f2 ON l.food_id = f2.id
+			WHERE l.user_id = ? AND l.food_id IS NOT NULL AND l.deleted_at IS NULL
+			GROUP BY f2.family_id
 			ORDER BY last_used DESC
 			LIMIT ?
-		) recent ON f.id = recent.food_id
+		) recent ON f.family_id = recent.family_id
 		WHERE f.is_current = true AND f.deleted_at IS NULL
 		ORDER BY recent.last_used DESC
 	`
@@ -636,7 +638,7 @@ func SearchFoods(userID UserID, q string, limit int, disabledSources []string, h
 			  AND name LIKE ? ESCAPE ?
 			LIMIT ?
 		)
-		UNION
+		UNION ALL
 		SELECT id, creator_id, family_id, version, is_current, name,
 		       calories, protein, carbs, fat, type,
 		       measurement_unit, measurement_amount, servings, public, external_id,
@@ -648,13 +650,14 @@ func SearchFoods(userID UserID, q string, limit int, disabledSources []string, h
 			       brand_owner, barcode, ingredients_text, category, created_at, deleted_at
 			FROM foods
 			WHERE public = true AND is_current = true AND deleted_at IS NULL
+			  AND (creator_id != ? OR creator_id IS NULL)
 			  AND name LIKE ? ESCAPE ?` + sourceClause + `
 			LIMIT ?
 		)
 	`
 
-	// Build args: user branch args, then public branch args (pattern, escChar, sourceArgs..., limit)
-	args := []any{userID, pattern, escChar, limit, pattern, escChar}
+	// Build args: user branch args, then public branch args (userID, pattern, escChar, sourceArgs..., limit)
+	args := []any{userID, pattern, escChar, limit, userID, pattern, escChar}
 	args = append(args, sourceArgs...)
 	args = append(args, limit)
 
