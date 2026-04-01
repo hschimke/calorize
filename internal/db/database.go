@@ -30,10 +30,11 @@ func init() {
 		"%s?_pragma=foreign_keys(1)"+
 			"&_pragma=journal_mode(WAL)"+
 			"&_pragma=busy_timeout(5000)"+
-			"&_pragma=synchronous(NORMAL)"+  // safe with WAL, faster than FULL
-			"&_pragma=cache_size(-64000)"+   // 64 MB page cache
-			"&_pragma=temp_store(MEMORY)"+   // temp tables in RAM
-			"&_pragma=mmap_size(134217728)", // 128 MB memory-mapped I/O
+			"&_pragma=synchronous(NORMAL)"+   // safe with WAL, faster than FULL
+			"&_pragma=cache_size(-64000)"+    // 64 MB page cache
+			"&_pragma=temp_store(MEMORY)"+    // temp tables in RAM
+			"&_pragma=mmap_size(134217728)"+  // 128 MB memory-mapped I/O
+			"&_pragma=analysis_limit(400)",   // sample limit for ANALYZE / optimize
 		dbPath,
 	)
 
@@ -62,10 +63,16 @@ func init() {
 	slog.Info("database initialized")
 }
 
-// Close closes the underlying database connection pool.
-// It should be called once during application shutdown.
+// Close runs PRAGMA optimize to refresh query planner statistics, then closes
+// the underlying database connection pool. It should be called once during
+// application shutdown.
 func Close() error {
 	if db != nil {
+		// Update stale index statistics before closing so the next startup
+		// benefits from accurate query plans.
+		if _, err := db.Exec("PRAGMA optimize;"); err != nil {
+			slog.Warn("PRAGMA optimize failed", "error", err)
+		}
 		return db.Close()
 	}
 	return nil
