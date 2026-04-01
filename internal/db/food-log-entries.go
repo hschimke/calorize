@@ -24,6 +24,9 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 	defer rows.Close()
 
 	var entries []FoodLogEntry
+	uniqueFoodIDs := make([]FoodID, 0)
+	foodIDSet := make(map[FoodID]struct{})
+
 	for rows.Next() {
 		var entry FoodLogEntry
 		var foodID uuid.NullUUID
@@ -33,14 +36,9 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 		if foodID.Valid {
 			fid := FoodID(foodID.UUID)
 			entry.FoodID = &fid
-
-			// Populate Food object
-			food, err := GetFood(fid)
-			if err != nil {
-				slog.Error("failed to get food for log entry", "food_id", fid, "entry_id", entry.ID, "error", err)
-			}
-			if food != nil {
-				entry.Food = food
+			if _, exists := foodIDSet[fid]; !exists {
+				foodIDSet[fid] = struct{}{}
+				uniqueFoodIDs = append(uniqueFoodIDs, fid)
 			}
 		}
 		entries = append(entries, entry)
@@ -48,6 +46,22 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterating food log entries: %w", err)
 	}
+
+	if len(uniqueFoodIDs) > 0 {
+		foodMap, err := GetFoodsByIDs(uniqueFoodIDs)
+		if err != nil {
+			slog.Error("failed to batch get foods for log entries", "error", err)
+		} else {
+			for i := range entries {
+				if entries[i].FoodID != nil {
+					if f, ok := foodMap[*entries[i].FoodID]; ok {
+						entries[i].Food = f
+					}
+				}
+			}
+		}
+	}
+
 	return entries, nil
 }
 

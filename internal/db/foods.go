@@ -149,6 +149,128 @@ func GetAvailableSources() ([]string, error) {
 	return sources, nil
 }
 
+// GetFoodsByIDs batch-fetches a set of foods and their relations avoiding the N+1 problem.
+func GetFoodsByIDs(ids []FoodID) (map[FoodID]*Food, error) {
+	if len(ids) == 0 {
+		return make(map[FoodID]*Food), nil
+	}
+
+	args := make([]any, len(ids))
+	placeholders := make([]string, len(ids))
+	for i, id := range ids {
+		args[i] = id
+		placeholders[i] = "?"
+	}
+	inClause := strings.Join(placeholders, ",")
+
+	query := fmt.Sprintf(`
+		SELECT
+			id, creator_id, family_id, version, is_current, name,
+			calories, protein, carbs, fat, type,
+			measurement_unit, measurement_amount, servings, public, external_id,
+			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+		FROM foods
+		WHERE id IN (%s)
+	`, inClause)
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("getting foods by ids: %w", err)
+	}
+	defer rows.Close()
+
+	foodMap := make(map[FoodID]*Food)
+	for rows.Next() {
+		var f Food
+		err := rows.Scan(
+			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
+			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
+			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scanning food: %w", err)
+		}
+		foodMap[f.ID] = &f
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating foods: %w", err)
+	}
+
+	if len(foodMap) == 0 {
+		return foodMap, nil
+	}
+
+	// Fetch nutrients
+	nutrientsQuery := fmt.Sprintf(`
+		SELECT food_id, name, amount, unit
+		FROM food_nutrients
+		WHERE food_id IN (%s)
+	`, inClause)
+	nRows, err := db.Query(nutrientsQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("getting food nutrients by ids: %w", err)
+	}
+	defer nRows.Close()
+
+	for nRows.Next() {
+		var n FoodNutrient
+		if err := nRows.Scan(&n.FoodID, &n.Name, &n.Amount, &n.Unit); err != nil {
+			return nil, fmt.Errorf("scanning nutrient: %w", err)
+		}
+		if f := foodMap[n.FoodID]; f != nil {
+			f.Nutrients = append(f.Nutrients, n)
+		}
+	}
+	if err := nRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating nutrients: %w", err)
+	}
+
+	// Fetch portions
+	portionsQuery := fmt.Sprintf(`SELECT food_id, name, amount, unit, gram_weight FROM food_portions WHERE food_id IN (%s)`, inClause)
+	pRows, err := db.Query(portionsQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("getting food portions by ids: %w", err)
+	}
+	defer pRows.Close()
+
+	for pRows.Next() {
+		var p FoodPortion
+		if err := pRows.Scan(&p.FoodID, &p.Name, &p.Amount, &p.Unit, &p.GramWeight); err != nil {
+			return nil, fmt.Errorf("scanning portion: %w", err)
+		}
+		if f := foodMap[p.FoodID]; f != nil {
+			f.Portions = append(f.Portions, p)
+		}
+	}
+	if err := pRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating portions: %w", err)
+	}
+
+	// Fetch ingredients
+	ingredientsQuery := fmt.Sprintf(`SELECT recipe_id, ingredient_id, amount FROM recipe_items WHERE recipe_id IN (%s)`, inClause)
+	iRows, err := db.Query(ingredientsQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("getting recipe items by ids: %w", err)
+	}
+	defer iRows.Close()
+
+	for iRows.Next() {
+		var i RecipeItems
+		if err := iRows.Scan(&i.RecipeID, &i.IngredientID, &i.Amount); err != nil {
+			return nil, fmt.Errorf("scanning recipe item: %w", err)
+		}
+		if f := foodMap[FoodID(i.RecipeID)]; f != nil {
+			f.Ingredients = append(f.Ingredients, i)
+		}
+	}
+	if err := iRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating recipe items: %w", err)
+	}
+
+	return foodMap, nil
+}
+
 func GetFood(id FoodID) (*Food, error) {
 	query := `
 		SELECT
