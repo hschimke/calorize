@@ -27,6 +27,7 @@ TEST_FILES=(
     "tests/05_input_validation.sh"
     "tests/07_account_passkeys.sh"
     "tests/08_account_profile.sh"
+    "tests/09_copy_logs.sh"
 )
 
 for TEST_FILE in "${TEST_FILES[@]}"; do
