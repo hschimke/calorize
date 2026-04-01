@@ -75,6 +75,8 @@ async function init() {
     modeRadios.forEach(radio => {
         radio.addEventListener('change', toggleMode);
     });
+
+    initCopyDialog();
 }
 
 function toggleMode(e) {
@@ -244,6 +246,110 @@ async function deleteLog(id) {
     } catch (e) {
         showToast("Failed to remove log: " + e.message, 'error');
     }
+}
+
+function initCopyDialog() {
+    const dialog = document.getElementById('copy-day-dialog');
+    const openBtn = document.getElementById('copy-day-btn');
+    const cancelBtn = document.getElementById('copy-cancel-btn');
+    const confirmBtn = document.getElementById('copy-confirm-btn');
+    const fromDateInput = document.getElementById('copy-from-date');
+
+    openBtn.addEventListener('click', () => {
+        // Default from-date: one day before currentDate
+        const d = new Date(currentDate + 'T12:00:00');
+        d.setDate(d.getDate() - 1);
+        fromDateInput.value = getLocalDateString(d);
+
+        // Reset all meal checkboxes to checked
+        document.querySelectorAll('input[name="copy_meal"]').forEach(cb => { cb.checked = true; });
+
+        dialog.showModal();
+        loadCopyPreview();
+    });
+
+    cancelBtn.addEventListener('click', () => dialog.close());
+
+    // Close on backdrop click
+    dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) dialog.close();
+    });
+
+    fromDateInput.addEventListener('change', loadCopyPreview);
+    document.querySelectorAll('input[name="copy_meal"]').forEach(cb => {
+        cb.addEventListener('change', loadCopyPreview);
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+        const fromDate = fromDateInput.value;
+        const checkedTags = [...document.querySelectorAll('input[name="copy_meal"]:checked')]
+            .map(cb => cb.value);
+        confirmBtn.disabled = true;
+        try {
+            const result = await api.copyLogs(fromDate, currentDate, checkedTags);
+            dialog.close();
+            loadLogs();
+            showToast(`Copied ${result.count} ${result.count === 1 ? 'entry' : 'entries'}`);
+        } catch (e) {
+            showToast('Failed to copy entries: ' + e.message, 'error');
+            confirmBtn.disabled = false;
+        }
+    });
+}
+
+async function loadCopyPreview() {
+    const fromDate = document.getElementById('copy-from-date').value;
+    const checkedTags = new Set(
+        [...document.querySelectorAll('input[name="copy_meal"]:checked')].map(cb => cb.value)
+    );
+    const preview = document.getElementById('copy-preview');
+    const confirmBtn = document.getElementById('copy-confirm-btn');
+
+    preview.textContent = 'Loading...';
+    confirmBtn.disabled = true;
+
+    let logs;
+    try {
+        logs = await api.getLogs(fromDate);
+    } catch (e) {
+        preview.textContent = 'Failed to load preview.';
+        return;
+    }
+
+    const filtered = (logs || []).filter(log => checkedTags.has(log.meal_tag));
+
+    if (filtered.length === 0) {
+        preview.textContent = 'No entries for selected meals on this date.';
+        confirmBtn.textContent = 'Copy 0 entries';
+        return;
+    }
+
+    // Group by meal tag in display order
+    const groups = {};
+    for (const log of filtered) {
+        (groups[log.meal_tag] = groups[log.meal_tag] || []).push(log);
+    }
+
+    preview.textContent = '';
+    for (const meal of ['breakfast', 'lunch', 'dinner', 'snack']) {
+        if (!groups[meal]) continue;
+        const heading = document.createElement('strong');
+        heading.textContent = meal.charAt(0).toUpperCase() + meal.slice(1);
+        preview.appendChild(heading);
+        const ul = document.createElement('ul');
+        ul.className = 'copy-preview-list';
+        for (const log of groups[meal]) {
+            const li = document.createElement('li');
+            const name = log.food ? log.food.name : (log.note ? `[qc] ${log.note}` : 'Quick Add');
+            const cals = log.calories != null ? ` (${Math.round(log.calories)} kcal)` : '';
+            li.textContent = `${name}${cals}`;
+            ul.appendChild(li);
+        }
+        preview.appendChild(ul);
+    }
+
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = `Copy ${filtered.length} ${filtered.length === 1 ? 'entry' : 'entries'}`;
 }
 
 window.addEventListener('load', init);
