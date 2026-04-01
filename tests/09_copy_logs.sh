@@ -142,9 +142,9 @@ fi
 curl -s -X DELETE "$BASE_URL/logs/$LOG_BFAST_ID" > /dev/null
 curl -s -X DELETE "$BASE_URL/logs/$LOG_LUNCH_ID" > /dev/null
 curl -s -X DELETE "$BASE_URL/logs/$LOG_DINNER_ID" > /dev/null
-# Also delete the copies we made (they're in today's logs)
+# Also delete only the copies we made (filter by the test food ID to avoid deleting other tests' entries)
 TODAY_LOGS_AFTER=$(curl -s "$BASE_URL/logs?date=$TODAY")
-echo $TODAY_LOGS_AFTER | jq -r '.[].id' | while read id; do
+echo $TODAY_LOGS_AFTER | jq -r --arg fid "$COPY_FOOD_ID" '.[] | select(.food_id == $fid) | .id' | while read id; do
     curl -s -X DELETE "$BASE_URL/logs/$id" > /dev/null
 done
 curl -s -X DELETE "$BASE_URL/foods/$COPY_FOOD_ID" > /dev/null

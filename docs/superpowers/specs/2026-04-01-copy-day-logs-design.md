@@ -98,7 +98,7 @@ User clicks "Copy from..."
 
 ## Constraints & Notes
 
-- `logged_at` on copied entries is always `time.Now().UTC()` at the moment of the copy request — not noon or any target-date anchor
+- `logged_at` on copied entries: if `to_date` is today in the client's timezone, uses `time.Now().UTC()`; if `to_date` is a historical date, uses noon on that date in the client's timezone (converted to UTC). This keeps entries within the correct day boundary regardless of UTC offset.
 - The copy is additive: existing entries on the target date are not modified or deduplicated
 - The preview fetch (`GET /logs`) happens client-side on every change; no new read endpoint is needed
 - All existing CSS/component classes apply; no new design tokens needed
