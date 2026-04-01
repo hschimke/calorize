@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { showToast, showConfirm, renderCalorieGoalBar } from './ui.js';
+import { showToast, showConfirm, renderCalorieGoalBar, DOMBuffer } from './ui.js';
 import { getLocalDateString } from './utils.js';
 import { FoodSearch } from './food-search.js';
 
@@ -109,7 +109,7 @@ async function loadLogs() {
     try {
         const logs = await api.getLogs(currentDate);
         const logsList = document.getElementById('logs-list');
-        logsList.textContent = '';
+        const buffer = new DOMBuffer(logsList);
 
         if (logs && logs.length > 0) {
             logs.forEach(log => {
@@ -154,13 +154,14 @@ async function loadLogs() {
 
                 li.appendChild(div);
                 li.appendChild(deleteBtn);
-                logsList.appendChild(li);
+                buffer.append(li);
             });
         } else {
             const li = document.createElement('li');
             li.textContent = 'No logs for this date.';
-            logsList.appendChild(li);
+            buffer.append(li);
         }
+        buffer.clearAndFlush();
 
         const totalCals = Math.round(
             (logs || []).reduce((sum, log) => sum + (log.calories || 0), 0)
@@ -374,12 +375,12 @@ function renderCopyPreview(logs, checkedTags) {
         (groups[log.meal_tag] = groups[log.meal_tag] || []).push(log);
     }
 
-    preview.textContent = '';
+    const buffer = new DOMBuffer(preview);
     for (const meal of ['breakfast', 'lunch', 'dinner', 'snack']) {
         if (!groups[meal]) continue;
         const heading = document.createElement('strong');
         heading.textContent = meal.charAt(0).toUpperCase() + meal.slice(1);
-        preview.appendChild(heading);
+        buffer.append(heading);
         const ul = document.createElement('ul');
         ul.className = 'copy-preview-list';
         for (const log of groups[meal]) {
@@ -389,8 +390,9 @@ function renderCopyPreview(logs, checkedTags) {
             li.textContent = `${name}${cals}`;
             ul.appendChild(li);
         }
-        preview.appendChild(ul);
+        buffer.append(ul);
     }
+    buffer.clearAndFlush();
 
     confirmBtn.disabled = false;
     confirmBtn.textContent = `Copy ${filtered.length} ${filtered.length === 1 ? 'entry' : 'entries'}`;

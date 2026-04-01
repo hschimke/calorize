@@ -1,9 +1,9 @@
 import { api } from './api.js';
-import { showToast, showConfirm, showInput } from './ui.js';
+import { showToast, showConfirm, showInput, DOMBuffer } from './ui.js';
 
 async function loadPasskeys() {
     const list = document.getElementById('passkey-list');
-    list.textContent = '';
+    const buffer = new DOMBuffer(list);
 
     let passkeys;
     try {
@@ -11,7 +11,8 @@ async function loadPasskeys() {
     } catch (e) {
         const li = document.createElement('li');
         li.textContent = 'Failed to load passkeys.';
-        list.appendChild(li);
+        buffer.append(li);
+        buffer.clearAndFlush();
         showToast('Failed to load passkeys', 'error');
         return;
     }
@@ -19,7 +20,8 @@ async function loadPasskeys() {
     if (!passkeys || passkeys.length === 0) {
         const li = document.createElement('li');
         li.textContent = 'No passkeys found.';
-        list.appendChild(li);
+        buffer.append(li);
+        buffer.clearAndFlush();
         return;
     }
 
@@ -58,8 +60,9 @@ async function loadPasskeys() {
 
         li.appendChild(info);
         li.appendChild(actions);
-        list.appendChild(li);
+        buffer.append(li);
     }
+    buffer.clearAndFlush();
 }
 
 async function deletePasskey(id) {
@@ -115,13 +118,14 @@ const SOURCE_NAMES = {
 
 function renderSourceToggles(available, disabled) {
     const container = document.getElementById('source-toggles');
-    container.textContent = '';
+    const buffer = new DOMBuffer(container);
 
     if (available.length === 0) {
         const msg = document.createElement('p');
         msg.className = 'form-hint';
         msg.textContent = 'No imported food sources found.';
-        container.appendChild(msg);
+        buffer.append(msg);
+        buffer.clearAndFlush();
         return;
     }
 
@@ -139,8 +143,9 @@ function renderSourceToggles(available, disabled) {
 
         row.appendChild(checkbox);
         row.appendChild(text);
-        container.appendChild(row);
+        buffer.append(row);
     }
+    buffer.clearAndFlush();
 }
 
 async function loadPreferences() {

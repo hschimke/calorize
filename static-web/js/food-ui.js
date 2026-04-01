@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { showToast, showConfirm } from './ui.js';
+import { showToast, showConfirm, DOMBuffer } from './ui.js';
 import { FoodSearch } from './food-search.js';
 
 let recipeIngredients = []; // Array of {id, name, amount, unit, calories, protein, carbs, fat, measurement_amount}
@@ -13,7 +13,7 @@ async function loadFoods() {
     try {
         const foods = await api.getFoods({ mine: true });
         const foodsList = document.getElementById('foods-list');
-        foodsList.textContent = '';
+        const buffer = new DOMBuffer(foodsList);
 
         if (foods && foods.length > 0) {
             foods.forEach(food => {
@@ -69,13 +69,14 @@ async function loadFoods() {
 
                 li.appendChild(foodInfo);
                 li.appendChild(actionsDiv);
-                foodsList.appendChild(li);
+                buffer.append(li);
             });
         } else {
             const li = document.createElement('li');
             li.textContent = 'No foods found.';
-            foodsList.appendChild(li);
+            buffer.append(li);
         }
+        buffer.clearAndFlush();
     } catch (e) {
         console.error("Failed to load foods:", e);
         showToast("Failed to load foods", "error");
@@ -256,7 +257,7 @@ function toggleFoodType() {
 
 function updateIngredientList() {
     const list = document.getElementById('ingredients-list');
-    list.textContent = '';
+    const buffer = new DOMBuffer(list);
     recipeIngredients.forEach((ing, index) => {
         const div = document.createElement('div');
         div.className = 'nutrient-row nutrient-row--ingredient';
@@ -282,8 +283,9 @@ function updateIngredientList() {
         div.appendChild(amountSpan);
         div.appendChild(macroSpan);
         div.appendChild(removeBtn);
-        list.appendChild(div);
+        buffer.append(div);
     });
+    buffer.clearAndFlush();
     updateRecipeTotals();
 }
 

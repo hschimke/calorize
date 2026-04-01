@@ -207,3 +207,27 @@ export function renderCalorieGoalBar(consumed, goal, clownMode = false) {
     wrap.appendChild(label);
     return wrap;
 }
+
+// ============================================================
+// DOM Buffer
+// ============================================================
+
+export class DOMBuffer {
+    constructor(targetElement) {
+        this.target = targetElement;
+        this.fragment = document.createDocumentFragment();
+    }
+
+    append(child) {
+        this.fragment.appendChild(child);
+    }
+
+    flush() {
+        this.target.appendChild(this.fragment);
+    }
+
+    clearAndFlush() {
+        this.target.replaceChildren();
+        this.flush();
+    }
+}

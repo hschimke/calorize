@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { DOMBuffer } from './ui.js';
 
 export class FoodSearch {
     /**
@@ -150,32 +151,31 @@ export class FoodSearch {
      * @param {Array} [moreItems]  — food objects for the "More results" section
      */
     _renderDropdown(recentItems, moreItems) {
-        // Remove all children (no innerHTML)
-        while (this._dropdown.firstChild) {
-            this._dropdown.removeChild(this._dropdown.firstChild);
-        }
         this._activeIndex = -1;
         this._renderedFoods = new Map();
+        const buffer = new DOMBuffer(this._dropdown);
 
         // Recent section
-        this._dropdown.appendChild(this._createSectionHeader('Recent'));
+        buffer.append(this._createSectionHeader('Recent'));
         if (recentItems.length === 0) {
-            this._dropdown.appendChild(this._createNoRecentItem());
+            buffer.append(this._createNoRecentItem());
         } else {
             for (const food of recentItems) {
                 this._renderedFoods.set(food.id, food);
-                this._dropdown.appendChild(this._createFoodItem(food));
+                buffer.append(this._createFoodItem(food));
             }
         }
 
         // More results section
         if (moreItems && moreItems.length > 0) {
-            this._dropdown.appendChild(this._createSectionHeader('More results'));
+            buffer.append(this._createSectionHeader('More results'));
             for (const food of moreItems) {
                 this._renderedFoods.set(food.id, food);
-                this._dropdown.appendChild(this._createFoodItem(food));
+                buffer.append(this._createFoodItem(food));
             }
         }
+        
+        buffer.clearAndFlush();
     }
 
     _renderRecent() {

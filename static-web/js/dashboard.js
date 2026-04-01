@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { getLocalDateString } from './utils.js';
-import { renderCalorieGoalBar, showToast } from './ui.js';
+import { renderCalorieGoalBar, showToast, DOMBuffer } from './ui.js';
 
 async function updateDashboard() {
     try {
@@ -24,7 +24,7 @@ async function updateDashboard() {
         if (bar) calCard.appendChild(bar);
 
         const logsList = document.getElementById('dashboard-logs-list');
-        logsList.innerHTML = '';
+        const buffer = new DOMBuffer(logsList);
 
         if (logs && logs.length > 0) {
             logs.forEach(log => {
@@ -42,11 +42,14 @@ async function updateDashboard() {
                     text += ` [${log.meal_tag}]`;
                 }
                 li.textContent = text;
-                logsList.appendChild(li);
+                buffer.append(li);
             });
         } else {
-            logsList.innerHTML = '<li>No logs for today</li>';
+            const li = document.createElement('li');
+            li.textContent = 'No logs for today';
+            buffer.append(li);
         }
+        buffer.clearAndFlush();
 
     } catch (error) {
         console.error("Failed to load dashboard data:", error);
