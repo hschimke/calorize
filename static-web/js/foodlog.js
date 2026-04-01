@@ -171,6 +171,7 @@ async function loadLogs() {
         if (bar) calCard.appendChild(bar);
     } catch (e) {
         console.error("Failed to load logs:", e);
+        showToast("Failed to load logs", "error");
     }
 }
 

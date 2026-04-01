@@ -41,6 +41,8 @@ export function showConfirm(message) {
         ].join('; ');
 
         const dialog = document.createElement('div');
+        dialog.setAttribute('role', 'alertdialog');
+        dialog.setAttribute('aria-modal', 'true');
         dialog.style.cssText = [
             'background: var(--color-surface)',
             'border-radius: var(--radius-md)',
@@ -98,6 +100,8 @@ export function showInput(message, defaultValue = '') {
         ].join('; ');
 
         const dialog = document.createElement('div');
+        dialog.setAttribute('role', 'alertdialog');
+        dialog.setAttribute('aria-modal', 'true');
         dialog.style.cssText = [
             'background: var(--color-surface)',
             'border-radius: var(--radius-md)',

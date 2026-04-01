@@ -1,7 +1,7 @@
 import { api } from './api.js';
 import { getLocalDateString } from './utils.js';
 import { drawMacroBar, drawMealBars, drawDayBars, drawWeekBars } from './charts.js';
-import { renderCalorieGoalBar } from './ui.js';
+import { renderCalorieGoalBar, showToast } from './ui.js';
 
 let lastPeriod = 'day';
 let lastDate = null;
@@ -58,6 +58,7 @@ async function loadStats(period, date) {
         }
     } catch (e) {
         console.error('Failed to load stats', e);
+        showToast('Failed to load stats', 'error');
         lastStats = { calories: 0, protein: 0, carbs: 0, fat: 0 };
         lastExtra = [];
     }

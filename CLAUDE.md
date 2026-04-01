@@ -48,6 +48,7 @@ source tests/common.sh && source tests/02_food_mgmt.sh
 - `internal/db/` — Models, queries, and migrations
 - `internal/auth/` — WebAuthn setup; `internal/auth/token/` — PASETO token creation/validation
 - `internal/middleware/` — Auth, CORS, logging, recovery middleware
+- `TODO.md` — Future improvements and technical debt tracking
 
 ### Frontend (`static-web/`)
 - Vanilla HTML/CSS/JS, no build step

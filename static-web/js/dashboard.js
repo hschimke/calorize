@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { getLocalDateString } from './utils.js';
-import { renderCalorieGoalBar } from './ui.js';
+import { renderCalorieGoalBar, showToast } from './ui.js';
 
 async function updateDashboard() {
     try {
@@ -50,6 +50,7 @@ async function updateDashboard() {
 
     } catch (error) {
         console.error("Failed to load dashboard data:", error);
+        showToast("Failed to load dashboard data", "error");
     }
 }
 

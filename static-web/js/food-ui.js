@@ -78,6 +78,7 @@ async function loadFoods() {
         }
     } catch (e) {
         console.error("Failed to load foods:", e);
+        showToast("Failed to load foods", "error");
     }
 }
 

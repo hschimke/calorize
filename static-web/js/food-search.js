@@ -28,10 +28,17 @@ export class FoodSearch {
         this._wrapper = document.createElement('div');
         this._wrapper.className = 'food-search';
 
+        const dropdownId = `food-search-dropdown-${Math.random().toString(36).substr(2, 9)}`;
+
         this._input = document.createElement('input');
         this._input.type = 'text';
         this._input.className = 'food-search-input';
         this._input.placeholder = this.placeholder;
+        this._input.setAttribute('role', 'combobox');
+        this._input.setAttribute('aria-autocomplete', 'list');
+        this._input.setAttribute('aria-expanded', 'false');
+        this._input.setAttribute('aria-haspopup', 'listbox');
+        this._input.setAttribute('aria-controls', dropdownId);
 
         this._clearBtn = document.createElement('span');
         this._clearBtn.className = 'food-search-clear';
@@ -39,6 +46,8 @@ export class FoodSearch {
 
         this._dropdown = document.createElement('ul');
         this._dropdown.className = 'food-search-dropdown';
+        this._dropdown.id = dropdownId;
+        this._dropdown.setAttribute('role', 'listbox');
 
         this._wrapper.appendChild(this._input);
         this._wrapper.appendChild(this._clearBtn);
@@ -82,6 +91,7 @@ export class FoodSearch {
         const li = document.createElement('li');
         li.className = 'food-search-section';
         li.textContent = label;
+        li.setAttribute('aria-hidden', 'true');
         return li;
     }
 
@@ -89,6 +99,8 @@ export class FoodSearch {
         const li = document.createElement('li');
         li.className = 'food-search-item';
         li.dataset.foodId = food.id;
+        li.id = `food-item-${food.id}-${Math.random().toString(36).substr(2, 4)}`;
+        li.setAttribute('role', 'option');
 
         const infoDiv = document.createElement('div');
         infoDiv.className = 'food-search-item-info';
@@ -302,6 +314,7 @@ export class FoodSearch {
         for (let i = 0; i < selectableItems.length; i++) {
             if (i === this._activeIndex) {
                 selectableItems[i].classList.add('active');
+                this._input.setAttribute('aria-activedescendant', selectableItems[i].id);
             } else {
                 selectableItems[i].classList.remove('active');
             }
@@ -315,16 +328,20 @@ export class FoodSearch {
         for (const item of items) {
             item.classList.remove('active');
         }
+        this._input.removeAttribute('aria-activedescendant');
     }
 
     // ------------------------------------------------------------------ Dropdown open/close
 
     _openDropdown() {
         this._dropdown.classList.add('open');
+        this._input.setAttribute('aria-expanded', 'true');
     }
 
     _closeDropdown() {
         this._dropdown.classList.remove('open');
+        this._input.setAttribute('aria-expanded', 'false');
+        this._input.removeAttribute('aria-activedescendant');
     }
 
     // ------------------------------------------------------------------ Public API

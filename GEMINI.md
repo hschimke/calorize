@@ -67,3 +67,4 @@ The frontend is served from the `static-web/` directory. It can be served by the
 - `internal/auth/`: WebAuthn and PASETO token logic.
 - `static-web/`: Frontend assets (HTML, CSS, JS).
 - `tests/`: Integration test scripts.
+- `TODO.md`: Future improvements and architectural debt.

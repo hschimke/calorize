@@ -1,14 +1,12 @@
 function check_login() {
-    return localStorage.getItem("token") !== null;
+    return localStorage.getItem("user_id") !== null;
 }
 
 function set_login(response) {
-    localStorage.setItem("token", response.token);
     localStorage.setItem("user_id", response.user_id);
 }
 
 function unset_login() {
-    localStorage.removeItem("token");
     localStorage.removeItem("user_id");
 }
 
