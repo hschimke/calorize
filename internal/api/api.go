@@ -415,6 +415,9 @@ func getStatsBreakdownHandler(w http.ResponseWriter, r *http.Request) {
 // - POST /logs
 //     - Create log entry
 //     - Payload: { food_id, amount, meal_tag, logged_at (optional) }
+// - POST /logs/copy
+//     - Copy log entries from one date to another
+//     - Payload: { from_date, to_date, meal_tags }
 // - DELETE /logs/{id}
 
 func RegisterLogsPaths(mux *http.ServeMux) {
