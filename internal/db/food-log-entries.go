@@ -154,6 +154,11 @@ func CopyFoodLogEntries(userID UserID, fromDate time.Time, mealTags []string, lo
 		tagSet[t] = true
 	}
 
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("beginning transaction: %w", err)
+	}
+
 	count := 0
 	for _, entry := range entries {
 		if !tagSet[entry.MealTag] {
@@ -161,9 +166,10 @@ func CopyFoodLogEntries(userID UserID, fromDate time.Time, mealTags []string, lo
 		}
 		newID, err := uuid.NewV7()
 		if err != nil {
-			return count, err
+			tx.Rollback()
+			return 0, fmt.Errorf("generating uuid: %w", err)
 		}
-		_, err = db.Exec(
+		_, err = tx.Exec(
 			`INSERT INTO food_log_entries
 			 (id, user_id, food_id, portion_name, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -173,9 +179,14 @@ func CopyFoodLogEntries(userID UserID, fromDate time.Time, mealTags []string, lo
 			loggedAt, time.Now().UTC(),
 		)
 		if err != nil {
-			return count, fmt.Errorf("inserting copied entry: %w", err)
+			tx.Rollback()
+			return 0, fmt.Errorf("inserting copied entry: %w", err)
 		}
 		count++
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("committing transaction: %w", err)
 	}
 	return count, nil
 }
