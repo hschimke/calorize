@@ -141,6 +141,45 @@ func populateMacros(entry *FoodLogEntry) error {
 	return nil
 }
 
+// CopyFoodLogEntries copies log entries from fromDate (filtered by mealTags) to new entries
+// stamped with loggedAt. Returns the number of entries created.
+func CopyFoodLogEntries(userID UserID, fromDate time.Time, mealTags []string, loggedAt time.Time) (int, error) {
+	entries, err := GetFoodLogEntries(userID, fromDate)
+	if err != nil {
+		return 0, fmt.Errorf("fetching source entries: %w", err)
+	}
+
+	tagSet := make(map[string]bool, len(mealTags))
+	for _, t := range mealTags {
+		tagSet[t] = true
+	}
+
+	count := 0
+	for _, entry := range entries {
+		if !tagSet[entry.MealTag] {
+			continue
+		}
+		newID, err := uuid.NewV7()
+		if err != nil {
+			return count, err
+		}
+		_, err = db.Exec(
+			`INSERT INTO food_log_entries
+			 (id, user_id, food_id, portion_name, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			newID, userID, entry.FoodID, entry.PortionName,
+			entry.Calories, entry.Protein, entry.Carbs, entry.Fat,
+			entry.Amount, entry.MealTag, entry.Note,
+			loggedAt, time.Now().UTC(),
+		)
+		if err != nil {
+			return count, fmt.Errorf("inserting copied entry: %w", err)
+		}
+		count++
+	}
+	return count, nil
+}
+
 func DeleteFoodLogEntry(id FoodLogEntryID, userID UserID) error {
 	_, err := db.Exec("UPDATE food_log_entries SET deleted_at = ? WHERE id = ? AND user_id = ?", time.Now().UTC(), id, userID)
 	if err != nil {
