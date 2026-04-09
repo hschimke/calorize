@@ -2,6 +2,15 @@ import { check_login, unset_login } from './auth.js';
 import { api } from './api.js';
 import { getLocalDateString } from './utils.js';
 
+// Register the PWA service worker (cache-first for assets, network-only for API).
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch((err) => {
+            console.warn('Service worker registration failed:', err);
+        });
+    });
+}
+
 async function bootstrap() {
     const isLoggedIn = check_login();
     const nav = document.createElement("nav");

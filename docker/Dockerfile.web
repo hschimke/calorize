@@ -15,8 +15,15 @@ RUN apk add --no-cache \
 # Create directory for Nginx PID/Run files if needed
 RUN mkdir -p /run/nginx
 
+# Injected by the deploy script via --build-arg BUILD_HASH=<git-sha>.
+# Falls back to 'dev' for local builds without --build-arg.
+ARG BUILD_HASH=dev
+
 # Copy static assets into the image
 COPY static-web /srv/static
+
+# Stamp the service worker cache version with the build hash before compression.
+RUN sed -i "s/__CACHE_VERSION__/${BUILD_HASH}/g" /srv/static/sw.js
 
 # Pre-compress static assets (HTML, CSS, JS, WASM, SVG)
 RUN find /srv/static -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' -o -name '*.wasm' -o -name '*.svg' -o -name '*.json' -o -name '*.txt' -o -name '*.md' \) -exec sh -c ' \
