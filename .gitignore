@@ -57,3 +57,5 @@ log.err
 *.txt
 *.zst
 *.tar
+
+!static-web/manifest.json
