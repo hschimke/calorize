@@ -44,7 +44,3 @@ RUN chown -R nginx:nginx /srv/static
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]

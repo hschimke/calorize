@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO_DIR="sandbox/calorize"
+REPO_DIR="${HOME}/sandbox/calorize"
 COMPOSE_FILE="docker-compose.yml"
 COMPOSE_DIR="docker/"
 
