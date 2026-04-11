@@ -2,7 +2,7 @@
   "name": "Calorize",
   "short_name": "Calorize",
   "description": "A simple calorie and nutrition tracker.",
-  "start_url": "/dashboard.html",
+  "start_url": "/foodlog.html",
   "display": "standalone",
   "background_color": "#f9fafb",
   "theme_color": "#111827",
