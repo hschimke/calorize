@@ -6,11 +6,6 @@ import (
 )
 
 func createTestLogEntry(t *testing.T, user *User, food *Food, amount float64, logTime time.Time) *FoodLogEntry {
-	// CreateFoodLogEntry helper might assume functional db setup.
-	// Since we haven't implemented CreateFoodLogEntry manually in this session but seeing it referenced in context,
-	// I'll assume it exists or use manual insert if checks fail.
-	// previous `view_file` showed it exists in `food-log-entries.go`.
-
 	entry := FoodLogEntry{
 		UserID:   user.ID,
 		FoodID:   &food.ID,
@@ -87,11 +82,6 @@ func TestGetStats(t *testing.T) {
 		t.Errorf("Expected 0 calories for yesterday, got %f", statsEmpty.Calories)
 	}
 }
-
-// Re-using createTestUser/Ingredient from recipe test package context if allowed,
-// otherwise need to duplicate or assume shared package.
-// They are in the same package `db`, so it should share test helpers if in same directory?
-// Yes, `go test ./internal/db` compiles all test files in package together.
 
 func TestGetConsistencyStats(t *testing.T) {
 	if db == nil {
