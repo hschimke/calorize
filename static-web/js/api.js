@@ -295,6 +295,11 @@ export class API {
         }
         return await this.request(`/stats/breakdown?${params.toString()}`);
     }
+
+    async getConsistencyStats() {
+        const params = new URLSearchParams({ tz_offset: new Date().getTimezoneOffset() });
+        return await this.request(`/stats/consistency?${params.toString()}`);
+    }
 }
 
 // Export singleton instance
