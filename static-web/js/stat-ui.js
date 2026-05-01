@@ -30,6 +30,7 @@ async function init() {
         api.getProfile().catch(() => null),
         api.getPreferences().catch(() => null),
     ]);
+    loadConsistencyStats();
     loadStats('day');
 }
 
@@ -113,6 +114,22 @@ function updateDisplay(stats) {
     calCard.querySelector('.goal-bar-wrap')?.remove();
     const bar = renderCalorieGoalBar(Math.round(stats.calories || 0), scaledGoal, userPrefs?.clown_mode ?? false);
     if (bar) calCard.appendChild(bar);
+}
+
+async function loadConsistencyStats() {
+    try {
+        const data = await api.getConsistencyStats();
+        document.getElementById('stat-avg-7d').textContent = Math.round(data.rolling_7d_calories);
+        document.getElementById('stat-avg-30d').textContent = Math.round(data.rolling_30d_calories);
+        if (data.calorie_goal > 0) {
+            document.getElementById('stat-streak').textContent =
+                data.streak > 0 ? `${data.streak} 🔥` : '0';
+            document.getElementById('stat-hit-rate').textContent =
+                `${data.hit_days_30d}/${data.tracked_days_30d}`;
+        }
+    } catch (e) {
+        console.error('Failed to load consistency stats', e);
+    }
 }
 
 window.addEventListener('load', init);
