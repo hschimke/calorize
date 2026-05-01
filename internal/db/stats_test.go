@@ -139,3 +139,32 @@ func TestGetConsistencyStats(t *testing.T) {
 		t.Errorf("expected calorie_goal=%d, got %d", goal, stats.CalorieGoal)
 	}
 }
+
+func TestGetConsistencyStatsNoGoal(t *testing.T) {
+	if db == nil {
+		t.Skip("Database not initialized")
+	}
+
+	user := createTestUser(t)
+	food := createTestIngredient(t, user, "No Goal Test Food")
+
+	now := time.Now().UTC()
+	createTestLogEntry(t, user, food, 1800, now.AddDate(0, 0, -1))
+
+	stats, err := GetConsistencyStats(user.ID, 0, 0, now)
+	if err != nil {
+		t.Fatalf("GetConsistencyStats (no goal) failed: %v", err)
+	}
+	if stats.Streak != 0 {
+		t.Errorf("expected streak=0 when no goal, got %d", stats.Streak)
+	}
+	if stats.HitDays30d != 0 {
+		t.Errorf("expected hit_days_30d=0 when no goal, got %d", stats.HitDays30d)
+	}
+	if stats.TrackedDays30d != 1 {
+		t.Errorf("expected tracked_days_30d=1, got %d", stats.TrackedDays30d)
+	}
+	if stats.Rolling7dCalories <= 0 {
+		t.Errorf("expected rolling_7d_calories>0, got %.2f", stats.Rolling7dCalories)
+	}
+}
