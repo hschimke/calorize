@@ -330,6 +330,7 @@ func getClientLocation(r *http.Request) *time.Location {
 func RegisterStatsPaths(mux *http.ServeMux) {
 	mux.HandleFunc("GET /stats", getStatsHandler)
 	mux.HandleFunc("GET /stats/breakdown", getStatsBreakdownHandler)
+	mux.HandleFunc("GET /stats/consistency", getConsistencyStatsHandler)
 }
 
 func getStatsHandler(w http.ResponseWriter, r *http.Request) {
@@ -404,6 +405,44 @@ func getStatsBreakdownHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(breakdown); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
+}
+
+func getConsistencyStatsHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := db.GetUserByID(userID)
+	if err != nil || user == nil {
+		http.Error(w, "User not found", http.StatusInternalServerError)
+		return
+	}
+
+	tzOffset := 0
+	if s := r.URL.Query().Get("tz_offset"); s != "" {
+		if v, parseErr := strconv.Atoi(s); parseErr == nil {
+			tzOffset = v
+		}
+	}
+
+	calorieGoal := 0
+	if user.CalorieGoal != nil {
+		calorieGoal = *user.CalorieGoal
+	}
+
+	stats, err := db.GetConsistencyStats(userID, tzOffset, calorieGoal, time.Now())
+	if err != nil {
+		slog.Error("failed to get consistency stats", "error", err)
+		http.Error(w, "Failed to get consistency stats", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
 		slog.Error("failed to encode response", "error", err)
 	}
 }
