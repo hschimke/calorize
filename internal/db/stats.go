@@ -163,3 +163,99 @@ func GetStats(userID UserID, period string, date time.Time) (RangeStats, error) 
 
 	return s, nil
 }
+
+type ConsistencyStats struct {
+	Rolling7dCalories  float64 `json:"rolling_7d_calories"`
+	Rolling30dCalories float64 `json:"rolling_30d_calories"`
+	Streak             int     `json:"streak"`
+	HitDays30d         int     `json:"hit_days_30d"`
+	TrackedDays30d     int     `json:"tracked_days_30d"`
+	CalorieGoal        int     `json:"calorie_goal"`
+}
+
+// GetConsistencyStats computes rolling averages, streak, and 30-day hit rate.
+// calorieGoal is the user's daily calorie target (0 means not set).
+// now is the reference time; today's partial data is excluded.
+func GetConsistencyStats(userID UserID, tzOffsetMins int, calorieGoal int, now time.Time) (ConsistencyStats, error) {
+	shiftMins := -tzOffsetMins
+	shiftExpr := fmt.Sprintf("%+d minutes", shiftMins)
+
+	loc := time.FixedZone("Client", -tzOffsetMins*60)
+	nowLocal := now.In(loc)
+	y, m, d := nowLocal.Date()
+	todayStart := time.Date(y, m, d, 0, 0, 0, 0, loc).UTC()
+	windowStart := todayStart.AddDate(0, 0, -365)
+
+	query := `
+		SELECT
+			date(datetime(logged_at, ?)) AS day,
+			SUM(COALESCE(calories, 0)) AS day_calories
+		FROM food_log_entries
+		WHERE user_id = ?
+		  AND logged_at >= ? AND logged_at < ?
+		  AND deleted_at IS NULL
+		GROUP BY day
+		ORDER BY day DESC
+	`
+
+	rows, err := db.Query(query, shiftExpr, userID, windowStart, todayStart)
+	if err != nil {
+		return ConsistencyStats{}, fmt.Errorf("querying consistency stats: %w", err)
+	}
+	defer rows.Close()
+
+	dayCalories := make(map[string]float64)
+	for rows.Next() {
+		var day string
+		var cals float64
+		if err := rows.Scan(&day, &cals); err != nil {
+			return ConsistencyStats{}, fmt.Errorf("scanning consistency row: %w", err)
+		}
+		dayCalories[day] = cals
+	}
+	if err := rows.Err(); err != nil {
+		return ConsistencyStats{}, fmt.Errorf("iterating consistency rows: %w", err)
+	}
+
+	var sum7d, sum30d float64
+	var hitDays30d, trackedDays30d, streak int
+	// If no goal is set, streak stays 0 and we stop iterating after 30 days.
+	streakBroken := calorieGoal == 0
+
+	for i := 1; i <= 365; i++ {
+		if i > 30 && streakBroken {
+			break
+		}
+		day := todayStart.AddDate(0, 0, -i).In(loc).Format("2006-01-02")
+		cals, hasEntry := dayCalories[day]
+
+		if i <= 7 {
+			sum7d += cals
+		}
+		if i <= 30 {
+			sum30d += cals
+			if hasEntry && cals > 0 {
+				trackedDays30d++
+				if calorieGoal > 0 && cals <= float64(calorieGoal) {
+					hitDays30d++
+				}
+			}
+		}
+		if !streakBroken {
+			if hasEntry && cals > 0 && cals <= float64(calorieGoal) {
+				streak++
+			} else {
+				streakBroken = true
+			}
+		}
+	}
+
+	return ConsistencyStats{
+		Rolling7dCalories:  sum7d / 7.0,
+		Rolling30dCalories: sum30d / 30.0,
+		Streak:             streak,
+		HitDays30d:         hitDays30d,
+		TrackedDays30d:     trackedDays30d,
+		CalorieGoal:        calorieGoal,
+	}, nil
+}
