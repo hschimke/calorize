@@ -12,7 +12,7 @@ echo "---------------------------------------------------"
 # Test 1: GET /account/profile returns 200 with calorie_goal field
 echo "Fetching profile..."
 PROF_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/account/profile")
-PROF_BODY=$(echo "$PROF_RESP" | head -n -1)
+PROF_BODY=$(echo "$PROF_RESP" | sed '$d')
 PROF_CODE=$(echo "$PROF_RESP" | tail -n 1)
 
 if [ "$PROF_CODE" != "200" ]; then
@@ -30,7 +30,7 @@ echo "Setting calorie goal to 2000..."
 PUT_RESP=$(curl -s -w "\n%{http_code}" -X PUT "$BASE_URL/account/profile" \
   -H "Content-Type: application/json" \
   -d '{"calorie_goal": 2000}')
-PUT_BODY=$(echo "$PUT_RESP" | head -n -1)
+PUT_BODY=$(echo "$PUT_RESP" | sed '$d')
 PUT_CODE=$(echo "$PUT_RESP" | tail -n 1)
 
 if [ "$PUT_CODE" != "200" ]; then

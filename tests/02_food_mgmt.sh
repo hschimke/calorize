@@ -68,7 +68,7 @@ fi
 log_info "✅ Old version marked as not current"
 
 echo "Verifying list only returns current version..."
-FOODS_LIST=$(curl -s "$BASE_URL/foods")
+FOODS_LIST=$(curl -s "$BASE_URL/foods?mine")
 BANANA_COUNT=$(echo $FOODS_LIST | jq '[.[] | select(.name=="Banana")] | length')
 if [ "$BANANA_COUNT" -ne 1 ]; then
     log_err "Expected 1 Banana in list, got $BANANA_COUNT"
@@ -131,7 +131,7 @@ else
 fi
 
 echo "Verifying deleted food excluded from list..."
-FOODS_AFTER_DEL=$(curl -s "$BASE_URL/foods")
+FOODS_AFTER_DEL=$(curl -s "$BASE_URL/foods?mine")
 TEMP_IN_LIST=$(echo $FOODS_AFTER_DEL | jq '[.[] | select(.id=="'$TEMP_ID'")] | length')
 if [ "$TEMP_IN_LIST" -eq 0 ]; then
     log_info "✅ Deleted food not in list"

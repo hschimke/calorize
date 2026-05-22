@@ -22,6 +22,7 @@ async function bootstrap() {
             { href: "/foodlog.html", text: "Foodlog" },
             { href: "/food-ui.html", text: "Foods" },
             { href: "/stat-ui.html", text: "Stats" },
+            { href: "/weight.html", text: "Weight" },
             { href: "/account.html", text: "Account" },
         ];
     } else {

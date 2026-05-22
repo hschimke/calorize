@@ -33,6 +33,24 @@
                 <h3>Fat</h3>
                 <span id="dashboard-fat">0</span>g
             </div>
+            <div class="stat-card">
+                <h3>Weight</h3>
+                <div>
+                    <span id="dashboard-weight">—</span>
+                    <small class="weight-unit-label">kg</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Quick Log Weight</h2>
+            <form id="dashboard-weight-form">
+                <div class="goal-input-row">
+                    <input type="number" id="dashboard-weight-input" min="0" step="0.1" placeholder="e.g. 70.0" required>
+                    <span class="weight-unit-label">kg</span>
+                    <button type="submit" class="btn btn-primary">Log Weight</button>
+                </div>
+            </form>
         </div>
 
         <div class="logs-section">

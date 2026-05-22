@@ -235,3 +235,212 @@ function drawVerticalBars(canvas, items, defaultLabels, labelFn, colors) {
         ctx.fillText(labelFn(item.date, i), x, h - paddingBottom + 4);
     });
 }
+
+/**
+ * Draw weight chart with raw logs (semi-transparent) and smoothed 7-point trend line,
+ * plus a horizontal dashed line for the goal weight.
+ */
+export function drawWeightChart(canvas, logs, goalWeight, weightUnit) {
+    const setup = setupCanvas(canvas);
+    if (!setup) return;
+    const { ctx, w, h } = setup;
+
+    const colorPrimary = getCssVar('--color-primary') || '#2563eb';
+    const colorBorder = getCssVar('--color-border') || '#e5e7eb';
+    const colorMuted = getCssVar('--color-text-muted') || '#6b7280';
+    const colorCarbs = getCssVar('--color-carbs') || '#f59e0b';
+
+    const sortedLogs = [...logs].sort((a, b) => new Date(a.logged_at) - new Date(b.logged_at));
+
+    if (sortedLogs.length === 0) {
+        ctx.fillStyle = colorMuted;
+        ctx.font = '14px Inter, -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('No weight logs recorded', w / 2, h / 2);
+        return;
+    }
+
+    const paddingLeft = 55;
+    const paddingRight = 20;
+    const paddingTop = 25;
+    const paddingBottom = 30;
+    const chartW = w - paddingLeft - paddingRight;
+    const chartH = h - paddingTop - paddingBottom;
+
+    // Helper for weight conversions
+    function convertWeight(value, fromUnit, toUnit) {
+        if (fromUnit === toUnit || !fromUnit || !toUnit) {
+            return value;
+        }
+        if (fromUnit === 'kg' && toUnit === 'lbs') {
+            return value * 2.20462;
+        }
+        if (fromUnit === 'lbs' && toUnit === 'kg') {
+            return value / 2.20462;
+        }
+        return value;
+    }
+
+    // Calculate trend points (7-point moving average)
+    const trendPoints = [];
+    for (let i = 0; i < sortedLogs.length; i++) {
+        let sum = 0;
+        let count = 0;
+        const start = Math.max(0, i - 6);
+        for (let j = start; j <= i; j++) {
+            const wVal = convertWeight(sortedLogs[j].weight, sortedLogs[j].unit, weightUnit);
+            sum += wVal;
+            count++;
+        }
+        trendPoints.push(sum / count);
+    }
+
+    // Determine min/max values
+    let minWeight = Infinity;
+    let maxWeight = -Infinity;
+
+    sortedLogs.forEach(log => {
+        const wVal = convertWeight(log.weight, log.unit, weightUnit);
+        if (wVal < minWeight) minWeight = wVal;
+        if (wVal > maxWeight) maxWeight = wVal;
+    });
+
+    if (goalWeight && goalWeight > 0) {
+        if (goalWeight < minWeight) minWeight = goalWeight;
+        if (goalWeight > maxWeight) maxWeight = goalWeight;
+    }
+
+    // Add padding to weight bounds
+    if (minWeight === maxWeight) {
+        minWeight -= 5;
+        maxWeight += 5;
+    } else {
+        const range = maxWeight - minWeight;
+        minWeight -= range * 0.15;
+        maxWeight += range * 0.15;
+    }
+
+    const times = sortedLogs.map(log => new Date(log.logged_at).getTime());
+    const minTime = times[0];
+    const maxTime = times[times.length - 1];
+    const timeRange = maxTime - minTime || 1;
+
+    function getY(weight) {
+        return paddingTop + chartH - ((weight - minWeight) / (maxWeight - minWeight)) * chartH;
+    }
+
+    function getX(time) {
+        if (times.length === 1 || timeRange === 0) {
+            return paddingLeft + chartW / 2;
+        }
+        return paddingLeft + ((time - minTime) / timeRange) * chartW;
+    }
+
+    // Draw horizontal dashed grid lines
+    const gridLinesCount = 4;
+    ctx.strokeStyle = colorBorder;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.fillStyle = colorMuted;
+    ctx.font = '10px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+
+    for (let i = 0; i < gridLinesCount; i++) {
+        const val = minWeight + (i / (gridLinesCount - 1)) * (maxWeight - minWeight);
+        const y = getY(val);
+
+        ctx.beginPath();
+        ctx.moveTo(paddingLeft, y);
+        ctx.lineTo(w - paddingRight, y);
+        ctx.stroke();
+
+        ctx.fillText(`${val.toFixed(1)} ${weightUnit}`, paddingLeft - 8, y);
+    }
+    ctx.setLineDash([]); // Reset
+
+    // Draw vertical date markers
+    const markerIndices = [];
+    if (sortedLogs.length > 0) markerIndices.push(0);
+    if (sortedLogs.length > 2) markerIndices.push(Math.floor(sortedLogs.length / 2));
+    if (sortedLogs.length > 1) markerIndices.push(sortedLogs.length - 1);
+
+    ctx.fillStyle = colorMuted;
+    ctx.font = '10px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+
+    // Filter duplicates
+    const uniqueIndices = [...new Set(markerIndices)];
+    uniqueIndices.forEach(index => {
+        const log = sortedLogs[index];
+        const t = times[index];
+        const x = getX(t);
+        const dateStr = new Date(log.logged_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        ctx.fillText(dateStr, x, h - paddingBottom + 6);
+    });
+
+    // Draw goal weight line (dashed)
+    if (goalWeight && goalWeight > 0) {
+        const y = getY(goalWeight);
+        ctx.strokeStyle = colorCarbs;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(paddingLeft, y);
+        ctx.lineTo(w - paddingRight, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = colorCarbs;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`Goal: ${goalWeight.toFixed(1)} ${weightUnit}`, paddingLeft + 4, y - 2);
+    }
+
+    // Draw raw logs connecting line (semi-transparent)
+    ctx.strokeStyle = 'rgba(37, 99, 235, 0.25)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    sortedLogs.forEach((log, index) => {
+        const wVal = convertWeight(log.weight, log.unit, weightUnit);
+        const x = getX(times[index]);
+        const y = getY(wVal);
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    ctx.stroke();
+
+    // Draw raw dots
+    ctx.fillStyle = 'rgba(37, 99, 235, 0.5)';
+    sortedLogs.forEach((log, index) => {
+        const wVal = convertWeight(log.weight, log.unit, weightUnit);
+        const x = getX(times[index]);
+        const y = getY(wVal);
+        ctx.beginPath();
+        ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
+        ctx.fill();
+    });
+
+    // Draw smoothed trend line (thick solid blue)
+    if (sortedLogs.length >= 2) {
+        ctx.strokeStyle = colorPrimary;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        trendPoints.forEach((avgWeight, index) => {
+            const x = getX(times[index]);
+            const y = getY(avgWeight);
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.stroke();
+    }
+}
+

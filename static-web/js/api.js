@@ -300,6 +300,29 @@ export class API {
         const params = new URLSearchParams({ tz_offset: new Date().getTimezoneOffset() });
         return await this.request(`/stats/consistency?${params.toString()}`);
     }
+
+    // --- Weight Tracker ---
+
+    async getWeightLogs(limit = 0) {
+        const url = `/weight${limit > 0 ? `?limit=${limit}` : ''}`;
+        return await this.request(url);
+    }
+
+    async createWeightLog(data) {
+        return await this.request('/weight', 'POST', data);
+    }
+
+    async updateWeightLog(id, data) {
+        return await this.request(`/weight/${id}`, 'PUT', data);
+    }
+
+    async deleteWeightLog(id) {
+        return await this.request(`/weight/${id}`, 'DELETE');
+    }
+
+    async getWeightStats() {
+        return await this.request('/weight/stats');
+    }
 }
 
 // Export singleton instance

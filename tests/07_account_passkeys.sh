@@ -12,7 +12,7 @@ echo "---------------------------------------------------"
 # Test 1: List passkeys returns 200 and a JSON array
 echo "Listing passkeys..."
 LIST_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/account/passkeys")
-LIST_BODY=$(echo "$LIST_RESP" | head -n -1)
+LIST_BODY=$(echo "$LIST_RESP" | sed '$d')
 LIST_CODE=$(echo "$LIST_RESP" | tail -n 1)
 
 if [ "$LIST_CODE" != "200" ]; then

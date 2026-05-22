@@ -24,7 +24,9 @@ type passkeyView struct {
 }
 
 type profileView struct {
-	CalorieGoal *int `json:"calorie_goal"`
+	CalorieGoal *int     `json:"calorie_goal"`
+	WeightGoal  *float64 `json:"weight_goal"`
+	WeightUnit  string   `json:"weight_unit"`
 }
 
 func getProfileHandler(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +41,11 @@ func getProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profileView{CalorieGoal: user.CalorieGoal})
+	json.NewEncoder(w).Encode(profileView{
+		CalorieGoal: user.CalorieGoal,
+		WeightGoal:  user.WeightGoal,
+		WeightUnit:  user.WeightUnit,
+	})
 }
 
 func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +55,9 @@ func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		CalorieGoal *int `json:"calorie_goal"`
+		CalorieGoal *int     `json:"calorie_goal"`
+		WeightGoal  *float64 `json:"weight_goal"`
+		WeightUnit  *string  `json:"weight_unit"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -59,19 +67,37 @@ func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "calorie_goal must be a positive integer", http.StatusBadRequest)
 		return
 	}
+	if body.WeightGoal != nil && *body.WeightGoal <= 0 {
+		http.Error(w, "weight_goal must be a positive number", http.StatusBadRequest)
+		return
+	}
+	if body.WeightUnit != nil && *body.WeightUnit != "kg" && *body.WeightUnit != "lbs" {
+		http.Error(w, "weight_unit must be 'kg' or 'lbs'", http.StatusBadRequest)
+		return
+	}
+
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
 		http.Error(w, "User not found", http.StatusInternalServerError)
 		return
 	}
 	user.CalorieGoal = body.CalorieGoal
+	user.WeightGoal = body.WeightGoal
+	if body.WeightUnit != nil {
+		user.WeightUnit = *body.WeightUnit
+	}
+
 	if _, err := db.UpdateUser(*user); err != nil {
 		slog.Error("failed to update profile", "error", err)
 		http.Error(w, "Failed to update profile", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profileView{CalorieGoal: user.CalorieGoal})
+	json.NewEncoder(w).Encode(profileView{
+		CalorieGoal: user.CalorieGoal,
+		WeightGoal:  user.WeightGoal,
+		WeightUnit:  user.WeightUnit,
+	})
 }
 
 type preferencesView struct {

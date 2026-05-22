@@ -12,11 +12,11 @@ import (
 
 var ErrCredentialNotFound = errors.New("credential not found")
 
-const userSelectCols = `id, name, email, disabled_at, calorie_goal, clown_mode, hide_public_user_foods, created_at`
+const userSelectCols = `id, name, email, disabled_at, calorie_goal, clown_mode, hide_public_user_foods, weight_goal, weight_unit, created_at`
 
 func scanUser(row interface{ Scan(...any) error }) (*User, error) {
 	var user User
-	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CalorieGoal, &user.ClownMode, &user.HidePublicUserFoods, &user.CreatedAt)
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.DisabledAt, &user.CalorieGoal, &user.ClownMode, &user.HidePublicUserFoods, &user.WeightGoal, &user.WeightUnit, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -76,8 +76,8 @@ func CreateUser(user User) (*User, error) {
 }
 
 func UpdateUser(user User) (*User, error) {
-	query := `UPDATE users SET name = ?, email = ?, disabled_at = ?, calorie_goal = ?, clown_mode = ?, hide_public_user_foods = ? WHERE id = ?`
-	_, err := db.Exec(query, user.Name, user.Email, user.DisabledAt, user.CalorieGoal, user.ClownMode, user.HidePublicUserFoods, user.ID)
+	query := `UPDATE users SET name = ?, email = ?, disabled_at = ?, calorie_goal = ?, clown_mode = ?, hide_public_user_foods = ?, weight_goal = ?, weight_unit = ? WHERE id = ?`
+	_, err := db.Exec(query, user.Name, user.Email, user.DisabledAt, user.CalorieGoal, user.ClownMode, user.HidePublicUserFoods, user.WeightGoal, user.WeightUnit, user.ID)
 	if err != nil {
 		return nil, fmt.Errorf("updating user: %w", err)
 	}

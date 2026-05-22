@@ -24,6 +24,8 @@ type User struct {
 	CalorieGoal         *int       `json:"calorie_goal"`
 	ClownMode           bool       `json:"clown_mode"`
 	HidePublicUserFoods bool       `json:"hide_public_user_foods"`
+	WeightGoal          *float64   `json:"weight_goal"`
+	WeightUnit          string     `json:"weight_unit"`
 	CreatedAt           time.Time  `json:"created_at"`
 }
 
@@ -288,5 +290,47 @@ func (id *FoodLogEntryID) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*id = FoodLogEntryID(u)
+	return nil
+}
+
+// WeightLogs
+//
+//	id
+//	user_id
+//	weight
+//	unit
+//	logged_at
+//	created_at
+//	deleted_at
+type WeightLogID uuid.UUID
+type WeightLog struct {
+	ID        WeightLogID `json:"id"`
+	UserID    UserID      `json:"user_id"`
+	Weight    float64     `json:"weight"`
+	Unit      string      `json:"unit"`
+	LoggedAt  time.Time   `json:"logged_at"`
+	CreatedAt time.Time   `json:"created_at"`
+	DeletedAt *time.Time  `json:"deleted_at"`
+}
+
+func (id WeightLogID) Value() (driver.Value, error) { return uuid.UUID(id).Value() }
+func (id *WeightLogID) Scan(src any) error {
+	var u uuid.UUID
+	if err := u.Scan(src); err != nil {
+		return err
+	}
+	*id = WeightLogID(u)
+	return nil
+}
+
+func (id WeightLogID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(uuid.UUID(id))
+}
+func (id *WeightLogID) UnmarshalJSON(data []byte) error {
+	var u uuid.UUID
+	if err := json.Unmarshal(data, &u); err != nil {
+		return err
+	}
+	*id = WeightLogID(u)
 	return nil
 }

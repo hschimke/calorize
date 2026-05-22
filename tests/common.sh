@@ -52,7 +52,7 @@ cleanup_all() {
     fi
 
     # Delete Foods
-    FOODS=$(curl -s "$BASE_URL/foods")
+    FOODS=$(curl -s "$BASE_URL/foods?mine")
     if is_valid_json "$FOODS" && [ "$(echo "$FOODS" | jq 'type')" == '"array"' ]; then
         FOOD_IDS=$(echo "$FOODS" | jq -r '.[].id // empty')
         for id in $FOOD_IDS; do

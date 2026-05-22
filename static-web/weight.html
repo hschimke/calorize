@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#111827">
+    <title>Calorize - Weight Tracker</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="css/main.css">
+    <script type="module" src="js/bootstrap.js"></script>
+    <script type="module" src="js/weight.js"></script>
+</head>
+
+<body>
+    <div id="app" class="container">
+        <h1>Weight Tracker</h1>
+
+        <div class="stats-container">
+            <div class="stat-card">
+                <h3>Current Weight</h3>
+                <div>
+                    <span id="weight-current">—</span>
+                    <small class="weight-unit-label">kg</small>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3>Weight Goal</h3>
+                <div>
+                    <span id="weight-goal">—</span>
+                    <small class="weight-unit-label">kg</small>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3>Weight Change</h3>
+                <div>
+                    <span id="weight-change">—</span>
+                    <small class="weight-unit-label">kg</small>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3>Goal Progress</h3>
+                <div>
+                    <span id="weight-progress">—</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel chart-panel">
+            <h2>Weight History</h2>
+            <canvas id="chart-weight"></canvas>
+        </div>
+
+        <div class="panel">
+            <h2 id="log-form-title">Log Weight</h2>
+            <form id="log-weight-form">
+                <input type="hidden" id="log-id-input">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="log-date-input">Date</label>
+                        <input type="date" id="log-date-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="log-weight-input">Weight</label>
+                        <div class="goal-input-row">
+                            <input type="number" id="log-weight-input" min="0" step="0.1" placeholder="e.g. 70.0" required>
+                            <select id="log-unit-select" class="weight-select">
+                                <option value="kg">kg</option>
+                                <option value="lbs">lbs</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <button type="submit" id="btn-submit-weight" class="btn btn-primary">Log Weight</button>
+                    <button type="button" id="btn-cancel-edit" class="btn btn-secondary" hidden>Cancel Edit</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2>Weight Logs</h2>
+            <ul id="weight-logs-list" class="item-list">
+                <!-- Logs will be populated here -->
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

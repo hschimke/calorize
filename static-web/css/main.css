@@ -1011,3 +1011,26 @@ dialog h2 {
   gap: var(--space-3);
   margin-top: var(--space-4);
 }
+
+/* ============================================================
+   Weight Tracker Settings & Chart
+   ============================================================ */
+#chart-weight {
+  height: 250px;
+}
+
+.weight-select {
+  width: 100px;
+}
+
+.weight-unit-label {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-left: 2px;
+}
+
+.panel-divider {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-4) 0;
+}

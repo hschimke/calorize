@@ -186,12 +186,28 @@ async function savePreferences() {
     }
 }
 
+function updateWeightUnitLabels(unit) {
+    const labels = document.querySelectorAll('.weight-unit-label');
+    for (const label of labels) {
+        label.textContent = unit;
+    }
+}
+
 async function loadProfile() {
     try {
         const profile = await api.getProfile();
-        if (profile && profile.calorie_goal != null) {
-            document.getElementById('calorie-goal-input').value = profile.calorie_goal;
-            updateDerived(profile.calorie_goal);
+        if (profile) {
+            if (profile.calorie_goal != null) {
+                document.getElementById('calorie-goal-input').value = profile.calorie_goal;
+                updateDerived(profile.calorie_goal);
+            }
+            if (profile.weight_goal != null) {
+                document.getElementById('weight-goal-input').value = profile.weight_goal;
+            }
+            if (profile.weight_unit) {
+                document.getElementById('weight-unit-select').value = profile.weight_unit;
+                updateWeightUnitLabels(profile.weight_unit);
+            }
         }
     } catch (e) {
         showToast('Failed to load profile', 'error');
@@ -215,6 +231,32 @@ async function saveGoal() {
     }
 }
 
+async function saveWeightSettings() {
+    const goalInput = document.getElementById('weight-goal-input');
+    const unitSelect = document.getElementById('weight-unit-select');
+    
+    const goalRaw = goalInput.value.trim();
+    const goal = goalRaw === '' ? null : parseFloat(goalRaw);
+    if (goalRaw !== '' && (isNaN(goal) || goal <= 0)) {
+        showToast('Please enter a valid weight goal', 'error');
+        return;
+    }
+    
+    const unit = unitSelect.value;
+    if (unit !== 'kg' && unit !== 'lbs') {
+        showToast('Please select a valid unit', 'error');
+        return;
+    }
+    
+    try {
+        await api.updateProfile({ weight_goal: goal, weight_unit: unit });
+        showToast('Weight settings saved');
+        updateWeightUnitLabels(unit);
+    } catch (e) {
+        showToast(e.message || 'Failed to save weight settings', 'error');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadPasskeys();
     loadProfile();
@@ -225,5 +267,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDerived(isNaN(val) ? null : val);
     });
     document.getElementById('btn-save-goal').addEventListener('click', saveGoal);
+    document.getElementById('weight-unit-select').addEventListener('change', (e) => {
+        updateWeightUnitLabels(e.target.value);
+    });
+    document.getElementById('btn-save-weight-settings').addEventListener('click', saveWeightSettings);
     document.getElementById('btn-save-preferences').addEventListener('click', savePreferences);
 });
