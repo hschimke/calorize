@@ -81,8 +81,12 @@ func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "User not found", http.StatusInternalServerError)
 		return
 	}
-	user.CalorieGoal = body.CalorieGoal
-	user.WeightGoal = body.WeightGoal
+	if body.CalorieGoal != nil {
+		user.CalorieGoal = body.CalorieGoal
+	}
+	if body.WeightGoal != nil {
+		user.WeightGoal = body.WeightGoal
+	}
 	if body.WeightUnit != nil {
 		user.WeightUnit = *body.WeightUnit
 	}
