@@ -105,6 +105,46 @@ function toggleMode(e) {
     }
 }
 
+const MEAL_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+function buildLogRow(log) {
+    const li = document.createElement('li');
+
+    const div = document.createElement('div');
+
+    const nameSpan = document.createElement('strong');
+    if (log.food) {
+        nameSpan.textContent = log.food.name;
+        div.appendChild(nameSpan);
+        let amountLabel;
+        if (log.portion_name) {
+            amountLabel = log.amount === 1
+                ? log.portion_name
+                : `${Math.round(log.amount * 10) / 10} × ${log.portion_name}`;
+        } else {
+            const unit = log.food.measurement_unit || 'serving';
+            amountLabel = `${Math.round(log.amount * 10) / 10} ${unit}`;
+        }
+        div.appendChild(document.createTextNode(` — ${amountLabel}`));
+    } else {
+        nameSpan.textContent = log.note ? `[qc] ${log.note}` : 'Quick Add';
+        div.appendChild(nameSpan);
+    }
+
+    if (log.calories) {
+        div.appendChild(document.createTextNode(` (${Math.round(log.calories)} kcal)`));
+    }
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Remove';
+    deleteBtn.className = 'btn btn-danger btn-sm';
+    deleteBtn.onclick = () => deleteLog(log.id);
+
+    li.appendChild(div);
+    li.appendChild(deleteBtn);
+    return li;
+}
+
 async function loadLogs() {
     try {
         const logs = await api.getLogs(currentDate);
@@ -112,54 +152,41 @@ async function loadLogs() {
         const buffer = new DOMBuffer(logsList);
 
         if (logs && logs.length > 0) {
-            logs.forEach(log => {
-                const li = document.createElement('li');
+            const groups = {};
+            for (const log of logs) {
+                const tag = MEAL_ORDER.includes(log.meal_tag) ? log.meal_tag : 'snack';
+                (groups[tag] = groups[tag] || []).push(log);
+            }
 
-                const div = document.createElement('div');
+            for (const meal of MEAL_ORDER) {
+                const mealLogs = groups[meal];
+                if (!mealLogs || mealLogs.length === 0) continue;
 
-                const nameSpan = document.createElement('strong');
-                if (log.food) {
-                    nameSpan.textContent = log.food.name;
-                    div.appendChild(nameSpan);
-                    let amountLabel;
-                    if (log.portion_name) {
-                        amountLabel = log.amount === 1
-                            ? log.portion_name
-                            : `${Math.round(log.amount * 10) / 10} × ${log.portion_name}`;
-                    } else {
-                        const unit = log.food.measurement_unit || 'serving';
-                        amountLabel = `${Math.round(log.amount * 10) / 10} ${unit}`;
-                    }
-                    div.appendChild(document.createTextNode(` — ${amountLabel}`));
-                } else {
-                    nameSpan.textContent = log.note ? `[qc] ${log.note}` : 'Quick Add';
-                    div.appendChild(nameSpan);
-                }
+                const subtotal = Math.round(mealLogs.reduce((sum, log) => sum + (log.calories || 0), 0));
 
-                if (log.calories) {
-                    div.appendChild(document.createTextNode(` (${Math.round(log.calories)} kcal)`));
-                }
+                const header = document.createElement('h3');
+                header.className = 'meal-group-header';
+                const label = document.createElement('span');
+                label.textContent = meal.charAt(0).toUpperCase() + meal.slice(1);
+                const subtotalSpan = document.createElement('span');
+                subtotalSpan.className = 'meal-group-subtotal';
+                subtotalSpan.textContent = `${subtotal} kcal`;
+                header.appendChild(label);
+                header.appendChild(subtotalSpan);
+                buffer.append(header);
 
-                if (log.meal_tag) {
-                    const badge = document.createElement('span');
-                    badge.className = 'meal-badge';
-                    badge.textContent = log.meal_tag;
-                    div.appendChild(badge);
-                }
-
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = 'Remove';
-                deleteBtn.className = 'btn btn-danger btn-sm';
-                deleteBtn.onclick = () => deleteLog(log.id);
-
-                li.appendChild(div);
-                li.appendChild(deleteBtn);
-                buffer.append(li);
-            });
+                const ul = document.createElement('ul');
+                ul.className = 'item-list';
+                mealLogs.forEach(log => ul.appendChild(buildLogRow(log)));
+                buffer.append(ul);
+            }
         } else {
+            const ul = document.createElement('ul');
+            ul.className = 'item-list';
             const li = document.createElement('li');
             li.textContent = 'No logs for this date.';
-            buffer.append(li);
+            ul.appendChild(li);
+            buffer.append(ul);
         }
         buffer.clearAndFlush();
 

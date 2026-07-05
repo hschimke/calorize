@@ -634,17 +634,6 @@ select:focus {
 }
 
 /* ============================================================
-   Meal Badge (extracted from inline JS styles)
-   ============================================================ */
-.meal-badge {
-  background: var(--color-surface-muted);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-size: 0.8em;
-  margin-left: 10px;
-}
-
-/* ============================================================
    Mobile Navigation Toggle
    ============================================================ */
 .nav-toggle {
@@ -945,6 +934,29 @@ select:focus {
 
 .section-header h2 {
   margin: 0;
+}
+
+/* ============================================================
+   Meal Group Header (food log subheadings)
+   ============================================================ */
+.meal-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: var(--space-5) 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.meal-group-header:first-child {
+  margin-top: 0;
+}
+
+.meal-group-subtotal {
+  font-weight: normal;
 }
 
 /* ============================================================

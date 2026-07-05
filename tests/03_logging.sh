@@ -206,3 +206,44 @@ fi
 # I'll leave them or delete them. Original script deleted them at end of section.
 curl -s -X DELETE "$BASE_URL/logs/$LOG_A_ID" > /dev/null
 curl -s -X DELETE "$BASE_URL/logs/$LOG_B_ID" > /dev/null
+
+echo "==================================================="
+echo "Test 14: GET /logs returns entries in chronological order"
+echo "---------------------------------------------------"
+TODAY_DATE=$(date -u +"%Y-%m-%d")
+LOGGED_LATE="${TODAY_DATE}T20:00:00Z"
+LOGGED_EARLY="${TODAY_DATE}T06:00:00Z"
+LOGGED_MID="${TODAY_DATE}T12:00:00Z"
+
+echo "Creating logs out of chronological order (20:00, then 06:00, then 12:00)..."
+ORDER_LOG_1=$(curl -s -X POST "$BASE_URL/logs" \
+  -H "Content-Type: application/json" \
+  -d "{\"food_id\": \"$MILK_ID\", \"amount\": 100, \"meal_tag\": \"dinner\", \"logged_at\": \"$LOGGED_LATE\"}")
+ORDER_LOG_1_ID=$(echo $ORDER_LOG_1 | jq -r .id)
+
+ORDER_LOG_2=$(curl -s -X POST "$BASE_URL/logs" \
+  -H "Content-Type: application/json" \
+  -d "{\"food_id\": \"$MILK_ID\", \"amount\": 100, \"meal_tag\": \"breakfast\", \"logged_at\": \"$LOGGED_EARLY\"}")
+ORDER_LOG_2_ID=$(echo $ORDER_LOG_2 | jq -r .id)
+
+ORDER_LOG_3=$(curl -s -X POST "$BASE_URL/logs" \
+  -H "Content-Type: application/json" \
+  -d "{\"food_id\": \"$MILK_ID\", \"amount\": 100, \"meal_tag\": \"lunch\", \"logged_at\": \"$LOGGED_MID\"}")
+ORDER_LOG_3_ID=$(echo $ORDER_LOG_3 | jq -r .id)
+
+echo "Fetching logs for today and checking order..."
+ORDER_LOGS=$(curl -s "$BASE_URL/logs?date=$TODAY_DATE")
+ORDER_IDS=$(echo "$ORDER_LOGS" | jq -r --arg a "$ORDER_LOG_1_ID" --arg b "$ORDER_LOG_2_ID" --arg c "$ORDER_LOG_3_ID" \
+  '[.[] | select(.id == $a or .id == $b or .id == $c)] | .[].id')
+EXPECTED_ORDER=$(printf "%s\n%s\n%s" "$ORDER_LOG_2_ID" "$ORDER_LOG_3_ID" "$ORDER_LOG_1_ID")
+
+if [ "$ORDER_IDS" == "$EXPECTED_ORDER" ]; then
+    log_info "✅ Logs returned in chronological order by logged_at"
+else
+    log_err "Logs not in chronological order. Expected: [$EXPECTED_ORDER], Got: [$ORDER_IDS]"
+    exit 1
+fi
+
+curl -s -X DELETE "$BASE_URL/logs/$ORDER_LOG_1_ID" > /dev/null
+curl -s -X DELETE "$BASE_URL/logs/$ORDER_LOG_2_ID" > /dev/null
+curl -s -X DELETE "$BASE_URL/logs/$ORDER_LOG_3_ID" > /dev/null

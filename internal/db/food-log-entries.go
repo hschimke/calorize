@@ -16,6 +16,7 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 		SELECT id, user_id, food_id, portion_name, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at, deleted_at
 		FROM food_log_entries
 		WHERE user_id = ? AND logged_at >= ? AND logged_at < ? AND deleted_at IS NULL
+		ORDER BY logged_at ASC, created_at ASC
 	`
 	rows, err := db.Query(query, userID, start, end)
 	if err != nil {
