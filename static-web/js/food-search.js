@@ -1,15 +1,16 @@
 import { api } from './api.js';
-import { DOMBuffer } from './ui.js';
+import { DOMBuffer, showToast } from './ui.js';
 
 export class FoodSearch {
     /**
      * @param {HTMLElement} containerEl
-     * @param {{ onSelect: function, placeholder?: string }} options
+     * @param {{ onSelect: function, placeholder?: string, showCopy?: boolean }} options
      */
     constructor(containerEl, options = {}) {
         this.containerEl = containerEl;
         this.onSelect = options.onSelect || (() => {});
         this.placeholder = options.placeholder || 'Search foods...';
+        this.showCopy = options.showCopy || false;
 
         this.recentFoods = [];
         this._debounceTimer = null;
@@ -127,6 +128,24 @@ export class FoodSearch {
 
         li.appendChild(infoDiv);
         li.appendChild(calSpan);
+
+        if (this.showCopy) {
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'btn btn-secondary btn-sm';
+            copyBtn.textContent = 'Copy';
+            copyBtn.title = 'Copy to My Foods';
+            copyBtn.addEventListener('click', async (e) => {
+                e.stopPropagation(); // the whole row selects the food
+                try {
+                    await api.copyFood(food.id);
+                    showToast('Copied — added to My Foods');
+                } catch (err) {
+                    showToast('Failed to copy food: ' + err.message, 'error');
+                }
+            });
+            li.appendChild(copyBtn);
+        }
 
         li.addEventListener('click', () => this._selectFood(food));
 

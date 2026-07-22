@@ -169,6 +169,28 @@ else
     exit 1
 fi
 
+# Log lineage summary: copied entry traces back to its origin with 1 copy-step
+COPIED_LOG_ID=$(echo $TODAY_LOGS | jq -r --arg src "$SRC_LOG_ID" '.[] | select(.copied_from_id == $src) | .id')
+LOG_LINEAGE=$(curl -s "$BASE_URL/logs/$COPIED_LOG_ID/lineage")
+ORIGIN_ID=$(echo $LOG_LINEAGE | jq -r '.origin.id')
+COPIES=$(echo $LOG_LINEAGE | jq -r '.copies')
+if [ "$ORIGIN_ID" == "$SRC_LOG_ID" ] && [ "$COPIES" == "1" ]; then
+    log_info "✅ Log lineage summary: origin + 1 copy-step"
+else
+    log_err "Expected origin=$SRC_LOG_ID copies=1, got origin=$ORIGIN_ID copies=$COPIES"
+    echo $LOG_LINEAGE | jq .
+    exit 1
+fi
+
+# Lineage of a nonexistent log entry returns 404
+LOG_MISSING_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/logs/00000000-0000-0000-0000-000000000000/lineage")
+if [ "$LOG_MISSING_CODE" == "404" ]; then
+    log_info "✅ Lineage of nonexistent log entry returns 404"
+else
+    log_err "Expected 404 for nonexistent log entry lineage, got $LOG_MISSING_CODE"
+    exit 1
+fi
+
 # Cleanup: logs first, then foods
 curl -s -X DELETE "$BASE_URL/logs/$SRC_LOG_ID" > /dev/null
 echo $TODAY_LOGS | jq -r --arg src "$SRC_LOG_ID" '.[] | select(.copied_from_id == $src) | .id' | while read id; do

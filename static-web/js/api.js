@@ -181,6 +181,16 @@ export class API {
         return await this.request(`/foods/${id}`, 'DELETE');
     }
 
+    /** Copy a food into the current user's foods (pure 1:1 copy, new family). */
+    async copyFood(id) {
+        return await this.request(`/foods/${id}/copy`, 'POST');
+    }
+
+    /** Get a food's copy lineage: { food_id, family_id, ancestors, tree }. */
+    async getFoodLineage(id) {
+        return await this.request(`/foods/${id}/lineage`);
+    }
+
     // --- Logs ---
 
     async getLogs(date) {
@@ -207,6 +217,11 @@ export class API {
 
     async deleteLog(id) {
         return await this.request(`/logs/${id}`, 'DELETE');
+    }
+
+    /** Get a log entry's copy provenance summary: { origin, copies }. */
+    async getLogLineage(id) {
+        return await this.request(`/logs/${id}/lineage`);
     }
 
     async copyLogs(fromDate, toDate, mealTags) {

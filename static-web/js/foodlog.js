@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { showToast, showConfirm, renderCalorieGoalBar, DOMBuffer } from './ui.js';
+import { showToast, showConfirm, openModal, renderCalorieGoalBar, DOMBuffer } from './ui.js';
 import { getLocalDateString } from './utils.js';
 import { FoodSearch } from './food-search.js';
 
@@ -26,6 +26,7 @@ async function init() {
     foodSearch = new FoodSearch(
         document.getElementById('food-search-container'),
         {
+            showCopy: true,
             onSelect: async (food) => {
                 selectedFood = food;
                 const unitLabel = document.getElementById('amount-unit-label');
@@ -135,6 +136,16 @@ function buildLogRow(log) {
         div.appendChild(document.createTextNode(` (${Math.round(log.calories)} kcal)`));
     }
 
+    if (log.copied_from_id) {
+        const badge = document.createElement('button');
+        badge.type = 'button';
+        badge.className = 'badge badge-copied';
+        badge.textContent = 'copied';
+        badge.title = 'Show copy history';
+        badge.onclick = () => showLogHistory(log);
+        div.appendChild(badge);
+    }
+
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = 'Remove';
     deleteBtn.className = 'btn btn-danger btn-sm';
@@ -143,6 +154,47 @@ function buildLogRow(log) {
     li.appendChild(div);
     li.appendChild(deleteBtn);
     return li;
+}
+
+// Shows a summary of where a day-copied entry originally came from.
+async function showLogHistory(log) {
+    let summary;
+    try {
+        summary = await api.getLogLineage(log.id);
+    } catch (e) {
+        showToast('Failed to load copy history: ' + e.message, 'error');
+        return;
+    }
+
+    const { body } = openModal('Copy history');
+    const origin = summary.origin;
+
+    const nameEl = document.createElement('p');
+    const nameStrong = document.createElement('strong');
+    nameStrong.textContent = origin.food?.name
+        || (origin.note ? `[qc] ${origin.note}` : 'Quick Add');
+    nameEl.appendChild(nameStrong);
+    body.appendChild(nameEl);
+
+    const firstLogged = document.createElement('p');
+    const originDate = new Date(origin.logged_at).toLocaleDateString(undefined, {
+        year: 'numeric', month: 'long', day: 'numeric',
+    });
+    firstLogged.textContent = `First logged ${originDate} (${origin.meal_tag})`;
+    body.appendChild(firstLogged);
+
+    const copies = document.createElement('p');
+    copies.textContent = summary.copies === 1
+        ? 'Copied forward 1 time since'
+        : `Copied forward ${summary.copies} times since`;
+    body.appendChild(copies);
+
+    if (origin.deleted_at) {
+        const deletedNote = document.createElement('p');
+        deletedNote.className = 'lineage-deleted';
+        deletedNote.textContent = '(original entry has been deleted)';
+        body.appendChild(deletedNote);
+    }
 }
 
 async function loadLogs() {

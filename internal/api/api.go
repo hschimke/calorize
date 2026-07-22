@@ -546,7 +546,41 @@ func RegisterLogsPaths(mux *http.ServeMux) {
 	mux.HandleFunc("GET /logs", getLogsHandler)
 	mux.HandleFunc("POST /logs", createLogEntryHandler)
 	mux.HandleFunc("POST /logs/copy", copyLogEntriesHandler)
+	mux.HandleFunc("GET /logs/{id}/lineage", getLogLineageHandler)
 	mux.HandleFunc("DELETE /logs/{id}", deleteLogEntryHandler)
+}
+
+// getLogLineageHandler returns a summary of a log entry's copy provenance:
+// the origin entry its day-copy chain started from and the number of
+// copy-steps in between. Only the caller's own entries are visible.
+func getLogLineageHandler(w http.ResponseWriter, r *http.Request) {
+	entryIDString := r.PathValue("id")
+	entryID, err := uuid.Parse(entryIDString)
+	if err != nil {
+		http.Error(w, "Invalid log entry ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	summary, err := db.GetFoodLogLineageSummary(db.FoodLogEntryID(entryID), userID)
+	if err != nil {
+		slog.Error("failed to get log entry lineage", "error", err, "id", entryID)
+		http.Error(w, "Failed to get log entry lineage", http.StatusInternalServerError)
+		return
+	}
+	if summary == nil {
+		http.Error(w, "Log entry not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(summary); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 func getLogsHandler(w http.ResponseWriter, r *http.Request) {

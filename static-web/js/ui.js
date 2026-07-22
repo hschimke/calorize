@@ -24,6 +24,53 @@ export function showToast(message, type = 'success') {
 }
 
 // ============================================================
+// Modal Dialog
+// ============================================================
+
+/**
+ * Open a modal dialog with a title, a close button, and an empty body for
+ * the caller to fill. Closes on the × button, backdrop click, or Escape
+ * (native <dialog> behavior); removes itself from the DOM when closed.
+ * @param {string} title
+ * @returns {{ body: HTMLElement, close: function }}
+ */
+export function openModal(title) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'app-modal';
+
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+    header.appendChild(heading);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'modal-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '×';
+    header.appendChild(closeBtn);
+
+    const body = document.createElement('div');
+    body.className = 'modal-body';
+
+    dialog.appendChild(header);
+    dialog.appendChild(body);
+    document.body.appendChild(dialog);
+
+    const close = () => dialog.close();
+    closeBtn.addEventListener('click', close);
+    dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) close(); // backdrop click
+    });
+    dialog.addEventListener('close', () => dialog.remove());
+
+    dialog.showModal();
+    return { body, close };
+}
+
+// ============================================================
 // Confirm Dialog
 // ============================================================
 

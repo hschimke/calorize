@@ -1,6 +1,8 @@
 package db
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -154,6 +156,68 @@ func populateMacros(entry *FoodLogEntry) error {
 		entry.Fat = &fat
 	}
 	return nil
+}
+
+// maxLogChainDepth caps the upward walk of log-entry copy chains. Chains grow
+// by one per day-copy, so daily use builds long chains — the cap only guards
+// against pathological data (copied_from_id is written once at creation).
+const maxLogChainDepth = 1000
+
+// GetFoodLogLineageSummary walks a log entry's copy chain back to its origin
+// and returns the origin entry plus the number of copy-steps in between.
+// Ownership is enforced at the seed: entries not belonging to userID return
+// nil. Soft-deleted ancestors stay in the chain, so a deleted origin is still
+// reported (with DeletedAt set). A non-copy entry returns itself with 0 copies.
+func GetFoodLogLineageSummary(id FoodLogEntryID, userID UserID) (*FoodLogLineageSummary, error) {
+	query := `
+		WITH RECURSIVE chain(id, copied_from_id, depth) AS (
+			SELECT id, copied_from_id, 0 FROM food_log_entries WHERE id = ? AND user_id = ?
+			UNION ALL
+			SELECT e.id, e.copied_from_id, chain.depth + 1
+			FROM food_log_entries e
+			JOIN chain ON e.id = chain.copied_from_id
+			WHERE chain.depth < ?
+		)
+		SELECT id, depth FROM chain ORDER BY depth DESC LIMIT 1
+	`
+	var originID FoodLogEntryID
+	var depth int
+	err := db.QueryRow(query, id, userID, maxLogChainDepth).Scan(&originID, &depth)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // entry not found or not owned by userID
+		}
+		return nil, fmt.Errorf("walking log entry chain: %w", err)
+	}
+
+	// Load the origin entry (no deleted filter: a deleted origin is still history).
+	originQuery := `
+		SELECT id, user_id, food_id, portion_name, calories, protein, carbs, fat, amount, meal_tag, note, copied_from_id, logged_at, created_at, deleted_at
+		FROM food_log_entries
+		WHERE id = ?
+	`
+	var origin FoodLogEntry
+	var foodID uuid.NullUUID
+	err = db.QueryRow(originQuery, originID).Scan(
+		&origin.ID, &origin.UserID, &foodID, &origin.PortionName,
+		&origin.Calories, &origin.Protein, &origin.Carbs, &origin.Fat,
+		&origin.Amount, &origin.MealTag, &origin.Note, nullFoodLogEntryID{&origin.CopiedFromID},
+		&origin.LoggedAt, &origin.CreatedAt, &origin.DeletedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("loading origin log entry: %w", err)
+	}
+	if foodID.Valid {
+		fid := FoodID(foodID.UUID)
+		origin.FoodID = &fid
+		if foodMap, err := GetFoodsByIDs([]FoodID{fid}); err != nil {
+			slog.Error("failed to get food for log lineage origin", "error", err)
+		} else if f, ok := foodMap[fid]; ok {
+			origin.Food = f
+		}
+	}
+
+	return &FoodLogLineageSummary{Origin: &origin, Copies: depth}, nil
 }
 
 // CopyFoodLogEntries copies log entries from fromDate (filtered by mealTags) to new entries

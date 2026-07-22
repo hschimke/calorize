@@ -199,6 +199,15 @@ type FoodLogEntry struct {
 	DeletedAt    *time.Time      `json:"deleted_at"`
 }
 
+// FoodLogLineageSummary summarizes a log entry's copy provenance: the origin
+// entry its copy chain started from and how many copy-steps separate them.
+// The full chain is deliberately not returned — daily day-copying can build
+// chains hundreds of entries deep.
+type FoodLogLineageSummary struct {
+	Origin *FoodLogEntry `json:"origin"`
+	Copies int           `json:"copies"` // copy-steps between this entry and the origin
+}
+
 // SQL Driver Support
 
 func (id UserID) Value() (driver.Value, error) {

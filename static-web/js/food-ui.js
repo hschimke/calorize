@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { showToast, showConfirm, DOMBuffer } from './ui.js';
+import { showToast, showConfirm, openModal, DOMBuffer } from './ui.js';
 import { FoodSearch } from './food-search.js';
 
 let recipeIngredients = []; // Array of {id, name, amount, unit, calories, protein, carbs, fat, measurement_amount}
@@ -36,7 +36,7 @@ async function loadFoods() {
                 ));
                 if (food.type === 'recipe') {
                     const badge = document.createElement('span');
-                    badge.style.cssText = 'background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-left:4px;';
+                    badge.className = 'badge';
                     const servingsLabel = food.servings > 1 ? ` (makes ${food.servings})` : '';
                     badge.textContent = `Recipe${servingsLabel}`;
                     detailsEl.appendChild(badge);
@@ -60,6 +60,18 @@ async function loadFoods() {
                 editBtn.className = 'btn btn-secondary btn-sm';
                 editBtn.onclick = () => startEdit(food.id);
                 actionsDiv.appendChild(editBtn);
+
+                const copyBtn = document.createElement('button');
+                copyBtn.textContent = 'Copy';
+                copyBtn.className = 'btn btn-secondary btn-sm';
+                copyBtn.onclick = () => copyFood(food.id);
+                actionsDiv.appendChild(copyBtn);
+
+                const lineageBtn = document.createElement('button');
+                lineageBtn.textContent = 'Lineage';
+                lineageBtn.className = 'btn btn-secondary btn-sm';
+                lineageBtn.onclick = () => showLineage(food);
+                actionsDiv.appendChild(lineageBtn);
 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.textContent = 'Delete';
@@ -131,6 +143,118 @@ async function deleteFood(id) {
         loadFoods();
     } catch (e) {
         showToast("Failed to delete food: " + e.message, 'error');
+    }
+}
+
+// --- Copy & Lineage ---
+
+async function copyFood(id) {
+    try {
+        await api.copyFood(id);
+        showToast('Copied — added to My Foods');
+        loadFoods();
+    } catch (e) {
+        showToast('Failed to copy food: ' + e.message, 'error');
+    }
+}
+
+// Builds the display label for a lineage node (redacted/deleted aware).
+function lineageNodeLabel(node, versioned) {
+    const label = document.createElement('span');
+    if (node.redacted || !node.food) {
+        label.className = 'lineage-redacted';
+        label.textContent = 'Private food 🔒';
+    } else {
+        const name = document.createElement('strong');
+        const versionSuffix = versioned ? ` (v${node.food.version})` : '';
+        name.textContent = node.food.name + versionSuffix;
+        label.appendChild(name);
+        const meta = document.createElement('small');
+        meta.textContent = ` ${Math.round(node.food.calories)} kcal`;
+        label.appendChild(meta);
+    }
+    if (node.deleted) {
+        const del = document.createElement('small');
+        del.className = 'lineage-deleted';
+        del.textContent = ' (deleted)';
+        label.appendChild(del);
+    }
+    return label;
+}
+
+// Recursively renders a copy-tree node into an <li>, highlighting the food
+// the modal was opened for and offering a Copy action on visible nodes.
+function buildLineageItem(node, currentFamilyId) {
+    const li = document.createElement('li');
+    const row = document.createElement('div');
+    row.className = 'lineage-node';
+    if (node.family_id === currentFamilyId) {
+        row.classList.add('lineage-current');
+    }
+    row.appendChild(lineageNodeLabel(node, false));
+
+    if (node.food && !node.deleted) {
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = 'Copy';
+        copyBtn.className = 'btn btn-secondary btn-sm';
+        copyBtn.onclick = () => copyFood(node.food.id);
+        row.appendChild(copyBtn);
+    }
+    li.appendChild(row);
+
+    if (node.children && node.children.length > 0) {
+        const ul = document.createElement('ul');
+        ul.className = 'lineage-tree';
+        node.children.forEach(child => ul.appendChild(buildLineageItem(child, currentFamilyId)));
+        li.appendChild(ul);
+    }
+    return li;
+}
+
+async function showLineage(food) {
+    let lineage;
+    try {
+        lineage = await api.getFoodLineage(food.id);
+    } catch (e) {
+        showToast('Failed to load lineage: ' + e.message, 'error');
+        return;
+    }
+
+    const { body } = openModal(`Lineage: ${food.name}`);
+    const ancestors = lineage.ancestors || [];
+    const hasChildren = lineage.tree && lineage.tree.children && lineage.tree.children.length > 0;
+
+    if (ancestors.length === 0 && !hasChildren) {
+        const empty = document.createElement('p');
+        empty.className = 'lineage-empty';
+        empty.textContent = 'This food has no copy history.';
+        body.appendChild(empty);
+        return;
+    }
+
+    if (ancestors.length > 0) {
+        const heading = document.createElement('h4');
+        heading.textContent = 'Copied from';
+        body.appendChild(heading);
+        const list = document.createElement('ul');
+        list.className = 'lineage-ancestors';
+        ancestors.forEach(node => {
+            const li = document.createElement('li');
+            li.appendChild(document.createTextNode('⬆ '));
+            li.appendChild(lineageNodeLabel(node, true));
+            list.appendChild(li);
+        });
+        body.appendChild(list);
+    }
+
+    if (lineage.tree) {
+        const heading = document.createElement('h4');
+        heading.textContent = 'Copy tree';
+        body.appendChild(heading);
+        const root = document.createElement('ul');
+        root.className = 'lineage-tree lineage-tree-root';
+        root.appendChild(buildLineageItem(lineage.tree, lineage.family_id));
+        body.appendChild(root);
     }
 }
 

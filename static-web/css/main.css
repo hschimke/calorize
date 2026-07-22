@@ -1046,3 +1046,121 @@ dialog h2 {
   border-top: 1px solid var(--color-border);
   margin: var(--space-4) 0;
 }
+
+/* ============================================================
+   Badges, Modals & Lineage
+   ============================================================ */
+.badge {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8em;
+  margin-left: var(--space-1);
+  white-space: nowrap;
+}
+
+/* The copied badge is interactive (opens the copy-history modal). */
+button.badge-copied {
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button.badge-copied:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.app-modal {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.modal-header h3 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0 var(--space-1);
+  flex-shrink: 0;
+}
+
+.modal-close:hover {
+  color: var(--color-text);
+}
+
+.modal-body h4 {
+  margin: var(--space-4) 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.modal-body h4:first-child {
+  margin-top: 0;
+}
+
+.lineage-ancestors {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lineage-ancestors li {
+  padding: var(--space-1) 0;
+}
+
+.lineage-tree {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lineage-tree .lineage-tree {
+  margin-left: var(--space-3);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--color-border);
+}
+
+.lineage-node {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.lineage-node small {
+  color: var(--color-text-muted);
+}
+
+.lineage-current {
+  background: var(--color-surface-muted);
+  outline: 1px solid var(--color-primary);
+}
+
+.lineage-redacted,
+.lineage-deleted,
+.lineage-empty {
+  color: var(--color-text-muted);
+}
