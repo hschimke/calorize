@@ -54,7 +54,24 @@ if [ "$GOAL_VAL" != "2000" ]; then
 fi
 log_info "✅ GET /account/profile after PUT → calorie_goal=2000"
 
-# Test 4: PUT clears goal with null
+# Test 4: partial update preserves absent fields
+echo "Updating only weight_unit (calorie_goal absent, must be preserved)..."
+PARTIAL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/account/profile" \
+  -H "Content-Type: application/json" \
+  -d '{"weight_unit": "kg"}')
+if [ "$PARTIAL_CODE" != "200" ]; then
+    log_err "Expected 200 on partial update, got $PARTIAL_CODE"
+    exit 1
+fi
+PROF_PARTIAL=$(curl -s "$BASE_URL/account/profile")
+GOAL_KEPT=$(echo "$PROF_PARTIAL" | jq '.calorie_goal')
+if [ "$GOAL_KEPT" != "2000" ]; then
+    log_err "Absent calorie_goal should be preserved on partial update, got $GOAL_KEPT"
+    exit 1
+fi
+log_info "✅ Partial update preserves absent calorie_goal"
+
+# Test 5: PUT clears goal with explicit null
 echo "Clearing calorie goal..."
 CLEAR_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/account/profile" \
   -H "Content-Type: application/json" \

@@ -48,6 +48,19 @@ func getProfileHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// optionalField distinguishes an absent JSON field from an explicit null:
+// Set is true only when the field appeared in the payload. Absent fields are
+// preserved on partial updates; explicit null clears a nullable field.
+type optionalField[T any] struct {
+	Set   bool
+	Value *T
+}
+
+func (o *optionalField[T]) UnmarshalJSON(b []byte) error {
+	o.Set = true
+	return json.Unmarshal(b, &o.Value)
+}
+
 func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserID(r)
 	if err != nil {
@@ -55,19 +68,19 @@ func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		CalorieGoal *int     `json:"calorie_goal"`
-		WeightGoal  *float64 `json:"weight_goal"`
-		WeightUnit  *string  `json:"weight_unit"`
+		CalorieGoal optionalField[int]     `json:"calorie_goal"`
+		WeightGoal  optionalField[float64] `json:"weight_goal"`
+		WeightUnit  *string                `json:"weight_unit"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	if body.CalorieGoal != nil && *body.CalorieGoal <= 0 {
+	if body.CalorieGoal.Value != nil && *body.CalorieGoal.Value <= 0 {
 		http.Error(w, "calorie_goal must be a positive integer", http.StatusBadRequest)
 		return
 	}
-	if body.WeightGoal != nil && *body.WeightGoal <= 0 {
+	if body.WeightGoal.Value != nil && *body.WeightGoal.Value <= 0 {
 		http.Error(w, "weight_goal must be a positive number", http.StatusBadRequest)
 		return
 	}
@@ -81,11 +94,11 @@ func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "User not found", http.StatusInternalServerError)
 		return
 	}
-	if body.CalorieGoal != nil {
-		user.CalorieGoal = body.CalorieGoal
+	if body.CalorieGoal.Set {
+		user.CalorieGoal = body.CalorieGoal.Value // explicit null clears
 	}
-	if body.WeightGoal != nil {
-		user.WeightGoal = body.WeightGoal
+	if body.WeightGoal.Set {
+		user.WeightGoal = body.WeightGoal.Value // explicit null clears
 	}
 	if body.WeightUnit != nil {
 		user.WeightUnit = *body.WeightUnit
