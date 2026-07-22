@@ -69,6 +69,88 @@ func RegisterFoodsPaths(mux *http.ServeMux) {
 	mux.HandleFunc("GET /foods/{id}", getFoodHandler)
 	mux.HandleFunc("PUT /foods/{id}", updateFoodHandler)
 	mux.HandleFunc("DELETE /foods/{id}", deleteFoodHandler)
+	mux.HandleFunc("POST /foods/{id}/copy", copyFoodHandler)
+	mux.HandleFunc("GET /foods/{id}/lineage", getFoodLineageHandler)
+}
+
+// copyFoodHandler duplicates a visible food into the caller's own foods,
+// recording copy lineage. Pure 1:1 copy — no request body; rename or adjust
+// via the normal update flow afterward.
+func copyFoodHandler(w http.ResponseWriter, r *http.Request) {
+	foodIDString := r.PathValue("id")
+	foodID, err := uuid.Parse(foodIDString)
+	if err != nil {
+		http.Error(w, "Invalid food ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	source, err := db.GetFood(db.FoodID(foodID))
+	if err != nil {
+		http.Error(w, "Failed to get food", http.StatusInternalServerError)
+		return
+	}
+	// 404 for missing, deleted, and invisible foods alike — don't leak existence.
+	if source == nil || !(source.CreatorID == db.UserID(uuid.Nil) || source.Public || source.CreatorID == userID) {
+		http.Error(w, "Food not found", http.StatusNotFound)
+		return
+	}
+
+	food, err := db.CopyFood(db.FoodID(foodID), userID)
+	if err != nil {
+		slog.Error("failed to copy food", "error", err, "id", foodID)
+		http.Error(w, "Failed to copy food", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(food); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
+}
+
+// getFoodLineageHandler returns the copy lineage of a food: the chain of
+// foods it was copied from (nearest-first) and the full copy tree rooted at
+// the lineage's origin. Foods the caller may not see appear as redacted stubs.
+func getFoodLineageHandler(w http.ResponseWriter, r *http.Request) {
+	foodIDString := r.PathValue("id")
+	foodID, err := uuid.Parse(foodIDString)
+	if err != nil {
+		http.Error(w, "Invalid food ID", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := getUserID(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	food, err := db.GetFood(db.FoodID(foodID))
+	if err != nil {
+		http.Error(w, "Failed to get food", http.StatusInternalServerError)
+		return
+	}
+	if food == nil {
+		http.Error(w, "Food not found", http.StatusNotFound)
+		return
+	}
+
+	lineage, err := db.GetFoodLineage(db.FoodID(foodID), userID)
+	if err != nil {
+		slog.Error("failed to get food lineage", "error", err, "id", foodID)
+		http.Error(w, "Failed to get food lineage", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(lineage); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 func getFoodsHandler(w http.ResponseWriter, r *http.Request) {

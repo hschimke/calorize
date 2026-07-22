@@ -101,8 +101,32 @@ type Food struct {
 	Ingredients       []RecipeItems  `json:"ingredients,omitempty"`
 	Nutrients         []FoodNutrient `json:"nutrients,omitempty"`
 	Portions          []FoodPortion  `json:"portions,omitempty"`
+	CopiedFromID      *FoodID        `json:"copied_from_id,omitempty"` // Exact food version this food was copied from
 	CreatedAt         time.Time      `json:"created_at"`
 	DeletedAt         *time.Time     `json:"deleted_at"`
+}
+
+// FoodLineageNode is one node in a copy-lineage tree. Nodes represent food
+// families (hydrated with the family's current version); edges follow the
+// version-pinned copied_from_id references. Food is nil when the requester
+// is not allowed to see it (Redacted), preserving tree topology.
+type FoodLineageNode struct {
+	FoodID   FoodID             `json:"food_id"`   // current version id (topology anchor)
+	FamilyID FoodFamilyID       `json:"family_id"` // stable family identifier
+	Food     *Food              `json:"food,omitempty"`
+	Redacted bool               `json:"redacted,omitempty"`
+	Deleted  bool               `json:"deleted,omitempty"`
+	Children []*FoodLineageNode `json:"children"`
+}
+
+// FoodLineage is the full copy-lineage view for one food: the chain of foods
+// it was copied from (nearest-first, version-pinned) and the whole copy tree
+// rooted at the lineage's origin.
+type FoodLineage struct {
+	FoodID    FoodID             `json:"food_id"`
+	FamilyID  FoodFamilyID       `json:"family_id"`
+	Ancestors []*FoodLineageNode `json:"ancestors"`
+	Tree      *FoodLineageNode   `json:"tree"`
 }
 
 // FoodPortions
@@ -168,10 +192,11 @@ type FoodLogEntry struct {
 	Fat       *float64       `json:"fat"`
 	Amount    float64        `json:"amount"`
 	MealTag   string         `json:"meal_tag"`
-	Note      *string        `json:"note"`
-	LoggedAt  time.Time      `json:"logged_at"`
-	CreatedAt time.Time      `json:"created_at"`
-	DeletedAt *time.Time     `json:"deleted_at"`
+	Note         *string         `json:"note"`
+	CopiedFromID *FoodLogEntryID `json:"copied_from_id,omitempty"` // Source entry when created via a day-copy
+	LoggedAt     time.Time       `json:"logged_at"`
+	CreatedAt    time.Time       `json:"created_at"`
+	DeletedAt    *time.Time      `json:"deleted_at"`
 }
 
 // SQL Driver Support
@@ -228,6 +253,39 @@ func (id *FoodLogEntryID) Scan(src any) error {
 		return err
 	}
 	*id = FoodLogEntryID(u)
+	return nil
+}
+
+// nullFoodID scans a nullable foods.id column into a *FoodID field:
+// NULL becomes nil, otherwise the pointer is set to the scanned id.
+type nullFoodID struct{ dest **FoodID }
+
+func (n nullFoodID) Scan(src any) error {
+	if src == nil {
+		*n.dest = nil
+		return nil
+	}
+	var id FoodID
+	if err := id.Scan(src); err != nil {
+		return err
+	}
+	*n.dest = &id
+	return nil
+}
+
+// nullFoodLogEntryID is the food_log_entries.id counterpart of nullFoodID.
+type nullFoodLogEntryID struct{ dest **FoodLogEntryID }
+
+func (n nullFoodLogEntryID) Scan(src any) error {
+	if src == nil {
+		*n.dest = nil
+		return nil
+	}
+	var id FoodLogEntryID
+	if err := id.Scan(src); err != nil {
+		return err
+	}
+	*n.dest = &id
 	return nil
 }
 

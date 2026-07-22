@@ -13,7 +13,7 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 	end := start.Add(24 * time.Hour)
 
 	query := `
-		SELECT id, user_id, food_id, portion_name, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at, deleted_at
+		SELECT id, user_id, food_id, portion_name, calories, protein, carbs, fat, amount, meal_tag, note, copied_from_id, logged_at, created_at, deleted_at
 		FROM food_log_entries
 		WHERE user_id = ? AND logged_at >= ? AND logged_at < ? AND deleted_at IS NULL
 		ORDER BY logged_at ASC, created_at ASC
@@ -31,7 +31,7 @@ func GetFoodLogEntries(userID UserID, date time.Time) ([]FoodLogEntry, error) {
 	for rows.Next() {
 		var entry FoodLogEntry
 		var foodID uuid.NullUUID
-		if err := rows.Scan(&entry.ID, &entry.UserID, &foodID, &entry.PortionName, &entry.Calories, &entry.Protein, &entry.Carbs, &entry.Fat, &entry.Amount, &entry.MealTag, &entry.Note, &entry.LoggedAt, &entry.CreatedAt, &entry.DeletedAt); err != nil {
+		if err := rows.Scan(&entry.ID, &entry.UserID, &foodID, &entry.PortionName, &entry.Calories, &entry.Protein, &entry.Carbs, &entry.Fat, &entry.Amount, &entry.MealTag, &entry.Note, nullFoodLogEntryID{&entry.CopiedFromID}, &entry.LoggedAt, &entry.CreatedAt, &entry.DeletedAt); err != nil {
 			return nil, fmt.Errorf("scanning food log entry: %w", err)
 		}
 		if foodID.Valid {
@@ -186,11 +186,11 @@ func CopyFoodLogEntries(userID UserID, fromDate time.Time, mealTags []string, lo
 		}
 		_, err = tx.Exec(
 			`INSERT INTO food_log_entries
-			 (id, user_id, food_id, portion_name, calories, protein, carbs, fat, amount, meal_tag, note, logged_at, created_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			 (id, user_id, food_id, portion_name, calories, protein, carbs, fat, amount, meal_tag, note, copied_from_id, logged_at, created_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			newID, userID, entry.FoodID, entry.PortionName,
 			entry.Calories, entry.Protein, entry.Carbs, entry.Fat,
-			entry.Amount, entry.MealTag, entry.Note,
+			entry.Amount, entry.MealTag, entry.Note, entry.ID,
 			loggedAt, time.Now().UTC(),
 		)
 		if err != nil {

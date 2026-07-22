@@ -29,6 +29,7 @@ TEST_FILES=(
     "tests/08_account_profile.sh"
     "tests/09_copy_logs.sh"
     "tests/10_weight_tracker.sh"
+    "tests/11_copy_lineage.sh"
 )
 
 for TEST_FILE in "${TEST_FILES[@]}"; do

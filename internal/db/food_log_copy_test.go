@@ -94,6 +94,33 @@ func TestCopyFoodLogEntries(t *testing.T) {
 			t.Errorf("logged_at %v not near copyTime %v", e.LoggedAt, copyTime)
 		}
 	}
+
+	// Each copy records the source entry it was copied from.
+	sources, err := GetFoodLogEntries(user.ID, yesterday)
+	if err != nil {
+		t.Fatalf("GetFoodLogEntries (yesterday) failed: %v", err)
+	}
+	sourceByTag := map[string]FoodLogEntryID{}
+	for _, e := range sources {
+		if e.UserID == user.ID {
+			sourceByTag[e.MealTag] = e.ID
+		}
+	}
+	for _, e := range mine {
+		if e.CopiedFromID == nil {
+			t.Errorf("Copied %s entry should record copied_from_id", e.MealTag)
+			continue
+		}
+		if *e.CopiedFromID != sourceByTag[e.MealTag] {
+			t.Errorf("Copied %s entry points at %v, expected source %v", e.MealTag, *e.CopiedFromID, sourceByTag[e.MealTag])
+		}
+	}
+	// And the sources themselves have no lineage.
+	for _, e := range sources {
+		if e.UserID == user.ID && e.CopiedFromID != nil {
+			t.Errorf("Source %s entry should have no copied_from_id", e.MealTag)
+		}
+	}
 }
 
 func TestCopyFoodLogEntries_Empty(t *testing.T) {

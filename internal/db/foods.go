@@ -17,7 +17,7 @@ func GetUserFoods(userID UserID) ([]Food, error) {
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
 			measurement_unit, measurement_amount, servings, public, external_id,
-			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+			brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 		FROM foods
 		WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
 	`
@@ -34,7 +34,7 @@ func GetUserFoods(userID UserID) ([]Food, error) {
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
 			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
-			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, nullFoodID{&f.CopiedFromID}, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning food: %w", err)
@@ -75,7 +75,7 @@ func GetFoods(userID UserID, disabledSources []string, hidePublicUserFoods bool)
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
 			measurement_unit, measurement_amount, servings, public, external_id,
-			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+			brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 		FROM foods
 		WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
 		UNION ALL
@@ -83,7 +83,7 @@ func GetFoods(userID UserID, disabledSources []string, hidePublicUserFoods bool)
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
 			measurement_unit, measurement_amount, servings, public, external_id,
-			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+			brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 		FROM foods
 		WHERE public = true AND is_current = true AND deleted_at IS NULL
 		  AND (creator_id != ? OR creator_id IS NULL)` + sourceClause
@@ -102,7 +102,7 @@ func GetFoods(userID UserID, disabledSources []string, hidePublicUserFoods bool)
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
 			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
-			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, nullFoodID{&f.CopiedFromID}, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning food: %w", err)
@@ -169,7 +169,7 @@ func GetFoodsByIDs(ids []FoodID) (map[FoodID]*Food, error) {
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
 			measurement_unit, measurement_amount, servings, public, external_id,
-			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+			brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 		FROM foods
 		WHERE id IN (%s)
 	`, inClause)
@@ -187,7 +187,7 @@ func GetFoodsByIDs(ids []FoodID) (map[FoodID]*Food, error) {
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
 			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
-			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, nullFoodID{&f.CopiedFromID}, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning food: %w", err)
@@ -278,7 +278,7 @@ func GetFood(id FoodID) (*Food, error) {
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
 			measurement_unit, measurement_amount, servings, public, external_id,
-			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+			brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 		FROM foods
 		WHERE id = ? AND deleted_at IS NULL
 	`
@@ -289,7 +289,7 @@ func GetFood(id FoodID) (*Food, error) {
 		&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 		&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
 		&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
-		&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
+		&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, nullFoodID{&f.CopiedFromID}, &f.CreatedAt, &f.DeletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -369,7 +369,7 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
 			measurement_unit, measurement_amount, servings, public, external_id,
-			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+			brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 		FROM foods
 		WHERE family_id = ? AND deleted_at IS NULL
 		ORDER BY version DESC
@@ -387,7 +387,7 @@ func GetFoodVersions(id FoodID) ([]Food, error) {
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
 			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
-			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, nullFoodID{&f.CopiedFromID}, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning food version: %w", err)
@@ -406,14 +406,14 @@ func insertFoodData(tx *sql.Tx, food *Food) error {
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
 			measurement_unit, measurement_amount, servings, public, external_id,
-			brand_owner, barcode, ingredients_text, category, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			brand_owner, barcode, ingredients_text, category, copied_from_id, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := tx.Exec(query,
 		food.ID, food.CreatorID, food.FamilyID, food.Version, food.IsCurrent, food.Name,
 		food.Calories, food.Protein, food.Carbs, food.Fat, food.Type,
 		food.MeasurementUnit, food.MeasurementAmount, food.Servings, food.Public, food.ExternalID,
-		food.BrandOwner, food.Barcode, food.IngredientsText, food.Category, food.CreatedAt,
+		food.BrandOwner, food.Barcode, food.IngredientsText, food.Category, food.CopiedFromID, food.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("inserting food: %w", err)
@@ -537,6 +537,9 @@ func UpdateFood(id FoodID, food Food) (*Food, error) {
 	if food.CreatorID == UserID(uuid.Nil) {
 		food.CreatorID = current.CreatorID
 	}
+	// Copy lineage is set once at creation and always carried forward:
+	// updates must never rewrite where a food was copied from.
+	food.CopiedFromID = current.CopiedFromID
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -560,6 +563,37 @@ func UpdateFood(id FoodID, food Food) (*Food, error) {
 	return &food, nil
 }
 
+// CopyFood duplicates the given food version into a brand-new food owned by
+// newOwnerID. The copy starts its own family (independent version history)
+// at version 1 and records copied_from_id = sourceID, the exact version it
+// was copied from. Nutrients, portions and recipe items are copied; recipe
+// items reference the same ingredient foods (shallow copy). external_id and
+// barcode are cleared so the copy is never mistaken for the imported
+// original by importer/barcode lookups.
+func CopyFood(sourceID FoodID, newOwnerID UserID) (*Food, error) {
+	source, err := GetFood(sourceID)
+	if err != nil {
+		return nil, fmt.Errorf("loading source food: %w", err)
+	}
+	if source == nil {
+		return nil, fmt.Errorf("food not found")
+	}
+
+	dup := *source
+	dup.ID = FoodID(uuid.Nil)             // CreateFood mints a fresh id...
+	dup.FamilyID = FoodFamilyID(uuid.Nil) // ...and starts a new family from it
+	dup.CreatorID = newOwnerID
+	// Visibility is inherited from the source: a copy of a public food is
+	// public (the app default for user foods), a private copy stays private.
+	dup.CopiedFromID = &sourceID
+	dup.ExternalID = nil
+	dup.Barcode = nil
+	dup.CreatedAt = time.Time{}
+	dup.DeletedAt = nil
+
+	return CreateFood(dup)
+}
+
 func GetRecentFoods(userID UserID, limit int) ([]Food, error) {
 	if limit <= 0 {
 		limit = 50
@@ -568,7 +602,7 @@ func GetRecentFoods(userID UserID, limit int) ([]Food, error) {
 		SELECT f.id, f.creator_id, f.family_id, f.version, f.is_current, f.name,
 		       f.calories, f.protein, f.carbs, f.fat, f.type,
 		       f.measurement_unit, f.measurement_amount, f.servings, f.public, f.external_id,
-		       f.brand_owner, f.barcode, f.ingredients_text, f.category, f.created_at, f.deleted_at
+		       f.brand_owner, f.barcode, f.ingredients_text, f.category, f.copied_from_id, f.created_at, f.deleted_at
 		FROM foods f
 		INNER JOIN (
 			SELECT f2.family_id, MAX(l.logged_at) AS last_used
@@ -595,7 +629,7 @@ func GetRecentFoods(userID UserID, limit int) ([]Food, error) {
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
 			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
-			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, nullFoodID{&f.CopiedFromID}, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning recent food: %w", err)
@@ -627,12 +661,12 @@ func SearchFoods(userID UserID, q string, limit int, disabledSources []string, h
 		SELECT id, creator_id, family_id, version, is_current, name,
 		       calories, protein, carbs, fat, type,
 		       measurement_unit, measurement_amount, servings, public, external_id,
-		       brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+		       brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 		FROM (
 			SELECT id, creator_id, family_id, version, is_current, name,
 			       calories, protein, carbs, fat, type,
 			       measurement_unit, measurement_amount, servings, public, external_id,
-			       brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+			       brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 			FROM foods
 			WHERE creator_id = ? AND is_current = true AND deleted_at IS NULL
 			  AND name LIKE ? ESCAPE ?
@@ -642,12 +676,12 @@ func SearchFoods(userID UserID, q string, limit int, disabledSources []string, h
 		SELECT id, creator_id, family_id, version, is_current, name,
 		       calories, protein, carbs, fat, type,
 		       measurement_unit, measurement_amount, servings, public, external_id,
-		       brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+		       brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 		FROM (
 			SELECT id, creator_id, family_id, version, is_current, name,
 			       calories, protein, carbs, fat, type,
 			       measurement_unit, measurement_amount, servings, public, external_id,
-			       brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+			       brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 			FROM foods
 			WHERE public = true AND is_current = true AND deleted_at IS NULL
 			  AND (creator_id != ? OR creator_id IS NULL)
@@ -674,7 +708,7 @@ func SearchFoods(userID UserID, q string, limit int, disabledSources []string, h
 			&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 			&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
 			&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
-			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
+			&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, nullFoodID{&f.CopiedFromID}, &f.CreatedAt, &f.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning food search result: %w", err)
@@ -734,7 +768,7 @@ func GetFoodByExternalID(extID string) (*Food, error) {
 			id, creator_id, family_id, version, is_current, name,
 			calories, protein, carbs, fat, type,
 			measurement_unit, measurement_amount, servings, public, external_id,
-			brand_owner, barcode, ingredients_text, category, created_at, deleted_at
+			brand_owner, barcode, ingredients_text, category, copied_from_id, created_at, deleted_at
 		FROM foods
 		WHERE external_id = ? AND is_current = true AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
@@ -746,7 +780,7 @@ func GetFoodByExternalID(extID string) (*Food, error) {
 		&f.ID, &f.CreatorID, &f.FamilyID, &f.Version, &f.IsCurrent, &f.Name,
 		&f.Calories, &f.Protein, &f.Carbs, &f.Fat, &f.Type,
 		&f.MeasurementUnit, &f.MeasurementAmount, &f.Servings, &f.Public, &f.ExternalID,
-		&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, &f.CreatedAt, &f.DeletedAt,
+		&f.BrandOwner, &f.Barcode, &f.IngredientsText, &f.Category, nullFoodID{&f.CopiedFromID}, &f.CreatedAt, &f.DeletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
