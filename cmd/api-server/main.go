@@ -42,12 +42,28 @@ func setupDevUser() (db.UserID, error) {
 }
 
 func main() {
-	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+		// Adds "source":{"function":"...","file":"...","line":...} to trace log origin
+		AddSource: true,
+		// Standardize attribute keys or customize timestamps
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			// Example: rename "msg" to "message" for systems like OpenSearch/Datadog
+			if a.Key == slog.MessageKey {
+				a.Key = "message"
+			}
+			return a
+		},
+	}
+	// Change NewTextHandler -> NewJSONHandler
+	handler := slog.NewJSONHandler(os.Stdout, opts)
 	logger := slog.New(handler)
 
 	ctx := context.Background()
 	logger.InfoContext(ctx, "Starting API server...")
 
+	// Everything using slog.Default() (including slog.Info, slog.Error, etc.)
+	// will now automatically format as JSON.
 	slog.SetDefault(logger)
 
 	v1Mux := http.NewServeMux()
