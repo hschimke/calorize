@@ -1,0 +1,38 @@
+groups:
+  - name: calorize.alerts
+    rules:
+      - alert: CalorizeHighErrorRate
+        expr: (sum(rate(calorize_http_requests_total{status=~"5.."}[5m])) / sum(rate(calorize_http_requests_total[5m]))) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Calorize 5xx error rate is above 1%"
+          description: "5xx HTTP error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: CalorizeHighLatency
+        expr: histogram_quantile(0.95, sum(rate(calorize_http_request_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Calorize p95 request latency is above 1s"
+          description: "p95 request latency is {{ $value }}s over the last 5 minutes."
+
+      - alert: CalorizeClientEventFlood
+        expr: sum(rate(calorize_client_events_dropped_total{reason="rate_limit"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Calorize client event rate limit drops exceeded"
+          description: "More than 1 client event drop per second occurred over the last 5 minutes (current rate: {{ $value }}/s)."
+
+      - alert: CalorizeDatabaseErrors
+        expr: sum(rate(calorize_db_errors_total[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Calorize database errors detected"
+          description: "Database errors detected over the last 5 minutes (current rate: {{ $value }}/s)."

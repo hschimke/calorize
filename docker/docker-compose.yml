@@ -25,10 +25,12 @@ services:
       - IMPORT_DIR=/data/import
       - IMPORTED_DIR=/data/imported
       - ENABLE_CLOWN_MODE=${ENABLE_CLOWN_MODE:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=alloy:4317
     networks:
       - app-network
     expose:
       - "8080"                      # internal only — not host-mapped
+      - "9090"
     volumes:
       - ${MAPDIR:-~/docker-dirs/calorize.azule.info/}:/data           
     restart: unless-stopped
