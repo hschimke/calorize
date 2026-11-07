@@ -1,5 +1,6 @@
 networks:
   app-network:
+    name: calorize-network
     driver: bridge
 
 services:

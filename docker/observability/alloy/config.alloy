@@ -8,6 +8,7 @@ otelcol.receiver.otlp "default" {
 
   output {
     traces = [otelcol.exporter.otlp.tempo.input]
+    logs   = [otelcol.exporter.loki.default.input]
   }
 }
 
@@ -17,5 +18,15 @@ otelcol.exporter.otlp "tempo" {
     tls {
       insecure = true
     }
+  }
+}
+
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
   }
 }

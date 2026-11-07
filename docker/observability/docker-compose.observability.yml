@@ -1,6 +1,7 @@
 networks:
   app-network:
-    driver: bridge
+    name: calorize-network
+    external: true
 
 services:
   alloy:
@@ -12,8 +13,8 @@ services:
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
     ports:
-      - "4317:4317"
-      - "4318:4318"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
     networks:
       - app-network
     restart: unless-stopped
@@ -27,8 +28,9 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
     ports:
-      - "9091:9090"
+      - "127.0.0.1:9091:9090"
     networks:
       - app-network
     restart: unless-stopped
@@ -39,8 +41,9 @@ services:
       - -config.file=/etc/tempo/tempo.yaml
     volumes:
       - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/tmp/tempo
     ports:
-      - "3200:3200"
+      - "127.0.0.1:3200:3200"
     networks:
       - app-network
     restart: unless-stopped
@@ -51,8 +54,9 @@ services:
       - -config.file=/etc/loki/loki.yaml
     volumes:
       - ./loki/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/tmp/loki
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
     networks:
       - app-network
     restart: unless-stopped
@@ -61,14 +65,15 @@ services:
     image: grafana/grafana:10.4.2
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     networks:
       - app-network
     depends_on:
@@ -76,3 +81,9 @@ services:
       - tempo
       - loki
     restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  tempo-data:
+  loki-data:
+  grafana-data:
