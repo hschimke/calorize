@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -316,5 +317,79 @@ func TestClientEventsForgedForwardedForSharesBucket(t *testing.T) {
 	}
 	if last != http.StatusTooManyRequests {
 		t.Fatalf("expected forged X-Forwarded-For entries to be rate limited together, got %d", last)
+	}
+}
+
+// topLevelKeys returns every top-level key of a JSON object in order,
+// including duplicates (which encoding/json would silently collapse).
+func topLevelKeys(t *testing.T, line []byte) []string {
+	t.Helper()
+	dec := json.NewDecoder(bytes.NewReader(line))
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
+		t.Fatalf("log line is not a JSON object: %s", line)
+	}
+	var keys []string
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			t.Fatalf("decoding log line: %v", err)
+		}
+		keys = append(keys, tok.(string))
+		var skip json.RawMessage
+		if err := dec.Decode(&skip); err != nil {
+			t.Fatalf("decoding log value: %v", err)
+		}
+	}
+	return keys
+}
+
+// The server logs with telemetry.NewLogHandler, which writes the slog message
+// under "message". A client.error line must not repeat that key for the
+// browser's message, or Alloy/Loki keep only one of the two values.
+func TestClientEventsLogLineHasUniqueKeys(t *testing.T) {
+	api.ResetClientEventsLimiter()
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(telemetry.NewLogHandler(&buf)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	mux := http.NewServeMux()
+	api.RegisterClientEventsPaths(mux)
+	payload := `{"events":[{"kind":"js_error","message":"x is undefined","location":"app.js:1:2","route":"/foodlog.html","build":"abc123"}]}`
+	req := httptest.NewRequest("POST", "/client-events", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusAccepted {
+		t.Fatalf("expected 202 Accepted, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var line []byte
+	for l := range bytes.SplitSeq(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
+		if bytes.Contains(l, []byte(`"client.error"`)) {
+			line = l
+		}
+	}
+	if line == nil {
+		t.Fatalf("no client.error log line in:\n%s", buf.String())
+	}
+
+	seen := map[string]bool{}
+	for _, k := range topLevelKeys(t, line) {
+		if seen[k] {
+			t.Errorf("duplicate key %q in log line: %s", k, line)
+		}
+		seen[k] = true
+	}
+
+	var rec map[string]any
+	if err := json.Unmarshal(line, &rec); err != nil {
+		t.Fatal(err)
+	}
+	if rec["message"] != "client.error" {
+		t.Errorf(`message = %v, want "client.error"`, rec["message"])
+	}
+	if rec["client_message"] != "x is undefined" {
+		t.Errorf(`client_message = %v, want "x is undefined"`, rec["client_message"])
 	}
 }

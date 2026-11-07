@@ -236,7 +236,8 @@ func handleClientEvents(w http.ResponseWriter, r *http.Request) {
 	for _, ev := range batch.Events {
 		slog.WarnContext(r.Context(), "client.error",
 			"kind", SanitizeString(ev.Kind),
-			"message", SanitizeString(ev.Message),
+			// Not "message": the log handler already writes the slog message under that key.
+			"client_message", SanitizeString(ev.Message),
 			"location", SanitizeString(ev.Location),
 			"route", SanitizeString(ev.Route),
 			"build", SanitizeString(ev.Build),
