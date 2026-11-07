@@ -1,8 +1,10 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -30,11 +32,11 @@ func init() {
 		"%s?_pragma=foreign_keys(1)"+
 			"&_pragma=journal_mode(WAL)"+
 			"&_pragma=busy_timeout(5000)"+
-			"&_pragma=synchronous(NORMAL)"+   // safe with WAL, faster than FULL
-			"&_pragma=cache_size(-64000)"+    // 64 MB page cache
-			"&_pragma=temp_store(MEMORY)"+    // temp tables in RAM
-			"&_pragma=mmap_size(134217728)"+  // 128 MB memory-mapped I/O
-			"&_pragma=analysis_limit(400)",   // sample limit for ANALYZE / optimize
+			"&_pragma=synchronous(NORMAL)"+ // safe with WAL, faster than FULL
+			"&_pragma=cache_size(-64000)"+ // 64 MB page cache
+			"&_pragma=temp_store(MEMORY)"+ // temp tables in RAM
+			"&_pragma=mmap_size(134217728)"+ // 128 MB memory-mapped I/O
+			"&_pragma=analysis_limit(400)", // sample limit for ANALYZE / optimize
 		dbPath,
 	)
 
@@ -61,6 +63,14 @@ func init() {
 	}
 
 	slog.Info("database initialized")
+}
+
+// PingContext verifies a connection to the database is still alive.
+func PingContext(ctx context.Context) error {
+	if db == nil {
+		return errors.New("database connection is nil")
+	}
+	return db.PingContext(ctx)
 }
 
 // Close runs PRAGMA optimize to refresh query planner statistics, then closes

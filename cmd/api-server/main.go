@@ -72,7 +72,7 @@ func main() {
 
 	// Public Routes
 	auth.RegisterAuthPaths(v1Mux) // Auth endpoints must be public
-	v1Mux.Handle("GET /healthz", http.HandlerFunc(healthHandler))
+	api.RegisterProbePaths(v1Mux)
 
 	// Protected Routes (API)
 	apiMux := http.NewServeMux()
@@ -218,12 +218,4 @@ func main() {
 	}
 
 	slog.Info("server exited")
-}
-
-// --- Handler ---
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status": "ok"}`))
 }
