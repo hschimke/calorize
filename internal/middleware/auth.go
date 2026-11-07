@@ -11,66 +11,66 @@ import (
 	"github.com/google/uuid"
 )
 
-// RequireAuth middleware ensures the user is authenticated via Bearer Token OR Cookie
+// ExtractAuth identifies the caller if valid credentials (token, session cookie, or dev user)
+// are present and injects the user_id into context. It does NOT block unauthenticated requests.
+func ExtractAuth(devUserID *db.UserID) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if devUserID != nil && *devUserID != db.UserID(uuid.Nil) {
+				ctx := context.WithValue(r.Context(), auth.UserIDContextKey, *devUserID)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			var userID db.UserID
+
+			// 1. Check Bearer Token
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" {
+				if after, ok := strings.CutPrefix(authHeader, "Bearer "); ok {
+					tokenStr := strings.TrimSpace(after)
+					if uid, err := token.Validate(tokenStr); err == nil {
+						userID = uid
+					}
+				}
+			}
+
+			// 2. Check Cookie (if token auth failed or wasn't present)
+			if userID == db.UserID(uuid.Nil) {
+				if cookie, cErr := r.Cookie(auth.AppSessionCookieName); cErr == nil && cookie.Value != "" {
+					if session, sErr := db.GetSession(cookie.Value); sErr == nil && session != nil {
+						userID = session.UserID
+					}
+				}
+			}
+
+			// 3. Verify user exists and is active
+			if userID != db.UserID(uuid.Nil) {
+				if user, err := db.GetUserByID(userID); err == nil && user != nil && user.DisabledAt == nil {
+					ctx := context.WithValue(r.Context(), auth.UserIDContextKey, userID)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RequireAuth middleware ensures the user was authenticated by ExtractAuth.
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var userID db.UserID
-		var err error
-
-		// 1. Check Bearer Token
-		authHeader := r.Header.Get("Authorization")
-		if authHeader != "" {
-			if after, ok := strings.CutPrefix(authHeader, "Bearer "); ok {
-				tokenStr := after
-				var uid db.UserID
-				uid, err = token.Validate(tokenStr)
-				if err == nil {
-					userID = uid
-				}
-			}
-		}
-
-		// 2. Check Cookie (if token auth failed or wasn't present)
-		if authHeader != "" && userID == db.UserID(uuid.Nil) {
-			// Token provided but invalid
+		v := r.Context().Value(auth.UserIDContextKey)
+		if v == nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-
-		if userID == db.UserID(uuid.Nil) {
-			// No token or no header, check Cookie
-			cookie, cErr := r.Cookie(auth.AppSessionCookieName)
-			if cErr == nil && cookie.Value != "" {
-				session, sErr := db.GetSession(cookie.Value)
-				if sErr == nil && session != nil {
-					userID = session.UserID
-				}
-			}
-		}
-
-		if userID == db.UserID(uuid.Nil) {
+		uid, ok := v.(db.UserID)
+		if !ok || uid == db.UserID(uuid.Nil) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-
-		// 3. Verify user exists and is active
-		user, err := db.GetUserByID(userID)
-		if err != nil {
-			// Log error? For now just unauthorized
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		if user == nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		if user.DisabledAt != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		// Set user_id in context
-		ctx := context.WithValue(r.Context(), auth.UserIDContextKey, userID)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(w, r)
 	})
 }

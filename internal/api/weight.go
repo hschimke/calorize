@@ -1,8 +1,9 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
-	"log/slog"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -41,8 +42,7 @@ func getWeightLogsHandler(w http.ResponseWriter, r *http.Request) {
 
 	logs, err := db.GetWeightLogs(userID, limit)
 	if err != nil {
-		slog.Error("failed to get weight logs", "error", err)
-		http.Error(w, "Failed to get weight logs", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -58,8 +58,12 @@ func createWeightLogHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 
@@ -98,8 +102,7 @@ func createWeightLogHandler(w http.ResponseWriter, r *http.Request) {
 		LoggedAt: req.LoggedAt,
 	})
 	if err != nil {
-		slog.Error("failed to create weight log", "error", err)
-		http.Error(w, "Failed to create weight log", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -124,11 +127,15 @@ func updateWeightLogHandler(w http.ResponseWriter, r *http.Request) {
 	// Check existence & ownership
 	existing, err := db.GetWeightLog(db.WeightLogID(logID))
 	if err != nil {
-		http.Error(w, "Failed to fetch log", http.StatusInternalServerError)
+		if errors.Is(err, sql.ErrNoRows) {
+			WriteError(w, r, db.ErrNotFound)
+			return
+		}
+		WriteError(w, r, err)
 		return
 	}
 	if existing == nil {
-		http.Error(w, "Weight log not found", http.StatusNotFound)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 	if existing.UserID != userID {
@@ -169,8 +176,7 @@ func updateWeightLogHandler(w http.ResponseWriter, r *http.Request) {
 		LoggedAt: req.LoggedAt,
 	})
 	if err != nil {
-		slog.Error("failed to update weight log", "error", err)
-		http.Error(w, "Failed to update weight log", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -194,11 +200,15 @@ func deleteWeightLogHandler(w http.ResponseWriter, r *http.Request) {
 
 	existing, err := db.GetWeightLog(db.WeightLogID(logID))
 	if err != nil {
-		http.Error(w, "Failed to fetch log", http.StatusInternalServerError)
+		if errors.Is(err, sql.ErrNoRows) {
+			WriteError(w, r, db.ErrNotFound)
+			return
+		}
+		WriteError(w, r, err)
 		return
 	}
 	if existing == nil {
-		http.Error(w, "Weight log not found", http.StatusNotFound)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 	if existing.UserID != userID {
@@ -207,8 +217,7 @@ func deleteWeightLogHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.DeleteWeightLog(db.WeightLogID(logID), userID); err != nil {
-		slog.Error("failed to delete weight log", "error", err)
-		http.Error(w, "Failed to delete weight log", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -232,15 +241,18 @@ func getWeightStatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 
 	logs, err := db.GetWeightLogs(userID, 0)
 	if err != nil {
-		slog.Error("failed to get weight logs for stats", "error", err)
-		http.Error(w, "Failed to get weight stats", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 

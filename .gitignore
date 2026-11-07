@@ -41,13 +41,15 @@ go.work.sum
 #build artifacts
 *.bin
 main
-api-server
+/api-server
+/bin/
 .DS_Store
 
 imports/
 
 *.zip
 *.json
+!docker/observability/**/*.json
 * copy
 *.pdf
 log

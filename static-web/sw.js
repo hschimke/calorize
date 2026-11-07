@@ -18,6 +18,7 @@ const PRECACHE_URLS = [
     '/account.html',
     '/css/main.css',
     '/js/bootstrap.js',
+    '/js/telemetry.js',
     '/js/api.js',
     '/js/auth.js',
     '/js/utils.js',

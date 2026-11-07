@@ -16,8 +16,13 @@ import (
 	"azule.info/calorize/internal/db"
 	"azule.info/calorize/internal/importer"
 	"azule.info/calorize/internal/middleware"
+	"azule.info/calorize/internal/telemetry"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
+
+var GitSHA = "dev"
 
 func setupDevUser() (db.UserID, error) {
 	name := "dev_user"
@@ -60,24 +65,44 @@ func main() {
 	logger := slog.New(handler)
 
 	ctx := context.Background()
-	logger.InfoContext(ctx, "Starting API server...")
+	logger.InfoContext(ctx, "Starting API server...", "build", GitSHA)
 
 	// Everything using slog.Default() (including slog.Info, slog.Error, etc.)
 	// will now automatically format as JSON.
 	slog.SetDefault(logger)
 
+	telemetry.InitMetrics()
+
+	tp, err := telemetry.InitTracer(context.Background(), "calorize-api", GitSHA)
+	if err != nil {
+		slog.Error("failed to initialize tracer", "error", err)
+	}
+	if tp != nil {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := tp.Shutdown(shutdownCtx); err != nil {
+				slog.Error("failed to shutdown tracer provider", "error", err)
+			}
+		}()
+	}
+
 	v1Mux := http.NewServeMux()
 
 	// Public Routes
 	auth.RegisterAuthPaths(v1Mux) // Auth endpoints must be public
-	v1Mux.Handle("GET /healthz", http.HandlerFunc(healthHandler))
+	api.RegisterProbePaths(v1Mux)
+	api.RegisterClientEventsPaths(v1Mux)
 
 	// Protected Routes (API)
 	apiMux := http.NewServeMux()
 	api.RegisterApiPaths(apiMux)
+	apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		api.WriteError(w, r, db.ErrNotFound)
+	})
 
-	// Middleware wrapping for protected routes
-	var protectedHandler http.Handler
+	// Dev user setup if DEV_AUTH is enabled
+	var devUID *db.UserID
 	if os.Getenv("DEV_AUTH") == "true" {
 		slog.Warn("DEV_AUTH enabled - using insecure dev user authentication")
 		devUserID, err := setupDevUser()
@@ -86,18 +111,11 @@ func main() {
 			os.Exit(1)
 		}
 		slog.Info("dev user ready", "user_id", devUserID)
-		devAuthMiddleware := func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				ctx := context.WithValue(r.Context(), auth.UserIDContextKey, devUserID)
-				next.ServeHTTP(w, r.WithContext(ctx))
-			})
-		}
-		// Apply dev auth to apiMux
-		protectedHandler = devAuthMiddleware(apiMux)
-	} else {
-		// Apply real auth to apiMux
-		protectedHandler = middleware.RequireAuth(apiMux)
+		devUID = &devUserID
 	}
+
+	// Apply auth gate to protected routes
+	protectedHandler := middleware.RequireAuth(apiMux)
 
 	// Mount protected handler at root "/" of v1Mux to catch all non-matched routes
 	// Note: Since we registered specific paths on 'v1Mux' above, those will take precedence.
@@ -105,16 +123,31 @@ func main() {
 	v1Mux.Handle("/", protectedHandler)
 
 	mainMux := http.NewServeMux()
+	api.RegisterProbePaths(mainMux)
 	mainMux.Handle("/api/v1/", http.StripPrefix("/api/v1", v1Mux))
+	mainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		api.WriteError(w, r, db.ErrNotFound)
+	})
 
-	// Global Middleware (Logger & Recovery) - wraps everything
-	// Order: Logger -> Recoverer -> Mux
-	// Logger is outer so it logs the completion (even if 500)
-	// Recoverer is next so it catches panics from Mux
-
-	// Note: If Recoverer handles a panic, it writes 500. Logger will see that status if using a wrapped writer.
-
-	finalHandler := middleware.Logger(middleware.Recoverer(middleware.CORS(mainMux)))
+	// Global Middleware Pipeline:
+	// 1. otelhttp: Traces incoming HTTP requests and propagates W3C trace context
+	// 2. RequestTelemetry: Injects/echoes X-Request-Id and X-Calorize-Build
+	// 3. Recoverer: Catches panics and serves 500
+	// 4. CORS: Handles CORS preflight and access headers
+	// 5. ExtractAuth: Non-blocking credential identification (populates user_id in context)
+	// 6. Logger: Structured slog access log (runs with user_id & trace_id in context, logs even on panic via defer)
+	finalHandler := otelhttp.NewHandler(
+		middleware.RequestTelemetry(GitSHA)(
+			middleware.Recoverer(
+				middleware.CORS(
+					middleware.ExtractAuth(devUID)(
+						middleware.Logger(mainMux),
+					),
+				),
+			),
+		),
+		"calorize-api",
+	)
 
 	// 4. Start the server
 	port := os.Getenv("PORT")
@@ -128,11 +161,35 @@ func main() {
 		Handler: finalHandler,
 	}
 
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
 	go func() {
 		slog.Info("server starting", "addr", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server failed", "error", err)
-			os.Exit(1)
+			quit <- syscall.SIGTERM
+		}
+	}()
+
+	// 5. Start internal metrics server
+	metricsPort := os.Getenv("METRICS_PORT")
+	if metricsPort == "" {
+		metricsPort = "9090"
+	}
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsServer := &http.Server{
+		Addr:              ":" + metricsPort,
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 3 * time.Second,
+	}
+
+	go func() {
+		slog.Info("metrics server starting", "addr", ":"+metricsPort)
+		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("metrics server failed", "error", err)
 		}
 	}()
 
@@ -148,6 +205,8 @@ func main() {
 			case <-sessionCleanupTicker.C:
 				if err := db.CleanupExpiredSessions(); err != nil {
 					slog.Error("session cleanup failed", "error", err)
+				} else {
+					telemetry.SessionCleanupsTotal.Inc()
 				}
 			case <-cleanupDone:
 				slog.Info("session cleanup daemon stopping")
@@ -189,9 +248,7 @@ func main() {
 		}
 	})
 
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	// Wait for shutdown signal
 	<-quit
 
 	slog.Info("server shutting down...")
@@ -201,6 +258,10 @@ func main() {
 
 	if err := server.Shutdown(ctx); err != nil {
 		slog.Error("server forced to shutdown", "error", err)
+	}
+
+	if err := metricsServer.Shutdown(ctx); err != nil {
+		slog.Error("metrics server forced to shutdown", "error", err)
 	}
 
 	// Signal cleanup to stop
@@ -216,12 +277,4 @@ func main() {
 	}
 
 	slog.Info("server exited")
-}
-
-// --- Handler ---
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status": "ok"}`))
 }

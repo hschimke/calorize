@@ -174,6 +174,10 @@ type FoodLogEntry struct {
 	DeletedAt *time.Time     `json:"deleted_at"`
 }
 
+// Stringer Support
+
+func (id UserID) String() string { return uuid.UUID(id).String() }
+
 // SQL Driver Support
 
 func (id UserID) Value() (driver.Value, error) {

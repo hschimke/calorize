@@ -10,9 +10,12 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
+ARG GIT_SHA=dev
+ARG BUILD_HASH=${GIT_SHA}
+
 # Build the binary
 # Disabling CGO for a static binary suitable for Alpine
-RUN CGO_ENABLED=0 GOOS=linux go build -o api-server ./cmd/api-server/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'main.GitSHA=${BUILD_HASH}'" -o api-server ./cmd/api-server
 RUN CGO_ENABLED=0 GOOS=linux go build -o afcd-importer ./cmd/afcd-importer/
 
 # Stage 2: Create the final minimal image
