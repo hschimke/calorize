@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"azule.info/calorize/internal/auth"
+	"azule.info/calorize/internal/telemetry"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -97,6 +98,12 @@ func Logger(next http.Handler) http.Handler {
 				"remote_addr", r.RemoteAddr,
 				"user_agent", r.UserAgent(),
 			)
+
+			route := r.Pattern
+			if route == "" {
+				route = "unmatched"
+			}
+			telemetry.RecordHTTPRequest(r.Method, route, rw.status, duration.Seconds(), rw.bytesWritten)
 		}()
 
 		next.ServeHTTP(rw, r)

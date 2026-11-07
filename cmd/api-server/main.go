@@ -16,7 +16,9 @@ import (
 	"azule.info/calorize/internal/db"
 	"azule.info/calorize/internal/importer"
 	"azule.info/calorize/internal/middleware"
+	"azule.info/calorize/internal/telemetry"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var GitSHA = "dev"
@@ -67,6 +69,8 @@ func main() {
 	// Everything using slog.Default() (including slog.Info, slog.Error, etc.)
 	// will now automatically format as JSON.
 	slog.SetDefault(logger)
+
+	telemetry.InitMetrics()
 
 	v1Mux := http.NewServeMux()
 
@@ -139,6 +143,25 @@ func main() {
 		}
 	}()
 
+	// 5. Start internal metrics server
+	metricsPort := os.Getenv("METRICS_PORT")
+	if metricsPort == "" {
+		metricsPort = "9090"
+	}
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsServer := &http.Server{
+		Addr:    ":" + metricsPort,
+		Handler: metricsMux,
+	}
+
+	go func() {
+		slog.Info("metrics server starting", "addr", ":"+metricsPort)
+		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("metrics server failed", "error", err)
+		}
+	}()
+
 	// Session cleanup task
 	sessionCleanupTicker := time.NewTicker(1 * time.Hour)
 	cleanupDone := make(chan struct{})
@@ -204,6 +227,10 @@ func main() {
 
 	if err := server.Shutdown(ctx); err != nil {
 		slog.Error("server forced to shutdown", "error", err)
+	}
+
+	if err := metricsServer.Shutdown(ctx); err != nil {
+		slog.Error("metrics server forced to shutdown", "error", err)
 	}
 
 	// Signal cleanup to stop

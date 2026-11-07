@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,7 +13,9 @@ import (
 	"azule.info/calorize/internal/auth"
 	"azule.info/calorize/internal/db"
 	"azule.info/calorize/internal/middleware"
+	"azule.info/calorize/internal/telemetry"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -343,5 +346,47 @@ func TestLoggerMiddlewareLogsPanickingRequests(t *testing.T) {
 	}
 	if accessLog == nil {
 		t.Fatal("expected 'http.request' log entry even on panic")
+	}
+}
+
+func TestLoggerMiddlewareRecordsPrometheusMetrics(t *testing.T) {
+	telemetry.InitMetrics()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/test-pattern/{id}", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("pattern response"))
+	})
+
+	loggedHandler := middleware.Logger(mux)
+
+	// 1. Matched route
+	req := httptest.NewRequest("GET", "/api/v1/test-pattern/123", nil)
+	rr := httptest.NewRecorder()
+	loggedHandler.ServeHTTP(rr, req)
+
+	// 2. Direct handler without ServeMux pattern (route should be "unmatched")
+	unmatchedHandler := middleware.Logger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	req2 := httptest.NewRequest("DELETE", "/unknown", nil)
+	rr2 := httptest.NewRecorder()
+	unmatchedHandler.ServeHTTP(rr2, req2)
+
+	// Verify Prometheus metrics output
+	promReq := httptest.NewRequest("GET", "/metrics", nil)
+	promRR := httptest.NewRecorder()
+	promhttp.Handler().ServeHTTP(promRR, promReq)
+
+	if promRR.Code != http.StatusOK {
+		t.Fatalf("expected 200 from /metrics, got %d", promRR.Code)
+	}
+
+	body := promRR.Body.String()
+	if !strings.Contains(body, `calorize_http_requests_total{method="GET",route="GET /api/v1/test-pattern/{id}",status="200"}`) {
+		t.Errorf("expected pattern-based metric in prometheus output, body:\n%s", body)
+	}
+	if !strings.Contains(body, `calorize_http_requests_total{method="DELETE",route="unmatched",status="404"}`) {
+		t.Errorf("expected unmatched metric in prometheus output, body:\n%s", body)
 	}
 }
