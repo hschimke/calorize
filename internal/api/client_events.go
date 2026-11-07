@@ -20,7 +20,10 @@ import (
 	"github.com/google/uuid"
 )
 
-var urlParamRegex = regexp.MustCompile(`(\?|#)[^\s"'>]*`)
+var (
+	urlParamRegex = regexp.MustCompile(`(\?|#)[^\s"'>]*`)
+	tokenRegex    = regexp.MustCompile(`(?i)(bearer\s+[a-z0-9_\-\.~+/]+=*|v2\.(?:local|public)\.[a-z0-9_\-]+)`)
+)
 
 type ClientEvent struct {
 	Kind     string `json:"kind"`
@@ -73,6 +76,7 @@ type clientEventLimiter struct {
 	userBuckets map[string]*tokenBucket
 	anonGlobal  *tokenBucket
 	anonBuckets map[string]*tokenBucket
+	lastPrune   time.Time
 }
 
 func newClientEventLimiter() *clientEventLimiter {
@@ -85,18 +89,29 @@ func newClientEventLimiter() *clientEventLimiter {
 }
 
 func (l *clientEventLimiter) prune(now time.Time) {
-	if len(l.anonBuckets) > 2000 {
+	if now.Sub(l.lastPrune) < time.Minute {
+		return
+	}
+	l.lastPrune = now
+
+	if len(l.anonBuckets) > 1000 {
 		for k, b := range l.anonBuckets {
 			if now.Sub(b.lastRefill) > 5*time.Minute {
 				delete(l.anonBuckets, k)
 			}
 		}
+		if len(l.anonBuckets) > 2000 {
+			l.anonBuckets = make(map[string]*tokenBucket)
+		}
 	}
-	if len(l.userBuckets) > 2000 {
+	if len(l.userBuckets) > 1000 {
 		for k, b := range l.userBuckets {
 			if now.Sub(b.lastRefill) > 5*time.Minute {
 				delete(l.userBuckets, k)
 			}
+		}
+		if len(l.userBuckets) > 2000 {
+			l.userBuckets = make(map[string]*tokenBucket)
 		}
 	}
 }
@@ -109,26 +124,26 @@ func (l *clientEventLimiter) Allow(userID string, ip string) bool {
 	l.prune(now)
 
 	if userID != "" {
-		if !l.userGlobal.allow(now) {
-			return false
-		}
 		bucket, exists := l.userBuckets[userID]
 		if !exists {
 			bucket = newTokenBucket(30, 30)
 			l.userBuckets[userID] = bucket
 		}
-		return bucket.allow(now)
+		if !bucket.allow(now) {
+			return false
+		}
+		return l.userGlobal.allow(now)
 	}
 
-	if !l.anonGlobal.allow(now) {
-		return false
-	}
 	bucket, exists := l.anonBuckets[ip]
 	if !exists {
 		bucket = newTokenBucket(10, 10)
 		l.anonBuckets[ip] = bucket
 	}
-	return bucket.allow(now)
+	if !bucket.allow(now) {
+		return false
+	}
+	return l.anonGlobal.allow(now)
 }
 
 var limiter = newClientEventLimiter()
@@ -138,9 +153,10 @@ func ResetClientEventsLimiter() {
 	limiter = newClientEventLimiter()
 }
 
-// SanitizeString removes query strings, hash fragments, and truncates to 500 characters.
+// SanitizeString removes query strings, hash fragments, auth tokens, and truncates to 500 characters.
 func SanitizeString(s string) string {
 	cleaned := urlParamRegex.ReplaceAllString(s, "")
+	cleaned = tokenRegex.ReplaceAllString(cleaned, "[REDACTED]")
 	runes := []rune(cleaned)
 	if len(runes) > 500 {
 		return string(runes[:500])
@@ -220,6 +236,7 @@ func handleClientEvents(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&batch); err != nil {
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
+			telemetry.ClientEventsDroppedTotal.WithLabelValues("payload_too_large").Inc()
 			http.Error(w, "request entity too large", http.StatusRequestEntityTooLarge)
 			return
 		}
@@ -228,6 +245,7 @@ func handleClientEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(batch.Events) > 20 {
+		telemetry.ClientEventsDroppedTotal.WithLabelValues("batch_too_large").Inc()
 		http.Error(w, "batch size exceeds limit of 20 events", http.StatusBadRequest)
 		return
 	}
@@ -240,11 +258,11 @@ func handleClientEvents(w http.ResponseWriter, r *http.Request) {
 
 	for _, ev := range batch.Events {
 		slog.WarnContext(r.Context(), "client.error",
-			"kind", ev.Kind,
+			"kind", SanitizeString(ev.Kind),
 			"message", SanitizeString(ev.Message),
 			"location", SanitizeString(ev.Location),
 			"route", SanitizeString(ev.Route),
-			"build", ev.Build,
+			"build", SanitizeString(ev.Build),
 			"request_id", reqID,
 			"user_id", userIDStr,
 		)

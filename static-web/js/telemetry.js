@@ -1,6 +1,9 @@
 (function() {
   const seenErrors = new Set();
-  const build = document.querySelector('meta[name="calorize-build"]')?.content || 'unknown';
+
+  function getBuild() {
+    return document.querySelector('meta[name="calorize-build"]')?.content || 'unknown';
+  }
 
   function sendEvent(kind, message, location) {
     const key = `${kind}:${message}:${location}`;
@@ -13,7 +16,7 @@
         message: String(message || 'unknown error'),
         location: location || '',
         route: window.location.pathname,
-        build: build,
+        build: getBuild(),
         ts: Date.now()
       }]
     });

@@ -46,6 +46,14 @@ func TestClientEventsSanitizesURLs(t *testing.T) {
 	if sanitized != "https://example.com/app.js" {
 		t.Errorf("expected sanitized URL without params/hash, got %q", sanitized)
 	}
+
+	sanitizedTokens := api.SanitizeString("failed fetch with Bearer secret-token-123 and v2.local.abc123xyz")
+	if strings.Contains(sanitizedTokens, "secret-token-123") || strings.Contains(sanitizedTokens, "v2.local.abc123xyz") {
+		t.Errorf("expected tokens to be redacted, got %q", sanitizedTokens)
+	}
+	if !strings.Contains(sanitizedTokens, "[REDACTED]") {
+		t.Errorf("expected [REDACTED] in sanitized output, got %q", sanitizedTokens)
+	}
 }
 
 func TestClientEventsTruncation(t *testing.T) {
@@ -190,6 +198,37 @@ func TestClientEventsRateLimitingAnonymous(t *testing.T) {
 	mux.ServeHTTP(rrOther, reqOther)
 	if rrOther.Code != http.StatusAccepted {
 		t.Fatalf("request from different IP expected 202 Accepted, got %d: %s", rrOther.Code, rrOther.Body.String())
+	}
+}
+
+func TestClientEventsGlobalPoolNotStarvedBySingleIP(t *testing.T) {
+	api.ResetClientEventsLimiter()
+	mux := http.NewServeMux()
+	api.RegisterClientEventsPaths(mux)
+
+	payload := `{"events":[{"kind":"js_error","message":"test","route":"/index"}]}`
+	badIP := "198.51.100.99"
+
+	// Rogue IP sends 350 requests (more than global 300 pool)
+	for i := 1; i <= 350; i++ {
+		req := httptest.NewRequest("POST", "/client-events", bytes.NewBufferString(payload))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Forwarded-For", badIP)
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+	}
+
+	// Another innocent IP sends a request; it should succeed because the rogue IP's rejected
+	// requests did NOT consume tokens from the global pool!
+	goodIP := "198.51.100.100"
+	reqGood := httptest.NewRequest("POST", "/client-events", bytes.NewBufferString(payload))
+	reqGood.Header.Set("Content-Type", "application/json")
+	reqGood.Header.Set("X-Forwarded-For", goodIP)
+	rrGood := httptest.NewRecorder()
+	mux.ServeHTTP(rrGood, reqGood)
+
+	if rrGood.Code != http.StatusAccepted {
+		t.Fatalf("innocent IP should succeed with 202 Accepted, got %d: %s", rrGood.Code, rrGood.Body.String())
 	}
 }
 
