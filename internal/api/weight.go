@@ -58,7 +58,11 @@ func createWeightLogHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}
@@ -237,7 +241,11 @@ func getWeightStatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}

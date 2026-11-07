@@ -35,7 +35,11 @@ func getProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}
@@ -76,7 +80,11 @@ func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}
@@ -117,7 +125,11 @@ func getPreferencesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}
@@ -173,7 +185,11 @@ func updatePreferencesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}
@@ -208,7 +224,11 @@ func listPasskeysHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}
@@ -247,7 +267,11 @@ func deletePasskeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}
@@ -305,7 +329,11 @@ func addPasskeyBeginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}
@@ -341,7 +369,11 @@ func addPasskeyFinishHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}

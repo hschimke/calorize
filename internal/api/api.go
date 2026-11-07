@@ -79,7 +79,11 @@ func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}
@@ -414,7 +418,11 @@ func getConsistencyStatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := db.GetUserByID(userID)
-	if err != nil || user == nil {
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	if user == nil {
 		WriteError(w, r, db.ErrNotFound)
 		return
 	}

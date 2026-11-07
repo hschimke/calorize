@@ -207,4 +207,15 @@ func TestWeightLogNotFoundReturnsJSONError(t *testing.T) {
 	}
 }
 
+func TestWriteErrorNilDoesNothing(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+
+	api.WriteError(rr, req, nil)
+
+	if rr.Code != http.StatusOK && rr.Body.Len() != 0 {
+		t.Fatalf("expected no-op for nil error, got code %d body %s", rr.Code, rr.Body.String())
+	}
+}
+
 

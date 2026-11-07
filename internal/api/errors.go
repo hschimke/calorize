@@ -17,6 +17,10 @@ type ErrorResponse struct {
 }
 
 func WriteError(w http.ResponseWriter, r *http.Request, err error) {
+	if err == nil {
+		return
+	}
+
 	reqID := middleware.GetRequestID(r.Context())
 	status := http.StatusInternalServerError
 	code := "INTERNAL_ERROR"
