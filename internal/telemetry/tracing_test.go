@@ -26,15 +26,20 @@ func TestInitTracer_UnsetEndpoint(t *testing.T) {
 }
 
 func TestOtelHTTPIntegration(t *testing.T) {
+	origTP := otel.GetTracerProvider()
+	origProp := otel.GetTextMapPropagator()
+
 	tp := sdktrace.NewTracerProvider()
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
-	defer func() {
+	t.Cleanup(func() {
 		_ = tp.Shutdown(context.Background())
-	}()
+		otel.SetTracerProvider(origTP)
+		otel.SetTextMapPropagator(origProp)
+	})
 
 	var capturedSpanCtx trace.SpanContext
 	innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -57,15 +62,20 @@ func TestOtelHTTPIntegration(t *testing.T) {
 }
 
 func TestOtelHTTPPropagation(t *testing.T) {
+	origTP := otel.GetTracerProvider()
+	origProp := otel.GetTextMapPropagator()
+
 	tp := sdktrace.NewTracerProvider()
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
-	defer func() {
+	t.Cleanup(func() {
 		_ = tp.Shutdown(context.Background())
-	}()
+		otel.SetTracerProvider(origTP)
+		otel.SetTextMapPropagator(origProp)
+	})
 
 	var capturedSpanCtx trace.SpanContext
 	innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

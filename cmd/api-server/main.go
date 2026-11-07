@@ -154,11 +154,15 @@ func main() {
 		Handler: finalHandler,
 	}
 
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
 	go func() {
 		slog.Info("server starting", "addr", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server failed", "error", err)
-			os.Exit(1)
+			quit <- syscall.SIGTERM
 		}
 	}()
 
@@ -237,9 +241,7 @@ func main() {
 		}
 	})
 
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	// Wait for shutdown signal
 	<-quit
 
 	slog.Info("server shutting down...")
