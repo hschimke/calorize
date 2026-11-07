@@ -151,8 +151,9 @@ func main() {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
 	metricsServer := &http.Server{
-		Addr:    ":" + metricsPort,
-		Handler: metricsMux,
+		Addr:              ":" + metricsPort,
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 3 * time.Second,
 	}
 
 	go func() {
@@ -174,6 +175,8 @@ func main() {
 			case <-sessionCleanupTicker.C:
 				if err := db.CleanupExpiredSessions(); err != nil {
 					slog.Error("session cleanup failed", "error", err)
+				} else {
+					telemetry.SessionCleanupsTotal.Inc()
 				}
 			case <-cleanupDone:
 				slog.Info("session cleanup daemon stopping")
