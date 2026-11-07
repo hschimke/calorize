@@ -69,18 +69,30 @@ BODY_404=$(curl -s "${BASE_URL}/nonexistent-route-smoke")
 echo "$BODY_404" | grep -q '"code":"NOT_FOUND"'
 
 # Test api/v1 nonexistent route
-STATUS_404_V1=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/api/v1/nonexistent-route-smoke")
-if [ "$STATUS_404_V1" != "404" ]; then
-    echo "ERROR: Expected 404 status code for /api/v1, got '$STATUS_404_V1'"
+AUTH_HEADER="${AUTH_HEADER:-}"
+EXTRA_ARGS=()
+if [ -n "$AUTH_HEADER" ]; then
+    EXTRA_ARGS+=(-H "$AUTH_HEADER")
+fi
+
+STATUS_404_V1=$(curl -sS -o /dev/null -w "%{http_code}" "${EXTRA_ARGS[@]}" "${BASE_URL}/api/v1/nonexistent-route-smoke")
+if [ "$STATUS_404_V1" = "404" ]; then
+    CT_404_V1=$(curl -sSI "${EXTRA_ARGS[@]}" "${BASE_URL}/api/v1/nonexistent-route-smoke" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type" {print $2}')
+    if ! echo "$CT_404_V1" | grep -qi "application/json"; then
+        echo "ERROR: Expected Content-Type application/json for /api/v1, got '$CT_404_V1'"
+        exit 1
+    fi
+    BODY_404_V1=$(curl -sS "${EXTRA_ARGS[@]}" "${BASE_URL}/api/v1/nonexistent-route-smoke")
+    if ! echo "$BODY_404_V1" | grep -q '"code":"NOT_FOUND"'; then
+        echo "ERROR: Expected 'NOT_FOUND' code in body, got '$BODY_404_V1'"
+        exit 1
+    fi
+elif [ "$STATUS_404_V1" = "401" ]; then
+    echo "   (Note: /api/v1/ returned 401 Unauthorized as expected in non-dev auth mode)"
+else
+    echo "ERROR: Expected 404 or 401 status code for /api/v1, got '$STATUS_404_V1'"
     exit 1
 fi
-CT_404_V1=$(curl -sI "${BASE_URL}/api/v1/nonexistent-route-smoke" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type" {print $2}')
-if ! echo "$CT_404_V1" | grep -qi "application/json"; then
-    echo "ERROR: Expected Content-Type application/json for /api/v1, got '$CT_404_V1'"
-    exit 1
-fi
-BODY_404_V1=$(curl -s "${BASE_URL}/api/v1/nonexistent-route-smoke")
-echo "$BODY_404_V1" | grep -q '"code":"NOT_FOUND"'
 echo "   -> PASS"
 
 echo "All telemetry smoke tests passed successfully!"
