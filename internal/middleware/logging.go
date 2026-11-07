@@ -1,16 +1,58 @@
 package middleware
 
 import (
-	"fmt"
+	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"azule.info/calorize/internal/auth"
 	"azule.info/calorize/internal/telemetry"
-	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
 )
+
+type routeKey struct{}
+
+// routeHolder is shared by pointer through the request context so that
+// RecordRoute calls nested under http.StripPrefix (which copies the request)
+// can report the matched pattern back to Logger.
+type routeHolder struct {
+	pattern string
+	set     bool
+}
+
+// RecordRoute looks up the pattern mux would match for r, records it (prefixed
+// with the path prefix already stripped from r) for the enclosing Logger, then
+// serves next. The innermost RecordRoute wins; a catch-all "/" match is
+// recorded as unmatched. next is usually mux itself, or mux wrapped in other
+// middleware such as RequireAuth.
+func RecordRoute(prefix string, mux *http.ServeMux, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if holder, ok := r.Context().Value(routeKey{}).(*routeHolder); ok {
+			_, pattern := mux.Handler(r)
+			holder.pattern = joinPattern(prefix, pattern)
+			holder.set = true
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// joinPattern turns ("/api/v1", "GET /foods/{id}") into "GET /api/v1/foods/{id}".
+// It returns "" for no match or a catch-all "/" match.
+func joinPattern(prefix, pattern string) string {
+	method, path, hasMethod := strings.Cut(pattern, " ")
+	if !hasMethod {
+		method, path = "", pattern
+	}
+	if path == "" || path == "/" {
+		return ""
+	}
+	if method != "" {
+		return method + " " + prefix + path
+	}
+	return prefix + path
+}
 
 type responseWriter struct {
 	http.ResponseWriter
@@ -51,33 +93,25 @@ func Logger(next http.Handler) http.Handler {
 			status:         http.StatusOK, // Default status
 		}
 
+		var panicked bool
+		holder := &routeHolder{}
+		r = r.WithContext(context.WithValue(r.Context(), routeKey{}, holder))
+
 		defer func() {
 			duration := time.Since(start)
 			ctx := r.Context()
+
+			// A panic unwinding through here will be turned into a 500 by an
+			// outer Recoverer; record that rather than the default 200.
+			status := rw.status
+			if panicked && !rw.wroteHeader {
+				status = http.StatusInternalServerError
+			}
 			reqID := GetRequestID(ctx)
 
 			userIDStr := "anonymous"
-			if v := ctx.Value(auth.UserIDContextKey); v != nil {
-				switch id := v.(type) {
-				case uuid.UUID:
-					if id != uuid.Nil {
-						userIDStr = id.String()
-					}
-				case fmt.Stringer:
-					s := id.String()
-					if s != "" && s != uuid.Nil.String() {
-						userIDStr = s
-					}
-				case string:
-					if id != "" && id != uuid.Nil.String() {
-						userIDStr = id
-					}
-				default:
-					s := fmt.Sprintf("%v", v)
-					if s != "" && s != uuid.Nil.String() {
-						userIDStr = s
-					}
-				}
+			if uid, ok := auth.UserIDFromContext(ctx); ok {
+				userIDStr = uid.String()
 			}
 
 			traceIDStr := ""
@@ -89,7 +123,7 @@ func Logger(next http.Handler) http.Handler {
 			slog.InfoContext(ctx, "http.request",
 				"method", r.Method,
 				"path", r.URL.Path,
-				"status", rw.status,
+				"status", status,
 				"duration_ms", duration.Milliseconds(),
 				"bytes_written", rw.bytesWritten,
 				"request_id", reqID,
@@ -100,12 +134,17 @@ func Logger(next http.Handler) http.Handler {
 			)
 
 			route := r.Pattern
+			if holder.set {
+				route = holder.pattern
+			}
 			if route == "" {
 				route = "unmatched"
 			}
-			telemetry.RecordHTTPRequest(r.Method, route, rw.status, duration.Seconds(), rw.bytesWritten)
+			telemetry.RecordHTTPRequest(r.Method, route, status, duration.Seconds(), rw.bytesWritten)
 		}()
 
+		panicked = true
 		next.ServeHTTP(rw, r)
+		panicked = false
 	})
 }

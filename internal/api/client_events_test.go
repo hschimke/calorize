@@ -12,6 +12,7 @@ import (
 
 	"azule.info/calorize/internal/api"
 	"azule.info/calorize/internal/auth"
+	"azule.info/calorize/internal/db"
 	"azule.info/calorize/internal/telemetry"
 	"github.com/google/uuid"
 	dto "github.com/prometheus/client_model/go"
@@ -237,7 +238,7 @@ func TestClientEventsRateLimitingAuthenticated(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterClientEventsPaths(mux)
 
-	userID := uuid.New()
+	userID := db.UserID(uuid.New())
 	payload := `{"events":[{"kind":"js_error","message":"test","route":"/index"}]}`
 
 	// 30 requests should succeed for this user (limit is 30/min)
@@ -291,5 +292,29 @@ func TestClientEventsRoutingWithPrefix(t *testing.T) {
 	mainMux.ServeHTTP(rr, req)
 	if rr.Code != http.StatusAccepted {
 		t.Fatalf("expected 202 Accepted at /api/v1/client-events, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestClientEventsForgedForwardedForSharesBucket(t *testing.T) {
+	api.ResetClientEventsLimiter()
+	mux := http.NewServeMux()
+	api.RegisterClientEventsPaths(mux)
+
+	payload := `{"events":[{"kind":"js_error","message":"test","route":"/index"}]}`
+	proxyAppended := "203.0.113.7"
+
+	// The client forges a different left-most entry each time; the trusted
+	// proxy-appended right-most entry stays the same, so they share one bucket.
+	var last int
+	for i := 1; i <= 11; i++ {
+		req := httptest.NewRequest("POST", "/client-events", bytes.NewBufferString(payload))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Forwarded-For", fmt.Sprintf("10.0.0.%d, %s", i, proxyAppended))
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+		last = rr.Code
+	}
+	if last != http.StatusTooManyRequests {
+		t.Fatalf("expected forged X-Forwarded-For entries to be rate limited together, got %d", last)
 	}
 }

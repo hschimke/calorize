@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -8,6 +9,7 @@ import (
 
 	"azule.info/calorize/internal/db"
 	"azule.info/calorize/internal/middleware"
+	"azule.info/calorize/internal/telemetry"
 )
 
 type ErrorResponse struct {
@@ -40,6 +42,11 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 		code = "BAD_REQUEST"
 		msg = err.Error()
 	default:
+		kind := "query"
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			kind = "timeout"
+		}
+		telemetry.DbErrorsTotal.WithLabelValues(kind).Inc()
 		slog.ErrorContext(r.Context(), "server error handling request",
 			"error", err,
 			"path", r.URL.Path,

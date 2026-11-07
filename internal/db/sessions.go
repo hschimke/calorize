@@ -74,11 +74,16 @@ func DeleteSession(sessionID string) error {
 	return nil
 }
 
-func CleanupExpiredSessions() error {
+// CleanupExpiredSessions deletes expired sessions and returns how many were removed.
+func CleanupExpiredSessions() (int64, error) {
 	query := `DELETE FROM sessions WHERE expires_at < ?`
-	_, err := db.Exec(query, time.Now().UTC())
+	res, err := db.Exec(query, time.Now().UTC())
 	if err != nil {
-		return fmt.Errorf("cleaning up expired sessions: %w", err)
+		return 0, fmt.Errorf("cleaning up expired sessions: %w", err)
 	}
-	return nil
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("counting cleaned up sessions: %w", err)
+	}
+	return n, nil
 }

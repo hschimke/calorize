@@ -27,8 +27,8 @@ func InitTracer(ctx context.Context, serviceName, gitSHA string) (*sdktrace.Trac
 	if strings.HasPrefix(endpoint, "https://") {
 		isInsecure = false
 		endpoint = strings.TrimPrefix(endpoint, "https://")
-	} else if strings.HasPrefix(endpoint, "http://") {
-		endpoint = strings.TrimPrefix(endpoint, "http://")
+	} else if after, ok := strings.CutPrefix(endpoint, "http://"); ok {
+		endpoint = after
 	}
 
 	if envInsecure := os.Getenv("OTEL_EXPORTER_OTLP_INSECURE"); envInsecure != "" {

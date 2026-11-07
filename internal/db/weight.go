@@ -1,6 +1,8 @@
 package db
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -70,6 +72,9 @@ func GetWeightLog(id WeightLogID) (*WeightLog, error) {
 	var log WeightLog
 	err := row.Scan(&log.ID, &log.UserID, &log.Weight, &log.Unit, &log.LoggedAt, &log.CreatedAt, &log.DeletedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // not found, matching GetFood
+		}
 		return nil, err
 	}
 	return &log, nil

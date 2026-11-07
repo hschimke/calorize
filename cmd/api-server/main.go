@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 	"syscall"
 
 	"time"
@@ -77,14 +78,15 @@ func main() {
 	if err != nil {
 		slog.Error("failed to initialize tracer", "error", err)
 	}
-	if tp != nil {
-		defer func() {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := tp.Shutdown(shutdownCtx); err != nil {
-				slog.Error("failed to shutdown tracer provider", "error", err)
-			}
-		}()
+	shutdownTracer := func() {
+		if tp == nil {
+			return
+		}
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := tp.Shutdown(shutdownCtx); err != nil {
+			slog.Error("failed to shutdown tracer provider", "error", err)
+		}
 	}
 
 	v1Mux := http.NewServeMux()
@@ -115,7 +117,8 @@ func main() {
 	}
 
 	// Apply auth gate to protected routes
-	protectedHandler := middleware.RequireAuth(apiMux)
+	// RecordRoute sits outside RequireAuth so 401s are still labelled by route.
+	protectedHandler := middleware.RecordRoute("/api/v1", apiMux, middleware.RequireAuth(apiMux))
 
 	// Mount protected handler at root "/" of v1Mux to catch all non-matched routes
 	// Note: Since we registered specific paths on 'v1Mux' above, those will take precedence.
@@ -124,7 +127,7 @@ func main() {
 
 	mainMux := http.NewServeMux()
 	api.RegisterProbePaths(mainMux)
-	mainMux.Handle("/api/v1/", http.StripPrefix("/api/v1", v1Mux))
+	mainMux.Handle("/api/v1/", http.StripPrefix("/api/v1", middleware.RecordRoute("/api/v1", v1Mux, v1Mux)))
 	mainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		api.WriteError(w, r, db.ErrNotFound)
 	})
@@ -141,7 +144,7 @@ func main() {
 			middleware.Recoverer(
 				middleware.CORS(
 					middleware.ExtractAuth(devUID)(
-						middleware.Logger(mainMux),
+						middleware.Logger(middleware.RecordRoute("", mainMux, mainMux)),
 					),
 				),
 			),
@@ -164,12 +167,17 @@ func main() {
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	var serverFailed atomic.Bool
 
 	go func() {
 		slog.Info("server starting", "addr", serverAddr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server failed", "error", err)
-			quit <- syscall.SIGTERM
+			serverFailed.Store(true)
+			select {
+			case quit <- syscall.SIGTERM:
+			default: // a shutdown is already pending
+			}
 		}
 	}()
 
@@ -203,10 +211,10 @@ func main() {
 		for {
 			select {
 			case <-sessionCleanupTicker.C:
-				if err := db.CleanupExpiredSessions(); err != nil {
+				if n, err := db.CleanupExpiredSessions(); err != nil {
 					slog.Error("session cleanup failed", "error", err)
 				} else {
-					telemetry.SessionCleanupsTotal.Inc()
+					telemetry.SessionCleanupsTotal.Add(float64(n))
 				}
 			case <-cleanupDone:
 				slog.Info("session cleanup daemon stopping")
@@ -276,5 +284,11 @@ func main() {
 		slog.Info("database closed")
 	}
 
+	shutdownTracer()
+
+	if serverFailed.Load() {
+		slog.Error("server exited after failure")
+		os.Exit(1)
+	}
 	slog.Info("server exited")
 }

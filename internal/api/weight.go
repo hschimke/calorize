@@ -1,9 +1,7 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -127,10 +125,6 @@ func updateWeightLogHandler(w http.ResponseWriter, r *http.Request) {
 	// Check existence & ownership
 	existing, err := db.GetWeightLog(db.WeightLogID(logID))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			WriteError(w, r, db.ErrNotFound)
-			return
-		}
 		WriteError(w, r, err)
 		return
 	}
@@ -200,10 +194,6 @@ func deleteWeightLogHandler(w http.ResponseWriter, r *http.Request) {
 
 	existing, err := db.GetWeightLog(db.WeightLogID(logID))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			WriteError(w, r, db.ErrNotFound)
-			return
-		}
 		WriteError(w, r, err)
 		return
 	}

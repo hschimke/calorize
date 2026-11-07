@@ -35,8 +35,9 @@ func ExtractAuth(devUserID *db.UserID) func(http.Handler) http.Handler {
 				}
 			}
 
-			// 2. Check Cookie (if token auth failed or wasn't present)
-			if userID == db.UserID(uuid.Nil) {
+			// 2. Check Cookie, only when no Authorization header was sent. An
+			// invalid token must not silently fall back to a session cookie.
+			if authHeader == "" {
 				if cookie, cErr := r.Cookie(auth.AppSessionCookieName); cErr == nil && cookie.Value != "" {
 					if session, sErr := db.GetSession(cookie.Value); sErr == nil && session != nil {
 						userID = session.UserID
@@ -61,13 +62,7 @@ func ExtractAuth(devUserID *db.UserID) func(http.Handler) http.Handler {
 // RequireAuth middleware ensures the user was authenticated by ExtractAuth.
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		v := r.Context().Value(auth.UserIDContextKey)
-		if v == nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		uid, ok := v.(db.UserID)
-		if !ok || uid == db.UserID(uuid.Nil) {
+		if _, ok := auth.UserIDFromContext(r.Context()); !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}

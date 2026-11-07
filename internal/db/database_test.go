@@ -41,7 +41,7 @@ func TestSentinelErrors(t *testing.T) {
 	}
 
 	// Ensure sentinel errors are distinct
-	for i := 0; i < len(errors); i++ {
+	for i := range errors {
 		for j := i + 1; j < len(errors); j++ {
 			if errors[i] == errors[j] {
 				t.Fatalf("expected error %v and %v to be distinct sentinels", errors[i], errors[j])

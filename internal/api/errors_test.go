@@ -119,7 +119,7 @@ func TestWriteErrorOmitsEmptyRequestID(t *testing.T) {
 	rr := httptest.NewRecorder()
 	api.WriteError(rr, req, db.ErrNotFound)
 
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &raw); err != nil {
 		t.Fatalf("failed to decode response JSON: %v", err)
 	}
@@ -217,5 +217,3 @@ func TestWriteErrorNilDoesNothing(t *testing.T) {
 		t.Fatalf("expected no-op for nil error, got code %d body %s", rr.Code, rr.Body.String())
 	}
 }
-
-

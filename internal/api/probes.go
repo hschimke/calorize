@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"azule.info/calorize/internal/db"
+	"azule.info/calorize/internal/telemetry"
 )
 
 func RegisterProbePaths(mux *http.ServeMux) {
@@ -25,6 +26,7 @@ func ReadyHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
+		telemetry.DbErrorsTotal.WithLabelValues("ping").Inc()
 		slog.WarnContext(r.Context(), "readiness probe failed", "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)

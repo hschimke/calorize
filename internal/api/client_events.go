@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -14,10 +13,8 @@ import (
 	"time"
 
 	"azule.info/calorize/internal/auth"
-	"azule.info/calorize/internal/db"
 	"azule.info/calorize/internal/middleware"
 	"azule.info/calorize/internal/telemetry"
-	"github.com/google/uuid"
 )
 
 var (
@@ -165,42 +162,22 @@ func SanitizeString(s string) string {
 }
 
 func extractUserID(ctx context.Context) string {
-	v := ctx.Value(auth.UserIDContextKey)
-	if v == nil {
-		return ""
-	}
-	switch id := v.(type) {
-	case uuid.UUID:
-		if id != uuid.Nil {
-			return id.String()
-		}
-	case db.UserID:
-		if uuid.UUID(id) != uuid.Nil {
-			return uuid.UUID(id).String()
-		}
-	case fmt.Stringer:
-		s := id.String()
-		if s != "" && s != uuid.Nil.String() {
-			return s
-		}
-	case string:
-		if id != "" && id != uuid.Nil.String() {
-			return id
-		}
-	default:
-		s := fmt.Sprintf("%v", v)
-		if s != "" && s != uuid.Nil.String() {
-			return s
-		}
+	if uid, ok := auth.UserIDFromContext(ctx); ok {
+		return uid.String()
 	}
 	return ""
 }
 
+// getClientIP returns the address used as the anonymous rate-limit key.
+//
+// It takes the right-most X-Forwarded-For entry: that is the one appended by
+// the trusted host proxy in front of nginx, which passes the header through
+// unchanged. Entries to its left are supplied by the client and can be forged,
+// so using the left-most entry would let a caller pick its own bucket.
 func getClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		parts := strings.Split(xff, ",")
-		ip := strings.TrimSpace(parts[0])
-		if ip != "" {
+		if ip := strings.TrimSpace(parts[len(parts)-1]); ip != "" {
 			return ip
 		}
 	}

@@ -390,3 +390,105 @@ func TestLoggerMiddlewareRecordsPrometheusMetrics(t *testing.T) {
 		t.Errorf("expected unmatched metric in prometheus output, body:\n%s", body)
 	}
 }
+
+func TestLoggerRecordsStatus500ForPanicRecoveredOutside(t *testing.T) {
+	capture := &recordCaptureHandler{}
+	origLogger := slog.Default()
+	slog.SetDefault(slog.New(capture))
+	defer slog.SetDefault(origLogger)
+
+	// Production order: Recoverer is outside Logger.
+	handler := middleware.Recoverer(middleware.Logger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("boom")
+	})))
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, httptest.NewRequest("GET", "/explode", nil))
+
+	capture.mu.Lock()
+	defer capture.mu.Unlock()
+	for _, rec := range capture.records {
+		if rec.Message != "http.request" {
+			continue
+		}
+		var status any
+		rec.Attrs(func(a slog.Attr) bool {
+			if a.Key == "status" {
+				status = a.Value.Any()
+			}
+			return true
+		})
+		if status != int64(http.StatusInternalServerError) {
+			t.Fatalf("expected logged status 500 for panic, got %v", status)
+		}
+		return
+	}
+	t.Fatal("expected 'http.request' log entry")
+}
+
+func TestRecordRouteThroughStripPrefix(t *testing.T) {
+	telemetry.InitMetrics()
+
+	inner := http.NewServeMux()
+	inner.HandleFunc("GET /widgets/{id}", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	inner.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	outer := http.NewServeMux()
+	outer.Handle("/rr/v9/", http.StripPrefix("/rr/v9", middleware.RecordRoute("/rr/v9", inner, inner)))
+
+	handler := middleware.Logger(middleware.RecordRoute("", outer, outer))
+
+	for _, path := range []string{"/rr/v9/widgets/42", "/rr/v9/nope"} {
+		handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", path, nil))
+	}
+
+	promRR := httptest.NewRecorder()
+	promhttp.Handler().ServeHTTP(promRR, httptest.NewRequest("GET", "/metrics", nil))
+	body := promRR.Body.String()
+
+	if !strings.Contains(body, `calorize_http_requests_total{method="GET",route="GET /rr/v9/widgets/{id}",status="200"}`) {
+		t.Errorf("expected inner route label with prefix, body:\n%s", body)
+	}
+	if !strings.Contains(body, `calorize_http_requests_total{method="GET",route="unmatched",status="404"}`) {
+		t.Errorf("expected catch-all to be labelled unmatched, body:\n%s", body)
+	}
+	if strings.Contains(body, `route="/rr/v9/"`) {
+		t.Errorf("outer prefix pattern leaked into route label, body:\n%s", body)
+	}
+}
+
+func TestExtractAuthInvalidBearerDoesNotFallBackToCookie(t *testing.T) {
+	suffix := uuid.New().String()[:8]
+	u, err := db.CreateUser(db.User{
+		Name:      "test_bearer_user_" + suffix,
+		Email:     "bearer_user_" + suffix + "@example.com",
+		CreatedAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("failed to create test user: %v", err)
+	}
+	t.Cleanup(func() { _ = db.DeleteTemporaryUser(*u) })
+
+	session, err := db.CreateSession(u.ID)
+	if err != nil {
+		t.Fatalf("failed to create test session: %v", err)
+	}
+	t.Cleanup(func() { _ = db.DeleteSession(session.ID) })
+
+	handler := middleware.ExtractAuth(nil)(middleware.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})))
+
+	req := httptest.NewRequest("GET", "/api/v1/profile", nil)
+	req.Header.Set("Authorization", "Bearer not-a-valid-token")
+	req.AddCookie(&http.Cookie{Name: auth.AppSessionCookieName, Value: session.ID})
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for invalid bearer token even with valid cookie, got %d", rr.Code)
+	}
+}
