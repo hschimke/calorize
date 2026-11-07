@@ -15,6 +15,19 @@ const (
 	RequestIDKey contextKey = "request_id"
 )
 
+func isValidRequestID(s string) bool {
+	if len(s) == 0 || len(s) > 64 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 func generateRequestID() string {
 	u, err := uuid.NewV7()
 	if err == nil {
@@ -32,7 +45,7 @@ func RequestTelemetry(buildVersion string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			reqID := r.Header.Get("X-Request-Id")
-			if reqID == "" {
+			if !isValidRequestID(reqID) {
 				reqID = generateRequestID()
 			}
 

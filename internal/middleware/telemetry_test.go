@@ -256,20 +256,27 @@ func TestLoggerMiddlewareCookieSessionExtraction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create test user: %v", err)
 	}
+	t.Cleanup(func() {
+		_ = db.DeleteTemporaryUser(*u)
+	})
 
 	session, err := db.CreateSession(u.ID)
 	if err != nil {
 		t.Fatalf("failed to create test session: %v", err)
 	}
+	t.Cleanup(func() {
+		_ = db.DeleteSession(session.ID)
+	})
 
 	capture := &recordCaptureHandler{}
 	origLogger := slog.Default()
 	slog.SetDefault(slog.New(capture))
 	defer slog.SetDefault(origLogger)
 
-	handler := middleware.Logger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Pipeline: ExtractAuth -> Logger
+	handler := middleware.ExtractAuth(nil)(middleware.Logger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	}))
+	})))
 
 	req := httptest.NewRequest("GET", "/api/v1/profile", nil)
 	req.AddCookie(&http.Cookie{
@@ -302,5 +309,39 @@ func TestLoggerMiddlewareCookieSessionExtraction(t *testing.T) {
 
 	if attrs["user_id"] != u.ID.String() {
 		t.Errorf("expected user_id %s from session cookie, got %v", u.ID.String(), attrs["user_id"])
+	}
+}
+
+func TestLoggerMiddlewareLogsPanickingRequests(t *testing.T) {
+	capture := &recordCaptureHandler{}
+	origLogger := slog.Default()
+	slog.SetDefault(slog.New(capture))
+	defer slog.SetDefault(origLogger)
+
+	// Pipeline: Recoverer -> Logger -> PanicHandler
+	handler := middleware.Recoverer(middleware.Logger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("simulated explosion")
+	})))
+
+	req := httptest.NewRequest("GET", "/explode", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rr.Code)
+	}
+
+	capture.mu.Lock()
+	defer capture.mu.Unlock()
+
+	var accessLog *slog.Record
+	for i := range capture.records {
+		if capture.records[i].Message == "http.request" {
+			accessLog = &capture.records[i]
+			break
+		}
+	}
+	if accessLog == nil {
+		t.Fatal("expected 'http.request' log entry even on panic")
 	}
 }

@@ -40,7 +40,8 @@ func CORS(next http.Handler) http.Handler {
 		}
 
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Request-Id")
+		w.Header().Set("Access-Control-Expose-Headers", "X-Request-Id, X-Calorize-Build")
 
 		// If it's a preflight request, respond with 200 OK and return
 		if r.Method == "OPTIONS" {

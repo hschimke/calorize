@@ -78,8 +78,8 @@ func main() {
 	apiMux := http.NewServeMux()
 	api.RegisterApiPaths(apiMux)
 
-	// Middleware wrapping for protected routes
-	var protectedHandler http.Handler
+	// Dev user setup if DEV_AUTH is enabled
+	var devUID *db.UserID
 	if os.Getenv("DEV_AUTH") == "true" {
 		slog.Warn("DEV_AUTH enabled - using insecure dev user authentication")
 		devUserID, err := setupDevUser()
@@ -88,18 +88,11 @@ func main() {
 			os.Exit(1)
 		}
 		slog.Info("dev user ready", "user_id", devUserID)
-		devAuthMiddleware := func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				ctx := context.WithValue(r.Context(), auth.UserIDContextKey, devUserID)
-				next.ServeHTTP(w, r.WithContext(ctx))
-			})
-		}
-		// Apply dev auth to apiMux
-		protectedHandler = devAuthMiddleware(apiMux)
-	} else {
-		// Apply real auth to apiMux
-		protectedHandler = middleware.RequireAuth(apiMux)
+		devUID = &devUserID
 	}
+
+	// Apply auth gate to protected routes
+	protectedHandler := middleware.RequireAuth(apiMux)
 
 	// Mount protected handler at root "/" of v1Mux to catch all non-matched routes
 	// Note: Since we registered specific paths on 'v1Mux' above, those will take precedence.
@@ -110,9 +103,21 @@ func main() {
 	api.RegisterProbePaths(mainMux)
 	mainMux.Handle("/api/v1/", http.StripPrefix("/api/v1", v1Mux))
 
-	// Global Middleware (Telemetry, Recovery, CORS, Logger) - wraps everything
-	// Order: RequestTelemetry -> Recoverer -> CORS -> Logger -> Mux
-	finalHandler := middleware.RequestTelemetry(GitSHA)(middleware.Recoverer(middleware.CORS(middleware.Logger(mainMux))))
+	// Global Middleware Pipeline:
+	// 1. RequestTelemetry: Injects/echoes X-Request-Id and X-Calorize-Build
+	// 2. Recoverer: Catches panics and serves 500
+	// 3. CORS: Handles CORS preflight and access headers
+	// 4. ExtractAuth: Non-blocking credential identification (populates user_id in context)
+	// 5. Logger: Structured slog access log (runs with user_id in context, logs even on panic via defer)
+	finalHandler := middleware.RequestTelemetry(GitSHA)(
+		middleware.Recoverer(
+			middleware.CORS(
+				middleware.ExtractAuth(devUID)(
+					middleware.Logger(mainMux),
+				),
+			),
+		),
+	)
 
 	// 4. Start the server
 	port := os.Getenv("PORT")
