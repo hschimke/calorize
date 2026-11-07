@@ -110,14 +110,9 @@ func main() {
 	api.RegisterProbePaths(mainMux)
 	mainMux.Handle("/api/v1/", http.StripPrefix("/api/v1", v1Mux))
 
-	// Global Middleware (Logger & Recovery) - wraps everything
-	// Order: Logger -> Recoverer -> Mux
-	// Logger is outer so it logs the completion (even if 500)
-	// Recoverer is next so it catches panics from Mux
-
-	// Note: If Recoverer handles a panic, it writes 500. Logger will see that status if using a wrapped writer.
-
-	finalHandler := middleware.Logger(middleware.Recoverer(middleware.CORS(mainMux)))
+	// Global Middleware (Telemetry, Recovery, CORS, Logger) - wraps everything
+	// Order: RequestTelemetry -> Recoverer -> CORS -> Logger -> Mux
+	finalHandler := middleware.RequestTelemetry(GitSHA)(middleware.Recoverer(middleware.CORS(middleware.Logger(mainMux))))
 
 	// 4. Start the server
 	port := os.Getenv("PORT")
