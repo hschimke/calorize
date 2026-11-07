@@ -92,6 +92,7 @@ func main() {
 	// Public Routes
 	auth.RegisterAuthPaths(v1Mux) // Auth endpoints must be public
 	api.RegisterProbePaths(v1Mux)
+	api.RegisterClientEventsPaths(v1Mux)
 
 	// Protected Routes (API)
 	apiMux := http.NewServeMux()
