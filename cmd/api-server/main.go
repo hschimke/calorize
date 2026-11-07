@@ -97,6 +97,9 @@ func main() {
 	// Protected Routes (API)
 	apiMux := http.NewServeMux()
 	api.RegisterApiPaths(apiMux)
+	apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		api.WriteError(w, r, db.ErrNotFound)
+	})
 
 	// Dev user setup if DEV_AUTH is enabled
 	var devUID *db.UserID
@@ -122,6 +125,9 @@ func main() {
 	mainMux := http.NewServeMux()
 	api.RegisterProbePaths(mainMux)
 	mainMux.Handle("/api/v1/", http.StripPrefix("/api/v1", v1Mux))
+	mainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		api.WriteError(w, r, db.ErrNotFound)
+	})
 
 	// Global Middleware Pipeline:
 	// 1. otelhttp: Traces incoming HTTP requests and propagates W3C trace context
