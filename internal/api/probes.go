@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -24,6 +25,7 @@ func ReadyHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
+		slog.WarnContext(r.Context(), "readiness probe failed", "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		w.Write([]byte(`{"status":"unavailable","error":"database unreachable"}`))

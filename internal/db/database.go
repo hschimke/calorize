@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -68,7 +67,7 @@ func init() {
 // PingContext verifies a connection to the database is still alive.
 func PingContext(ctx context.Context) error {
 	if db == nil {
-		return errors.New("database connection is nil")
+		return fmt.Errorf("%w: database connection is nil", ErrDatabase)
 	}
 	return db.PingContext(ctx)
 }

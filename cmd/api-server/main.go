@@ -107,6 +107,7 @@ func main() {
 	v1Mux.Handle("/", protectedHandler)
 
 	mainMux := http.NewServeMux()
+	api.RegisterProbePaths(mainMux)
 	mainMux.Handle("/api/v1/", http.StripPrefix("/api/v1", v1Mux))
 
 	// Global Middleware (Logger & Recovery) - wraps everything
