@@ -80,13 +80,12 @@ func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 	disabledSources, err := db.GetDisabledSources(userID)
 	if err != nil {
-		slog.Error("failed to get disabled sources", "error", err)
-		http.Error(w, "Failed to get foods", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -108,8 +107,7 @@ func getFoodsHandler(w http.ResponseWriter, r *http.Request) {
 		foods, dbErr = db.GetFoods(userID, disabledSources, user.HidePublicUserFoods)
 	}
 	if dbErr != nil {
-		slog.Error("failed to get foods", "error", dbErr)
-		http.Error(w, "Failed to get foods", http.StatusInternalServerError)
+		WriteError(w, r, dbErr)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -164,7 +162,7 @@ func createFoodHandler(w http.ResponseWriter, r *http.Request) {
 		Public:            true, // Default to public
 	})
 	if err != nil {
-		http.Error(w, "Failed to create food", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -182,11 +180,11 @@ func getFoodHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	food, err := db.GetFood(db.FoodID(foodID))
 	if err != nil {
-		http.Error(w, "Failed to get food", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	if food == nil {
-		http.Error(w, "Food not found", http.StatusNotFound)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -212,11 +210,11 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 	// Check ownership
 	existing, err := db.GetFood(db.FoodID(foodID))
 	if err != nil {
-		http.Error(w, "Failed to check food ownership", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	if existing == nil {
-		http.Error(w, "Food not found", http.StatusNotFound)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 	if existing.CreatorID != userID {
@@ -264,7 +262,7 @@ func updateFoodHandler(w http.ResponseWriter, r *http.Request) {
 		Public:            existing.Public, // Keep existing visibility
 	})
 	if err != nil {
-		http.Error(w, "Failed to update food", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -290,11 +288,11 @@ func deleteFoodHandler(w http.ResponseWriter, r *http.Request) {
 	// Check ownership
 	existing, err := db.GetFood(db.FoodID(foodID))
 	if err != nil {
-		http.Error(w, "Failed to check food", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	if existing == nil {
-		http.Error(w, "Food not found", http.StatusNotFound)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 	if existing.CreatorID != userID {
@@ -303,8 +301,7 @@ func deleteFoodHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.DeleteFood(db.FoodID(foodID)); err != nil {
-		slog.Error("failed to delete food", "error", err, "id", foodID)
-		http.Error(w, "Failed to delete food", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -356,7 +353,7 @@ func getStatsHandler(w http.ResponseWriter, r *http.Request) {
 
 	stats, err := db.GetStats(userID, r.URL.Query().Get("period"), date)
 	if err != nil {
-		http.Error(w, "Failed to get stats", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -400,8 +397,7 @@ func getStatsBreakdownHandler(w http.ResponseWriter, r *http.Request) {
 
 	breakdown, err := db.GetStatsByDay(userID, period, date, tzOffset)
 	if err != nil {
-		slog.Error("failed to get stats breakdown", "error", err)
-		http.Error(w, "Failed to get stats breakdown", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -419,7 +415,7 @@ func getConsistencyStatsHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 
@@ -437,8 +433,7 @@ func getConsistencyStatsHandler(w http.ResponseWriter, r *http.Request) {
 
 	stats, err := db.GetConsistencyStats(userID, tzOffset, calorieGoal, time.Now())
 	if err != nil {
-		slog.Error("failed to get consistency stats", "error", err)
-		http.Error(w, "Failed to get consistency stats", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -488,7 +483,7 @@ func getLogsHandler(w http.ResponseWriter, r *http.Request) {
 
 	logs, err := db.GetFoodLogEntries(userID, date)
 	if err != nil {
-		http.Error(w, "Failed to get logs", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -558,7 +553,7 @@ func createLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		LoggedAt:    req.LoggedAt,
 	})
 	if err != nil {
-		http.Error(w, "Failed to create log entry", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -580,8 +575,7 @@ func deleteLogEntryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := db.DeleteFoodLogEntry(db.FoodLogEntryID(logEntryId), userID); err != nil {
-		slog.Error("failed to delete log entry", "error", err, "id", logEntryId)
-		http.Error(w, "Failed to delete log entry", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -641,8 +635,7 @@ func copyLogEntriesHandler(w http.ResponseWriter, r *http.Request) {
 
 	count, err := db.CopyFoodLogEntries(userID, fromDate, req.MealTags, loggedAt)
 	if err != nil {
-		slog.Error("failed to copy log entries", "error", err)
-		http.Error(w, "Failed to copy log entries", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 

@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -37,7 +36,7 @@ func getProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -78,7 +77,7 @@ func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 	if body.CalorieGoal != nil {
@@ -92,8 +91,7 @@ func updateProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := db.UpdateUser(*user); err != nil {
-		slog.Error("failed to update profile", "error", err)
-		http.Error(w, "Failed to update profile", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -120,19 +118,17 @@ func getPreferencesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 	disabledSources, err := db.GetDisabledSources(userID)
 	if err != nil {
-		slog.Error("failed to get disabled sources", "error", err)
-		http.Error(w, "Failed to get preferences", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	availableSources, err := db.GetAvailableSources()
 	if err != nil {
-		slog.Error("failed to get available sources", "error", err)
-		http.Error(w, "Failed to get preferences", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	view := preferencesView{
@@ -163,8 +159,7 @@ func updatePreferencesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	availableSources, err := db.GetAvailableSources()
 	if err != nil {
-		slog.Error("failed to get available sources", "error", err)
-		http.Error(w, "Failed to update preferences", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	availableSet := make(map[string]bool, len(availableSources))
@@ -179,7 +174,7 @@ func updatePreferencesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 	if clownModeEnabled {
@@ -187,8 +182,7 @@ func updatePreferencesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	user.HidePublicUserFoods = body.HidePublicUserFoods
 	if err := db.UpdateUserPreferences(*user, body.DisabledSources); err != nil {
-		slog.Error("failed to update preferences", "error", err)
-		http.Error(w, "Failed to update preferences", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -215,14 +209,13 @@ func listPasskeysHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 
 	creds, err := db.GetUserCredentials(*user)
 	if err != nil {
-		slog.Error("failed to get user credentials", "error", err)
-		http.Error(w, "Failed to get passkeys", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 
@@ -255,13 +248,13 @@ func deletePasskeyHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 
 	creds, err := db.GetUserCredentials(*user)
 	if err != nil {
-		http.Error(w, "Failed to get passkeys", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	if len(creds) <= 1 {
@@ -270,12 +263,7 @@ func deletePasskeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.RemoveUserCredential(*user, db.UserCredential{ID: db.UserCredentialID(credIDBytes)}); err != nil {
-		if errors.Is(err, db.ErrCredentialNotFound) {
-			http.Error(w, "Passkey not found", http.StatusNotFound)
-			return
-		}
-		slog.Error("failed to remove credential", "error", err)
-		http.Error(w, "Failed to delete passkey", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -303,12 +291,7 @@ func renamePasskeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.RenameCredential(userID, db.UserCredentialID(credIDBytes), body.Name); err != nil {
-		if errors.Is(err, db.ErrCredentialNotFound) {
-			http.Error(w, "Passkey not found", http.StatusNotFound)
-			return
-		}
-		slog.Error("failed to rename credential", "error", err)
-		http.Error(w, "Failed to rename passkey", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -323,7 +306,7 @@ func addPasskeyBeginHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 
@@ -359,7 +342,7 @@ func addPasskeyFinishHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := db.GetUserByID(userID)
 	if err != nil || user == nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
+		WriteError(w, r, db.ErrNotFound)
 		return
 	}
 
@@ -384,8 +367,7 @@ func addPasskeyFinishHandler(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:       now,
 		LastUsedAt:      now,
 	}); err != nil {
-		slog.Error("failed to save new passkey", "error", err)
-		http.Error(w, "Failed to save passkey", http.StatusInternalServerError)
+		WriteError(w, r, err)
 		return
 	}
 
