@@ -19,6 +19,8 @@ import (
 	"github.com/google/uuid"
 )
 
+var GitSHA = "dev"
+
 func setupDevUser() (db.UserID, error) {
 	name := "dev_user"
 	u, err := db.GetUser(name)
@@ -60,7 +62,7 @@ func main() {
 	logger := slog.New(handler)
 
 	ctx := context.Background()
-	logger.InfoContext(ctx, "Starting API server...")
+	logger.InfoContext(ctx, "Starting API server...", "build", GitSHA)
 
 	// Everything using slog.Default() (including slog.Info, slog.Error, etc.)
 	// will now automatically format as JSON.
