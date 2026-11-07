@@ -19,6 +19,7 @@ import (
 	"azule.info/calorize/internal/telemetry"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var GitSHA = "dev"
@@ -72,6 +73,20 @@ func main() {
 
 	telemetry.InitMetrics()
 
+	tp, err := telemetry.InitTracer(context.Background(), "calorize-api", GitSHA)
+	if err != nil {
+		slog.Error("failed to initialize tracer", "error", err)
+	}
+	if tp != nil {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := tp.Shutdown(shutdownCtx); err != nil {
+				slog.Error("failed to shutdown tracer provider", "error", err)
+			}
+		}()
+	}
+
 	v1Mux := http.NewServeMux()
 
 	// Public Routes
@@ -108,19 +123,23 @@ func main() {
 	mainMux.Handle("/api/v1/", http.StripPrefix("/api/v1", v1Mux))
 
 	// Global Middleware Pipeline:
-	// 1. RequestTelemetry: Injects/echoes X-Request-Id and X-Calorize-Build
-	// 2. Recoverer: Catches panics and serves 500
-	// 3. CORS: Handles CORS preflight and access headers
-	// 4. ExtractAuth: Non-blocking credential identification (populates user_id in context)
-	// 5. Logger: Structured slog access log (runs with user_id in context, logs even on panic via defer)
-	finalHandler := middleware.RequestTelemetry(GitSHA)(
-		middleware.Recoverer(
-			middleware.CORS(
-				middleware.ExtractAuth(devUID)(
-					middleware.Logger(mainMux),
+	// 1. otelhttp: Traces incoming HTTP requests and propagates W3C trace context
+	// 2. RequestTelemetry: Injects/echoes X-Request-Id and X-Calorize-Build
+	// 3. Recoverer: Catches panics and serves 500
+	// 4. CORS: Handles CORS preflight and access headers
+	// 5. ExtractAuth: Non-blocking credential identification (populates user_id in context)
+	// 6. Logger: Structured slog access log (runs with user_id & trace_id in context, logs even on panic via defer)
+	finalHandler := otelhttp.NewHandler(
+		middleware.RequestTelemetry(GitSHA)(
+			middleware.Recoverer(
+				middleware.CORS(
+					middleware.ExtractAuth(devUID)(
+						middleware.Logger(mainMux),
+					),
 				),
 			),
 		),
+		"calorize-api",
 	)
 
 	// 4. Start the server
